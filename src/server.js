@@ -3,7 +3,7 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import Anthropic from '@anthropic-ai/sdk';
-import { getAgent } from './agents.js';
+import { getAgent, agents } from './agents.js';
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_HOST = process.env.PUBLIC_HOST;
@@ -26,7 +26,7 @@ app.use(express.json());
 app.get('/', (_req, res) => res.send('EDP AI Receptionist running'));
 
 app.post('/twilio/voice', (req, res) => {
-  const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'sarah';
+  const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'lo';
   const agent = getAgent(agentKey);
   const wsUrl = `wss://${PUBLIC_HOST}/voice?agent=${encodeURIComponent(agentKey)}`;
 
@@ -48,12 +48,35 @@ app.post('/twilio/voice', (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/voice' });
 
+// Keywords Lo uses to signal a transfer — Lo includes one of these phrases
+// and we swap the active agent silently without the caller knowing.
+const TRANSFER_MAP = {
+  latoya: 'latoya',
+  'service intake': 'latoya',
+  'repair intake': 'latoya',
+  sofia: 'sofia',
+  'warranty specialist': 'sofia',
+  elena: 'elena',
+  'trade-in specialist': 'elena',
+  marcus: 'marcus',
+  'sales specialist': 'marcus',
+  'office intake': 'office',
+};
+
+function detectTransfer(text) {
+  const lower = text.toLowerCase();
+  for (const [phrase, agentKey] of Object.entries(TRANSFER_MAP)) {
+    if (lower.includes(phrase)) return agentKey;
+  }
+  return null;
+}
+
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const agentKey = url.searchParams.get('agent') || process.env.DEFAULT_AGENT || 'sarah';
-  const agent = getAgent(agentKey);
+  const initialAgentKey = url.searchParams.get('agent') || process.env.DEFAULT_AGENT || 'lo';
 
-  const history = [];
+  let agent = getAgent(initialAgentKey);
+  let history = [];
   let callSid = null;
   let from = null;
 
@@ -78,7 +101,7 @@ wss.on('connection', (ws, req) => {
       const userText = msg.voicePrompt;
       if (!userText) return;
 
-      console.log(`[user] ${userText}`);
+      console.log(`[${agent.name}] user: ${userText}`);
       history.push({ role: 'user', content: userText });
 
       try {
@@ -97,15 +120,24 @@ wss.on('connection', (ws, req) => {
 
         if (!text) return;
 
-        console.log(`[agent] ${text}`);
+        console.log(`[${agent.name}] reply: ${text}`);
         history.push({ role: 'assistant', content: text });
+
+        // Check if Lo (or any agent) is signaling a transfer
+        const transferTo = detectTransfer(text);
+        if (transferTo && agents[transferTo]) {
+          const prev = agent.name;
+          agent = agents[transferTo];
+          history = []; // fresh context for the new specialist
+          console.log(`[transfer] ${prev} → ${agent.name}`);
+        }
 
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
       } catch (err) {
         console.error('[claude error]', err);
         ws.send(JSON.stringify({
           type: 'text',
-          token: "Sorry, I'm having trouble right now. Could you try that again?",
+          token: "Sorry, I'm having a little trouble right now. Could you give me just a moment?",
           last: true,
         }));
       }
@@ -123,7 +155,7 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    console.log(`[ws] closed callSid=${callSid}`);
+    console.log(`[ws] closed callSid=${callSid} from=${from} finalAgent=${agent.name}`);
   });
 });
 
@@ -139,4 +171,5 @@ function escapeXml(s) {
 server.listen(PORT, () => {
   console.log(`EDP AI Receptionist listening on :${PORT}`);
   console.log(`Twilio webhook URL: https://${PUBLIC_HOST}/twilio/voice`);
+  console.log(`Agents loaded: ${Object.keys(agents).join(', ')}`);
 });
