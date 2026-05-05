@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0b0f17" />
+<title>Read Aloud</title>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --panel: #131a26;
+    --panel-2: #1a2333;
+    --text: #e7ecf3;
+    --muted: #8a93a6;
+    --accent: #7c5cff;
+    --accent-2: #46d3a2;
+    --danger: #ff6b6b;
+    --border: #232c3d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .app {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px 16px 120px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 4px 16px;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: 0.3px;
+  }
+  header .badge {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    border-radius: 999px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 17px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .row {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  button {
+    flex: 1 1 0;
+    min-height: 56px;
+    border: 0;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    color: white;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.05s ease, background 0.15s ease;
+  }
+  button:active { transform: scale(0.98); }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), #5a8bff);
+    border-color: transparent;
+  }
+  button.success {
+    background: linear-gradient(135deg, var(--accent-2), #2ec4b6);
+    border-color: transparent;
+    color: #0b0f17;
+  }
+  button.danger {
+    background: linear-gradient(135deg, var(--danger), #ff8e6b);
+    border-color: transparent;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .panel {
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    color: var(--muted);
+    font-size: 14px;
+    flex: 0 0 auto;
+  }
+  .field .value {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    min-width: 36px;
+    text-align: right;
+  }
+  select {
+    flex: 1;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 15px;
+  }
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { transform: scale(1.2); }
+  .status {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    min-height: 18px;
+    text-align: center;
+  }
+  .footer-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+    padding: 10px 16px 18px;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .footer-bar .inner {
+    max-width: 720px;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+  }
+  .small {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .small a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Read Aloud</h1>
+    <span class="badge" id="engineBadge">device voice</span>
+  </header>
+
+  <textarea id="text" placeholder="Paste or type text here, then tap Play.&#10;&#10;Tip: enable &quot;Auto-read on paste&quot; below and just paste text — it will speak immediately."></textarea>
+
+  <div class="row">
+    <button id="playBtn" class="primary">▶ Play</button>
+    <button id="pauseBtn">⏸ Pause</button>
+    <button id="stopBtn" class="danger">⏹ Stop</button>
+  </div>
+  <div class="row">
+    <button id="pasteBtn" class="success">📋 Paste & Play</button>
+    <button id="clearBtn">🗑 Clear</button>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label for="voice">Voice</label>
+      <select id="voice"></select>
+    </div>
+    <div class="field">
+      <label for="rate">Speed</label>
+      <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1" />
+      <span class="value" id="rateVal">1.0×</span>
+    </div>
+    <div class="field">
+      <label for="pitch">Pitch</label>
+      <input type="range" id="pitch" min="0" max="2" step="0.1" value="1" />
+      <span class="value" id="pitchVal">1.0</span>
+    </div>
+    <div class="field">
+      <label class="toggle">
+        <input type="checkbox" id="autoPaste" />
+        <span>Auto-read on paste</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="status" id="status">Ready.</div>
+
+  <p class="small">
+    Uses your phone's built-in text-to-speech.<br />
+    Works offline once loaded.
+  </p>
+</div>
+
+<script>
+(function () {
+  const synth = window.speechSynthesis;
+  const textEl = document.getElementById('text');
+  const voiceEl = document.getElementById('voice');
+  const rateEl = document.getElementById('rate');
+  const pitchEl = document.getElementById('pitch');
+  const rateVal = document.getElementById('rateVal');
+  const pitchVal = document.getElementById('pitchVal');
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const pasteBtn = document.getElementById('pasteBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const autoPaste = document.getElementById('autoPaste');
+  const status = document.getElementById('status');
+  const badge = document.getElementById('engineBadge');
+
+  if (!synth) {
+    badge.textContent = 'unsupported';
+    status.textContent = 'Sorry — this browser does not support speech synthesis.';
+    [playBtn, pauseBtn, stopBtn, pasteBtn].forEach(b => b.disabled = true);
+    return;
+  }
+
+  let voices = [];
+  let currentUtterance = null;
+
+  function loadVoices() {
+    voices = synth.getVoices();
+    const saved = localStorage.getItem('voiceName');
+    voiceEl.innerHTML = '';
+    voices.forEach((v, i) => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})${v.default ? ' — default' : ''}`;
+      voiceEl.appendChild(opt);
+    });
+    if (saved && voices.some(v => v.name === saved)) {
+      voiceEl.value = saved;
+    } else {
+      const lang = navigator.language || 'en-US';
+      const match = voices.find(v => v.lang === lang) || voices.find(v => v.default);
+      if (match) voiceEl.value = match.name;
+    }
+  }
+
+  loadVoices();
+  if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  function restoreSettings() {
+    const r = localStorage.getItem('rate');
+    const p = localStorage.getItem('pitch');
+    const ap = localStorage.getItem('autoPaste');
+    const t = localStorage.getItem('text');
+    if (r) { rateEl.value = r; }
+    if (p) { pitchEl.value = p; }
+    if (ap === '1') { autoPaste.checked = true; }
+    if (t) { textEl.value = t; }
+    updateLabels();
+  }
+
+  function updateLabels() {
+    rateVal.textContent = `${parseFloat(rateEl.value).toFixed(1)}×`;
+    pitchVal.textContent = `${parseFloat(pitchEl.value).toFixed(1)}`;
+  }
+
+  rateEl.addEventListener('input', () => {
+    updateLabels();
+    localStorage.setItem('rate', rateEl.value);
+  });
+  pitchEl.addEventListener('input', () => {
+    updateLabels();
+    localStorage.setItem('pitch', pitchEl.value);
+  });
+  voiceEl.addEventListener('change', () => {
+    localStorage.setItem('voiceName', voiceEl.value);
+  });
+  autoPaste.addEventListener('change', () => {
+    localStorage.setItem('autoPaste', autoPaste.checked ? '1' : '0');
+  });
+  textEl.addEventListener('input', () => {
+    localStorage.setItem('text', textEl.value);
+  });
+
+  function speak(text) {
+    if (!text || !text.trim()) {
+      status.textContent = 'Nothing to read — type or paste some text.';
+      return;
+    }
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = voices.find(x => x.name === voiceEl.value);
+    if (v) u.voice = v;
+    u.rate = parseFloat(rateEl.value);
+    u.pitch = parseFloat(pitchEl.value);
+    u.onstart = () => { status.textContent = 'Speaking…'; };
+    u.onend = () => { status.textContent = 'Done.'; };
+    u.onerror = (e) => { status.textContent = 'Error: ' + (e.error || 'unknown'); };
+    currentUtterance = u;
+    synth.speak(u);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (synth.paused) {
+      synth.resume();
+      status.textContent = 'Resumed.';
+    } else {
+      speak(textEl.value);
+    }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if (synth.speaking && !synth.paused) {
+      synth.pause();
+      status.textContent = 'Paused.';
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
+    synth.cancel();
+    status.textContent = 'Stopped.';
+  });
+
+  pasteBtn.addEventListener('click', async () => {
+    try {
+      const t = await navigator.clipboard.readText();
+      if (t) {
+        textEl.value = t;
+        localStorage.setItem('text', t);
+        speak(t);
+      } else {
+        status.textContent = 'Clipboard is empty.';
+      }
+    } catch (err) {
+      status.textContent = 'Clipboard blocked — paste manually, then tap Play.';
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    textEl.value = '';
+    localStorage.removeItem('text');
+    synth.cancel();
+    status.textContent = 'Cleared.';
+  });
+
+  textEl.addEventListener('paste', (e) => {
+    if (!autoPaste.checked) return;
+    const data = (e.clipboardData || window.clipboardData).getData('text');
+    if (data) {
+      setTimeout(() => speak(data), 50);
+    }
+  });
+
+  restoreSettings();
+})();
+</script>
+</body>
+</html>
