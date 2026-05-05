@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#0b0f17" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <title>Read Aloud</title>
 <style>
   :root {
@@ -227,8 +229,7 @@
   <div class="status" id="status">Ready.</div>
 
   <p class="small">
-    Uses your phone's built-in text-to-speech.<br />
-    Works offline once loaded.
+    Tip: <strong>install this page</strong> (Add to Home Screen) and you'll see <strong>Read Aloud</strong> in your phone's Share menu. Long-press a message in any app → Share → Read Aloud → it speaks instantly.
   </p>
 </div>
 
@@ -389,6 +390,37 @@
   });
 
   restoreSettings();
+
+  // Auto-speak text passed in via ?text=... or shared into the app.
+  // This is what makes Share -> Read Aloud speak immediately, no extra taps.
+  function speakFromUrl() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const shared = params.get('text') || params.get('title') || params.get('url');
+      if (!shared) return;
+      textEl.value = shared;
+      localStorage.setItem('text', shared);
+      const start = () => {
+        if (synth.getVoices().length === 0) {
+          setTimeout(start, 100);
+          return;
+        }
+        loadVoices();
+        speak(shared);
+      };
+      start();
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (_) {}
+  }
+  speakFromUrl();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
 })();
 </script>
 </body>
