@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>EDP Purchase Form</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { height: 100%; }
+    body {
+      min-height: 100%; margin: 0; padding: 0;
+      background: #060E1C; color: #EAF2FF;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    input, textarea, select { user-select: text; -webkit-user-select: text; }
+
+    .app { display:flex; flex-direction:column; padding:12px; gap:12px; padding-bottom:40px; max-width:780px; margin:0 auto; }
+
+    .header {
+      display:flex; align-items:center; justify-content:space-between;
+      background:linear-gradient(135deg,#0B1930,#152444);
+      border-radius:18px; padding:14px 18px;
+      border:1px solid rgba(255,255,255,0.07);
+      box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    }
+    .h-title { font-size:clamp(18px,3.2vw,26px); font-weight:1000; letter-spacing:.5px; }
+    .h-sub   { font-size:clamp(11px,1.6vw,13px); color:#6880A0; margin-top:3px; }
+    .h-icon  { font-size:32px; }
+
+    .card {
+      background:linear-gradient(135deg,#0B1930,#152444);
+      border-radius:18px; padding:16px;
+      border:1px solid rgba(255,255,255,0.07);
+      box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .section-title {
+      font-size:clamp(12px,1.8vw,14px); font-weight:900; color:#6880A0;
+      text-transform:uppercase; letter-spacing:1.2px; margin-bottom:10px;
+    }
+
+    /* Employee picker */
+    .emp-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+    @media (min-width:520px) { .emp-grid { grid-template-columns:repeat(3,1fr); } }
+    @media (min-width:720px) { .emp-grid { grid-template-columns:repeat(5,1fr); } }
+    .emp-tile {
+      border-radius:16px; padding:12px 8px; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      border:2px solid transparent; box-shadow:0 4px 14px rgba(0,0,0,0.4);
+      min-height:96px; justify-content:center;
+      -webkit-tap-highlight-color:transparent; transition:transform .12s,border-color .12s;
+    }
+    .emp-tile:active { transform:scale(0.97); }
+    .emp-tile.selected { border-color:#FFF; box-shadow:0 0 0 3px rgba(255,255,255,0.25),0 6px 20px rgba(0,0,0,0.4); transform:scale(1.04); }
+    .emp-icon { font-size:24px; }
+    .emp-name { font-size:clamp(13px,2vw,16px); font-weight:1000; }
+
+    /* Form fields */
+    .field { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+    .field label { font-size:13px; font-weight:800; color:#A8BFDB; letter-spacing:.3px; }
+    .field input[type=text],
+    .field input[type=number],
+    .field textarea,
+    .field select {
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:12px; padding:14px 14px;
+      color:#EAF2FF; font-size:17px; font-weight:600;
+      outline:none; width:100%;
+      font-family:inherit;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color:#FFD740; background:rgba(255,255,255,.10);
+    }
+    .field textarea { min-height:80px; resize:vertical; }
+
+    .amount-wrap { position:relative; }
+    .amount-wrap::before {
+      content:"$"; position:absolute; left:14px; top:50%;
+      transform:translateY(-50%); font-size:20px; font-weight:1000; color:#FFD740;
+      pointer-events:none;
+    }
+    .amount-wrap input { padding-left:32px !important; font-size:22px !important; font-weight:1000 !important; }
+
+    .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* Chip selectors */
+    .chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip {
+      padding:10px 14px; border-radius:999px; font-size:14px; font-weight:800;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+      color:#EAF2FF; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    }
+    .chip:active { transform:scale(0.96); }
+    .chip.selected {
+      background:linear-gradient(135deg,#0D47A1,#01579B);
+      border-color:#FFD740; color:#fff;
+      box-shadow:0 0 0 2px rgba(255,215,64,.4);
+    }
+
+    /* Receipt photo */
+    .receipt-row { display:flex; align-items:center; gap:12px; }
+    .receipt-thumb {
+      width:80px; height:80px; border-radius:12px;
+      background:rgba(255,255,255,.05);
+      border:1px dashed rgba(255,255,255,.2);
+      display:flex; align-items:center; justify-content:center;
+      font-size:28px; color:#6880A0; overflow:hidden; flex-shrink:0;
+    }
+    .receipt-thumb img { width:100%; height:100%; object-fit:cover; }
+    .receipt-btns { display:flex; flex-direction:column; gap:8px; flex:1; }
+    .btn-receipt {
+      background:linear-gradient(135deg,#0D47A1,#01579B);
+      color:#fff; border:none; border-radius:12px; padding:12px 14px;
+      font-size:15px; font-weight:900; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.3);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .btn-receipt.clear { background:linear-gradient(135deg,#FF1744,#C80028); }
+
+    /* PIN + submit */
+    .pin-input {
+      letter-spacing:18px; text-align:center;
+      font-size:32px !important; font-weight:1000 !important;
+      padding:16px 14px !important;
+    }
+
+    .submit-btn {
+      width:100%; padding:22px; border-radius:18px; border:none;
+      font-size:22px; font-weight:1000; color:#fff; cursor:pointer;
+      background:linear-gradient(135deg,#00C853,#00963C);
+      box-shadow:0 6px 18px rgba(0,200,83,.35);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .submit-btn:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+    .submit-btn:active { transform:scale(0.98); }
+
+    .msg { min-height:24px; font-size:15px; font-weight:800; text-align:center; padding:6px 0; }
+    .msg.ok { color:#00E676; }
+    .msg.err { color:#FF8A80; }
+
+    /* Recent purchases */
+    .recent-list { display:flex; flex-direction:column; gap:8px; }
+    .recent-row {
+      display:grid; grid-template-columns:auto 1fr auto; gap:10px;
+      padding:10px 12px; background:rgba(255,255,255,.04); border-radius:10px;
+      border:1px solid rgba(255,255,255,.06);
+      align-items:center;
+    }
+    .recent-amt { font-size:16px; font-weight:1000; color:#FFD740; }
+    .recent-mid { display:flex; flex-direction:column; min-width:0; }
+    .recent-vendor { font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-meta   { font-size:11px; color:#6880A0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-emp    { font-size:11px; color:#A8BFDB; font-weight:700; }
+
+    .empty { text-align:center; color:#6880A0; padding:20px 10px; font-size:13px; }
+
+    /* Toast */
+    .toast {
+      position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(120px);
+      padding:14px 22px; border-radius:14px; font-size:15px; font-weight:900;
+      background:#1B5E20; color:#fff; box-shadow:0 8px 28px rgba(0,0,0,.55);
+      transition:transform .25s ease-out; z-index:9999; max-width:90vw; text-align:center;
+    }
+    .toast.err { background:#B71C1C; }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+
+    input[type=file] { display:none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <div class="header">
+      <div>
+        <div class="h-title">💸 EDP Purchase Log</div>
+        <div class="h-sub">Log expenses, supplies, and inventory buys</div>
+      </div>
+      <div class="h-icon">🧾</div>
+    </div>
+
+    <!-- Who -->
+    <div class="card">
+      <div class="section-title">Who is logging this?</div>
+      <div class="emp-grid" id="empGrid"></div>
+    </div>
+
+    <!-- Purchase details -->
+    <div class="card">
+      <div class="section-title">Purchase details</div>
+
+      <div class="field">
+        <label for="vendor">Vendor / Store *</label>
+        <input id="vendor" type="text" placeholder="Home Depot, Sam's Club, ...">
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="amount">Amount *</label>
+          <div class="amount-wrap">
+            <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <div class="field">
+          <label>Payment *</label>
+          <div class="chips" id="paymentChips"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Category *</label>
+        <div class="chips" id="categoryChips"></div>
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes (what was bought, why, etc.)</label>
+        <textarea id="notes" placeholder="Optional — e.g. '2 cases of cleaner + 1 mop'"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Receipt photo (optional)</label>
+        <div class="receipt-row">
+          <div class="receipt-thumb" id="receiptThumb">📷</div>
+          <div class="receipt-btns">
+            <button class="btn-receipt" id="btnTakeReceipt">📸 Take / Upload Receipt</button>
+            <button class="btn-receipt clear" id="btnClearReceipt" style="display:none">✕ Remove receipt</button>
+          </div>
+        </div>
+        <input id="receiptFile" type="file" accept="image/*" capture="environment">
+      </div>
+    </div>
+
+    <!-- PIN + submit -->
+    <div class="card">
+      <div class="section-title">Confirm with your PIN</div>
+      <div class="field">
+        <input id="pin" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*"
+               maxlength="4" placeholder="••••" autocomplete="off">
+      </div>
+      <button class="submit-btn" id="btnSubmit">💾 Log Purchase</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <!-- Recent -->
+    <div class="card">
+      <div class="section-title">Recent purchases</div>
+      <div class="recent-list" id="recentList">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var STATE = {
+    employees: [],
+    categories: [],
+    paymentMethods: [],
+    selectedEmpId: "",
+    selectedCategory: "",
+    selectedPayment: "",
+    receiptDataUrl: "",
+    submitting: false,
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  function showToast(text, isErr) {
+    var t = $("toast");
+    t.textContent = text;
+    t.className = "toast" + (isErr ? " err" : "") + " show";
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.className = "toast" + (isErr ? " err" : ""); }, 2800);
+  }
+
+  function setMsg(text, isErr) {
+    var m = $("msg");
+    m.textContent = text || "";
+    m.className = "msg" + (isErr ? " err" : (text ? " ok" : ""));
+  }
+
+  function renderEmployees() {
+    var grid = $("empGrid");
+    grid.innerHTML = "";
+    STATE.employees.forEach(function(e) {
+      var tile = document.createElement("div");
+      tile.className = "emp-tile" + (STATE.selectedEmpId === e.id ? " selected" : "");
+      tile.style.background = "linear-gradient(135deg," + e.color + "," + shade(e.color, -18) + ")";
+      tile.innerHTML =
+        '<div class="emp-icon">' + (e.icon || "👤") + '</div>' +
+        '<div class="emp-name">' + e.name + '</div>';
+      tile.onclick = function() {
+        STATE.selectedEmpId = e.id;
+        renderEmployees();
+      };
+      grid.appendChild(tile);
+    });
+  }
+
+  function renderChips(targetId, items, selectedKey, onPick) {
+    var box = $(targetId);
+    box.innerHTML = "";
+    items.forEach(function(label) {
+      var chip = document.createElement("div");
+      chip.className = "chip" + (selectedKey === label ? " selected" : "");
+      chip.textContent = label;
+      chip.onclick = function() { onPick(label); };
+      box.appendChild(chip);
+    });
+  }
+
+  function renderRecent(rows) {
+    var box = $("recentList");
+    if (!rows || !rows.length) {
+      box.innerHTML = '<div class="empty">No purchases yet.</div>';
+      return;
+    }
+    box.innerHTML = "";
+    rows.forEach(function(r) {
+      var row = document.createElement("div");
+      row.className = "recent-row";
+      var amt = (typeof r.amount === "number") ? r.amount : parseFloat(r.amount || 0);
+      row.innerHTML =
+        '<div class="recent-amt">$' + amt.toFixed(2) + '</div>' +
+        '<div class="recent-mid">' +
+          '<div class="recent-vendor">' + escapeHtml(r.vendor || "(no vendor)") + '</div>' +
+          '<div class="recent-meta">' + escapeHtml((r.category || "") + " · " + (r.payment || "")) + '</div>' +
+        '</div>' +
+        '<div class="recent-emp">' + escapeHtml(r.empName || "") + '<br><span style="color:#6880A0;font-weight:600">' + escapeHtml(r.ts || "") + '</span></div>';
+      box.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, function(c) {
+      return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c];
+    });
+  }
+
+  // crude color shader for gradients
+  function shade(hex, percent) {
+    var num = parseInt(hex.replace("#",""), 16);
+    var r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + percent));
+    var g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + percent));
+    var b = Math.max(0, Math.min(255, (num & 0xff) + percent));
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+
+  // ── Receipt photo handling ───────────────────────────────
+  $("btnTakeReceipt").onclick = function() { $("receiptFile").click(); };
+  $("btnClearReceipt").onclick = function() {
+    STATE.receiptDataUrl = "";
+    $("receiptThumb").innerHTML = "📷";
+    $("btnClearReceipt").style.display = "none";
+    $("receiptFile").value = "";
+  };
+  $("receiptFile").onchange = function(ev) {
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        // Downscale receipts to keep payload small
+        var maxDim = 1280;
+        var w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else       { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        STATE.receiptDataUrl = dataUrl;
+        $("receiptThumb").innerHTML = '<img src="' + dataUrl + '">';
+        $("btnClearReceipt").style.display = "block";
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(f);
+  };
+
+  // ── Submit ───────────────────────────────────────────────
+  $("btnSubmit").onclick = function() {
+    if (STATE.submitting) return;
+
+    if (!STATE.selectedEmpId)   return setMsg("Pick who is logging this.", true);
+    var vendor = $("vendor").value.trim();
+    if (!vendor)                return setMsg("Vendor is required.", true);
+    var amount = parseFloat($("amount").value);
+    if (!isFinite(amount) || amount <= 0) return setMsg("Amount must be greater than 0.", true);
+    if (!STATE.selectedPayment) return setMsg("Pick a payment method.", true);
+    if (!STATE.selectedCategory) return setMsg("Pick a category.", true);
+    var pin = $("pin").value;
+    if (!pin || pin.length < 4)  return setMsg("Enter your 4-digit PIN.", true);
+
+    STATE.submitting = true;
+    $("btnSubmit").disabled = true;
+    $("btnSubmit").textContent = "Saving…";
+    setMsg("");
+
+    var payload = {
+      empId: STATE.selectedEmpId,
+      pin: pin,
+      vendor: vendor,
+      amount: amount,
+      payment: STATE.selectedPayment,
+      category: STATE.selectedCategory,
+      notes: $("notes").value.trim(),
+      photoB64: STATE.receiptDataUrl || "",
+    };
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        STATE.submitting = false;
+        $("btnSubmit").disabled = false;
+        $("btnSubmit").textContent = "💾 Log Purchase";
+        if (res && res.ok) {
+          showToast(res.msg || "Purchase logged ✓", false);
+          setMsg(res.msg || "Logged ✓");
+          resetForm(false);
+          boot();
+        } else {
+          var m = (res && res.msg) ? res.msg : "Unknown error.";
+          showToast(m, true);
+          setMsg(m, true);
+        }
+      })
+      .withFailureHandler(function(err) {
+        STATE.submitting = false;
+        $("btnSubmit").disabled = false;
+        $("btnSubmit").textContent = "💾 Log Purchase";
+        showToast("Network error — try again", true);
+        setMsg(String(err && err.message || err), true);
+      })
+      .api_logPurchase(payload);
+  };
+
+  function resetForm(keepWho) {
+    $("vendor").value = "";
+    $("amount").value = "";
+    $("notes").value = "";
+    $("pin").value = "";
+    STATE.selectedCategory = "";
+    STATE.selectedPayment = "";
+    STATE.receiptDataUrl = "";
+    $("receiptThumb").innerHTML = "📷";
+    $("btnClearReceipt").style.display = "none";
+    $("receiptFile").value = "";
+    if (!keepWho) STATE.selectedEmpId = "";
+    renderEmployees();
+    renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, function(v) {
+      STATE.selectedPayment = v; renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, arguments.callee);
+    });
+    renderChips("categoryChips", STATE.categories, STATE.selectedCategory, function(v) {
+      STATE.selectedCategory = v; renderChips("categoryChips", STATE.categories, STATE.selectedCategory, arguments.callee);
+    });
+  }
+
+  // ── Boot ─────────────────────────────────────────────────
+  function boot() {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.ok) {
+          setMsg("Boot failed.", true);
+          return;
+        }
+        STATE.employees = res.employees || [];
+        STATE.categories = res.categories || [];
+        STATE.paymentMethods = res.paymentMethods || [];
+        renderEmployees();
+        renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, function pickPayment(v) {
+          STATE.selectedPayment = v;
+          renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, pickPayment);
+        });
+        renderChips("categoryChips", STATE.categories, STATE.selectedCategory, function pickCat(v) {
+          STATE.selectedCategory = v;
+          renderChips("categoryChips", STATE.categories, STATE.selectedCategory, pickCat);
+        });
+        renderRecent(res.recent);
+      })
+      .withFailureHandler(function(err) {
+        setMsg("Boot error: " + (err && err.message ? err.message : err), true);
+      })
+      .api_boot();
+  }
+
+  boot();
+</script>
+</body>
+</html>
