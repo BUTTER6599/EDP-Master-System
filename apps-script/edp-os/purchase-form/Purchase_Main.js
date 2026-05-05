@@ -58,6 +58,9 @@ function doGet() {
 // api_boot — sends config + recent purchases to the UI
 // ═══════════════════════════════════════════════════════
 function api_boot() {
+  if (!PUR_SHEET_ID) {
+    return { ok:false, msg:"Set PURCHASE_SHEET_ID (or KIOSK_SHEET_ID) in Script Properties, then run SETUP_PURCHASE." };
+  }
   var ss = SpreadsheetApp.openById(PUR_SHEET_ID);
   var sh = _getOrCreatePurchaseLog(ss);
   var recent = [];

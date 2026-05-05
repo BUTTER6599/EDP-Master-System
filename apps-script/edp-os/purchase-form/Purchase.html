@@ -312,6 +312,20 @@
     });
   }
 
+  function renderPaymentChips() {
+    renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, function(v) {
+      STATE.selectedPayment = v;
+      renderPaymentChips();
+    });
+  }
+
+  function renderCategoryChips() {
+    renderChips("categoryChips", STATE.categories, STATE.selectedCategory, function(v) {
+      STATE.selectedCategory = v;
+      renderCategoryChips();
+    });
+  }
+
   function renderRecent(rows) {
     var box = $("recentList");
     if (!rows || !rows.length) {
@@ -453,12 +467,8 @@
     $("receiptFile").value = "";
     if (!keepWho) STATE.selectedEmpId = "";
     renderEmployees();
-    renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, function(v) {
-      STATE.selectedPayment = v; renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, arguments.callee);
-    });
-    renderChips("categoryChips", STATE.categories, STATE.selectedCategory, function(v) {
-      STATE.selectedCategory = v; renderChips("categoryChips", STATE.categories, STATE.selectedCategory, arguments.callee);
-    });
+    renderPaymentChips();
+    renderCategoryChips();
   }
 
   // ── Boot ─────────────────────────────────────────────────
@@ -466,21 +476,15 @@
     google.script.run
       .withSuccessHandler(function(res) {
         if (!res || !res.ok) {
-          setMsg("Boot failed.", true);
+          setMsg((res && res.msg) || "Boot failed.", true);
           return;
         }
         STATE.employees = res.employees || [];
         STATE.categories = res.categories || [];
         STATE.paymentMethods = res.paymentMethods || [];
         renderEmployees();
-        renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, function pickPayment(v) {
-          STATE.selectedPayment = v;
-          renderChips("paymentChips", STATE.paymentMethods, STATE.selectedPayment, pickPayment);
-        });
-        renderChips("categoryChips", STATE.categories, STATE.selectedCategory, function pickCat(v) {
-          STATE.selectedCategory = v;
-          renderChips("categoryChips", STATE.categories, STATE.selectedCategory, pickCat);
-        });
+        renderPaymentChips();
+        renderCategoryChips();
         renderRecent(res.recent);
       })
       .withFailureHandler(function(err) {
