@@ -106,7 +106,7 @@ wss.on('connection', (ws, req) => {
 
       try {
         const reply = await anthropic.messages.create({
-          model: 'claude-opus-4-7',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 300,
           system: agent.systemPrompt,
           messages: history,
