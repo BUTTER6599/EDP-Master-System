@@ -54,8 +54,8 @@ export const agents = {
   // ─── LO — Air Traffic Controller ─────────────────────────────────────────
   lo: {
     name: 'Lo',
-    voice: 'EXAVITQu4vr4xnSDxMAh', // ElevenLabs — warm female
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-F', // Google — warm female
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Thank you for calling The Electronics Depot in Metairie. This is Lo — are you calling about sales, service, or something else?`,
     systemPrompt: `${phoneRules}
@@ -76,8 +76,8 @@ ${knowledgeBase}`,
   // ─── LATOYA — Repair Drop-Off Intake (Form 1) ────────────────────────────
   latoya: {
     name: 'Latoya',
-    voice: 'MF3mGyEYCl7XYWbV9V6O', // ElevenLabs — different warm female
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-C', // Google — different warm female
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hi, this is Latoya with The Electronics Depot service team. I can get your repair drop-off started — what's going on with your appliance?`,
     systemPrompt: `${phoneRules}
@@ -105,8 +105,8 @@ ${knowledgeBase}`,
   // ─── SOFIA — Warranty Claim Intake (Form 2) ──────────────────────────────
   sofia: {
     name: 'Sofia',
-    voice: 'ThT5KcBeYPX3keUQqHPh', // ElevenLabs — another female voice
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-E', // Google — softer female
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hi, this is Sofia with The Electronics Depot. I handle warranty claims — I can get that started for you right now. What appliance are we looking at?`,
     systemPrompt: `${phoneRules}
@@ -128,8 +128,8 @@ ${knowledgeBase}`,
   // ─── ELENA — Trade-In Intake (Form 3) ────────────────────────────────────
   elena: {
     name: 'Elena',
-    voice: 'AZnzlk1XvdvUeBnXmlld', // ElevenLabs — another female voice
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-G', // Google — another female voice
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hi, this is Elena with The Electronics Depot. I handle trade-ins — happy to help. What appliance are you looking to trade in?`,
     systemPrompt: `${phoneRules}
@@ -158,8 +158,8 @@ ${knowledgeBase}`,
   // ─── MARCUS — Sales Specialist ───────────────────────────────────────────
   marcus: {
     name: 'Marcus',
-    voice: 'TxGEqnHWrfWFTfGW9XjX', // ElevenLabs — male voice
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-D', // Google — male voice
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hey, this is Marcus with The Electronics Depot — what are you looking for today?`,
     systemPrompt: `${phoneRules}
@@ -186,8 +186,8 @@ ${knowledgeBase}`,
   // ─── OFFICE INTAKE — Business/Admin Calls ────────────────────────────────
   office: {
     name: 'Office',
-    voice: 'EXAVITQu4vr4xnSDxMAh', // reuse Lo's voice for internal/admin feel
-    ttsProvider: 'ElevenLabs',
+    voice: 'en-US-Neural2-F', // reuse Lo's voice for internal/admin feel
+    ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Thank you for calling The Electronics Depot. How can I help you?`,
     systemPrompt: `${phoneRules}
