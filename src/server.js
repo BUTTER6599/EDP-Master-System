@@ -24,6 +24,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 app.get('/', (_req, res) => res.send('EDP AI Receptionist running'));
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 app.post('/twilio/voice', (req, res) => {
   const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'lo';
