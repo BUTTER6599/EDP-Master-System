@@ -51,16 +51,11 @@ const wss = new WebSocketServer({ server, path: '/voice' });
 // Keywords Lo uses to signal a transfer — Lo includes one of these phrases
 // and we swap the active agent silently without the caller knowing.
 const TRANSFER_MAP = {
-  latoya: 'latoya',
-  'service intake': 'latoya',
-  'repair intake': 'latoya',
-  sofia: 'sofia',
-  'warranty specialist': 'sofia',
-  elena: 'elena',
-  'trade-in specialist': 'elena',
-  marcus: 'marcus',
-  'sales specialist': 'marcus',
-  'office intake': 'office',
+  latoya: 'latoya', 'sales specialist': 'latoya', 'sales': 'latoya', 'sell to you': 'latoya', 'trade in': 'latoya',
+  sofia: 'sofia', 'service intake': 'sofia', 'repair intake': 'sofia', 'service specialist': 'sofia', 'warranty specialist': 'sofia',
+  elena: 'elena', 'schedule specialist': 'elena', 'appointment': 'elena',
+  marcus: 'marcus', 'delivery specialist': 'marcus', 'pickup specialist': 'marcus',
+  'office intake': 'office', 'office': 'office',
 };
 
 function detectTransfer(text) {
@@ -125,14 +120,24 @@ wss.on('connection', (ws, req) => {
 
         // Check if Lo (or any agent) is signaling a transfer
         const transferTo = detectTransfer(text);
-        if (transferTo && agents[transferTo]) {
+        let transferred = false;
+        if (transferTo && agents[transferTo] && agents[transferTo] !== agent) {
           const prev = agent.name;
           agent = agents[transferTo];
           history = []; // fresh context for the new specialist
+          transferred = true;
           console.log(`[transfer] ${prev} → ${agent.name}`);
         }
 
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
+
+        // Right after transfer, immediately have the new agent introduce
+        // themselves so the caller doesn't hear silence and hang up.
+        if (transferred) {
+          history.push({ role: 'assistant', content: agent.greeting });
+          console.log(`[${agent.name}] greeting: ${agent.greeting}`);
+          ws.send(JSON.stringify({ type: 'text', token: agent.greeting, last: true }));
+        }
       } catch (err) {
         console.error('[claude error]', err);
         ws.send(JSON.stringify({
