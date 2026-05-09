@@ -2,11 +2,12 @@
 
 import os
 import io
-import json
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+
+import creds
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID", "")
@@ -17,12 +18,9 @@ _service = None
 def _get_service():
     global _service
     if _service is None:
-        raw = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-        if not raw:
-            raise RuntimeError("GOOGLE_CREDENTIALS_JSON not set")
-        info = json.loads(raw)
-        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-        _service = build("drive", "v3", credentials=creds, cache_discovery=False)
+        info = creds.load_credentials_info()
+        sa_creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        _service = build("drive", "v3", credentials=sa_creds, cache_discovery=False)
     return _service
 
 

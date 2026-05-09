@@ -1,12 +1,13 @@
 """Google Sheets read and write functions for MAKE_READY tab."""
 
 import os
-import json
 from datetime import datetime
 from threading import Lock
 
 import gspread
 from google.oauth2.service_account import Credentials
+
+import creds
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -33,10 +34,7 @@ _sheet = None
 
 
 def _get_creds():
-    raw = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-    if not raw:
-        raise RuntimeError("GOOGLE_CREDENTIALS_JSON not set")
-    info = json.loads(raw)
+    info = creds.load_credentials_info()
     return Credentials.from_service_account_info(info, scopes=SCOPES)
 
 
