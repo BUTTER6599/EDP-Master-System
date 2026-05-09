@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Login - EDP Make Ready{% endblock %}
+{% block body %}
+<div class="container" style="padding-top: 40px; max-width: 420px;">
+  <h1 style="text-align: center; font-size: 28px; margin-bottom: 8px;">EDP Make Ready</h1>
+  <div style="text-align: center; color: var(--sub); font-size: 18px; margin-bottom: 24px;">
+    Enter PIN
+  </div>
+
+  <form id="pinForm" method="post" action="/login" style="margin-bottom: 16px;">
+    <div id="dots" style="display: flex; justify-content: center; gap: 18px; margin-bottom: 24px;">
+      {% for i in range(4) %}
+      <div class="pdot" style="width: 24px; height: 24px; border-radius: 50%;
+           background: var(--border); border: 2px solid var(--accent);"></div>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="pin" id="pin" value="">
+    <noscript>
+      <input type="text" name="pin" pattern="[0-9]{4}" maxlength="4" inputmode="numeric"
+        style="margin-bottom: 12px; text-align: center; font-size: 32px; letter-spacing: 12px;">
+      <button class="btn green" type="submit">Submit</button>
+    </noscript>
+  </form>
+
+  <div id="kpad" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+    {% for n in [1, 2, 3, 4, 5, 6, 7, 8, 9] %}
+    <button type="button" class="kbtn" data-key="{{ n }}"
+      style="background: var(--card); border: 2px solid var(--accent); color: #fff;
+        font-size: 32px; font-weight: 800; padding: 22px; border-radius: 14px;
+        min-height: 76px; cursor: pointer;">{{ n }}</button>
+    {% endfor %}
+    <button type="button" class="kbtn" data-key="DEL"
+      style="background: var(--card); border: 2px solid var(--danger); color: var(--danger);
+        font-size: 20px; font-weight: 700; padding: 22px; border-radius: 14px;
+        min-height: 76px; cursor: pointer;">DEL</button>
+    <button type="button" class="kbtn" data-key="0"
+      style="background: var(--card); border: 2px solid var(--accent); color: #fff;
+        font-size: 32px; font-weight: 800; padding: 22px; border-radius: 14px;
+        min-height: 76px; cursor: pointer;">0</button>
+    <button type="button" class="kbtn" data-key="OK"
+      style="background: var(--ok); border: 2px solid var(--ok); color: #fff;
+        font-size: 20px; font-weight: 700; padding: 22px; border-radius: 14px;
+        min-height: 76px; cursor: pointer;">OK</button>
+  </div>
+
+  {% if error %}
+  <div class="error" style="margin-top: 16px;">{{ error }}</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var pin = "";
+  var hidden = document.getElementById("pin");
+  var dots = document.querySelectorAll(".pdot");
+  var form = document.getElementById("pinForm");
+
+  function render() {
+    for (var i = 0; i < 4; i++) {
+      dots[i].style.background = (i < pin.length) ? "var(--warn)" : "var(--border)";
+    }
+    hidden.value = pin;
+  }
+
+  document.querySelectorAll(".kbtn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var k = b.dataset.key;
+      if (k === "DEL") { pin = pin.slice(0, -1); render(); return; }
+      if (k === "OK") { if (pin.length === 4) form.submit(); return; }
+      if (pin.length < 4) {
+        pin += k;
+        render();
+        if (pin.length === 4) setTimeout(function () { form.submit(); }, 150);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,7 +1,21 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env
 .env
 .env.local
-*.log
+
+# Editor / OS
 .DS_Store
 .vscode/
 .idea/
+
+# Logs
+*.log
+
+# Node legacy
+node_modules/

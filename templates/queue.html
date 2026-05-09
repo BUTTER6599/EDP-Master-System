@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Queue - EDP Make Ready{% endblock %}
+{% block body %}
+<div class="topbar">
+  <div class="ttl">Make Ready Queue</div>
+  <div class="who">{{ user.name }} ({{ user.role }})
+    <a href="/logout" style="margin-left: 6px;">Logout</a>
+  </div>
+</div>
+
+<div class="container">
+  <a href="/new" class="btn green" style="margin-bottom: 14px;">+ New Ticket</a>
+
+  <form method="get" action="/" style="margin-bottom: 16px;">
+    <input type="text" name="q" value="{{ q }}"
+      placeholder="Search brand, model, customer..."
+      style="margin-bottom: 8px;">
+    <button class="btn" type="submit">Search</button>
+  </form>
+
+  {% if error %}
+  <div class="card" style="border-color: var(--danger); color: var(--danger);">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  {% if created %}
+  <div class="toast" id="toastEl">Ticket Created</div>
+  <script>
+    setTimeout(function () {
+      var t = document.getElementById('toastEl');
+      if (t) t.style.display = 'none';
+    }, 2500);
+  </script>
+  {% endif %}
+
+  {% if not tickets and not error %}
+    <div style="text-align: center; padding: 40px 20px; color: var(--sub);">
+      Queue is empty. Tap "New Ticket" to add a unit.
+    </div>
+  {% else %}
+    {% for t in tickets %}
+      {% set border = 'var(--border)' %}
+      {% if t.stage == 'FLOOR_READY' %}{% set border = 'var(--ok)' %}{% endif %}
+      {% if t.stage == 'WAITING_PARTS' %}{% set border = 'var(--warn)' %}{% endif %}
+      {% if (t.days_held or 0) > 30 %}{% set border = 'var(--danger)' %}{% endif %}
+      <a href="/ticket/{{ t.ticket_id }}"
+         style="display: block; background: var(--card);
+                border: 2px solid {{ border }};
+                border-radius: 16px; padding: 18px; margin-bottom: 14px;
+                color: var(--text);">
+        <div style="font-size: 22px; font-weight: 700; line-height: 1.2; margin-bottom: 6px;">
+          {{ t.brand }} {{ t.model or t.ticket_id }}
+        </div>
+        <div style="font-size: 18px; color: var(--sub); margin-bottom: 10px;">
+          {{ t.category }}{% if t.customer_name %} - {{ t.customer_name }}{% endif %}
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span class="spill
+            {% if t.stage == 'FLOOR_READY' %}fr{% endif %}
+            {% if t.stage == 'WAITING_PARTS' %}wp{% endif %}">
+            {{ (t.stage or 'RECEIVED')|replace('_', ' ') }}
+          </span>
+          {% if t.ticket_type %}
+          <span class="spill sv">{{ t.ticket_type }}</span>
+          {% endif %}
+          {% if (t.days_held or 0) > 0 %}
+          <span class="spill dh {% if (t.days_held or 0) > 30 %}red{% endif %}">
+            {{ t.days_held }} days
+          </span>
+          {% endif %}
+        </div>
+      </a>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

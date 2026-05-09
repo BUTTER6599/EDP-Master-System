@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.ticket_id }} - EDP Make Ready{% endblock %}
+{% block body %}
+<div class="topbar">
+  <a href="/" class="back">Back</a>
+  <div class="ttl">{{ ticket.brand }} {{ ticket.model }}</div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2 style="font-size: 24px; margin-bottom: 12px;">{{ ticket.ticket_id }}</h2>
+    {% set rows = [
+      ['Type', ticket.ticket_type],
+      ['Stage', (ticket.stage or 'RECEIVED')|replace('_', ' ')],
+      ['Brand', ticket.brand],
+      ['Model', ticket.model],
+      ['Serial', ticket.serial],
+      ['Category', ticket.category],
+      ['Fuel', ticket.fuel_type],
+      ['Condition', ticket.condition],
+      ['Assigned', ticket.assigned_to],
+      ['Customer', ticket.customer_name],
+      ['Phone', ticket.customer_phone],
+      ['Vendor', ticket.vendor],
+      ['Received', ticket.date_received],
+      ['Days Held', ticket.days_held],
+    ] %}
+    {% for r in rows %}
+      {% if r[1] %}
+      <div style="display: flex; justify-content: space-between;
+                  padding: 8px 0; border-bottom: 1px solid var(--border);
+                  font-size: 18px; gap: 12px;">
+        <div style="color: var(--sub);">{{ r[0] }}</div>
+        <div style="font-weight: 700; text-align: right; word-break: break-word;">{{ r[1] }}</div>
+      </div>
+      {% endif %}
+    {% endfor %}
+    {% if user.role == 'owner' %}
+      {% if ticket.purchase_price %}
+      <div style="display: flex; justify-content: space-between;
+                  padding: 8px 0; border-bottom: 1px solid var(--border);
+                  font-size: 18px; gap: 12px;">
+        <div style="color: var(--sub);">Purchase Price</div>
+        <div style="font-weight: 700;">${{ ticket.purchase_price }}</div>
+      </div>
+      {% endif %}
+      {% if ticket.target_price %}
+      <div style="display: flex; justify-content: space-between;
+                  padding: 8px 0; border-bottom: 1px solid var(--border);
+                  font-size: 18px; gap: 12px;">
+        <div style="color: var(--sub);">Target Price</div>
+        <div style="font-weight: 700;">${{ ticket.target_price }}</div>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if ticket.problem %}
+      <div style="margin-top: 12px; font-size: 18px; color: var(--sub);">Problem:</div>
+      <div style="font-size: 20px; line-height: 1.5; margin-top: 4px;">{{ ticket.problem }}</div>
+    {% endif %}
+    {% if ticket.tech_notes %}
+      <div style="margin-top: 12px; font-size: 18px; color: var(--sub);">Tech Notes:</div>
+      <div style="font-size: 20px; line-height: 1.5; margin-top: 4px;">{{ ticket.tech_notes }}</div>
+    {% endif %}
+  </div>
+
+  {% if photos %}
+  <div class="card">
+    <h3 style="font-size: 20px; margin-bottom: 12px;">Photos ({{ photos|length }})</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      {% for p in photos %}
+        <a href="{{ p }}" target="_blank" rel="noopener">
+          <img src="{{ p }}"
+               style="width: 100%; height: 160px; object-fit: cover;
+                      border-radius: 10px; border: 2px solid var(--border);"
+               alt="Photo {{ loop.index }}">
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if ticket.parts_needed %}
+  <div class="card">
+    <h3 style="font-size: 20px; margin-bottom: 12px;">Parts</h3>
+    <div style="font-size: 18px; line-height: 1.6; white-space: pre-wrap;">{{ ticket.parts_needed }}</div>
+  </div>
+  {% endif %}
+
+  {% if ticket.checklist_json %}
+  <div class="card">
+    <h3 style="font-size: 20px; margin-bottom: 12px;">Checklist</h3>
+    <pre style="font-size: 16px; color: var(--sub); white-space: pre-wrap;
+                overflow-x: auto;">{{ ticket.checklist_json }}</pre>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h3 style="font-size: 20px; margin-bottom: 12px;">Edit</h3>
+    <form method="post" action="/ticket/{{ ticket.ticket_id }}/edit">
+      <div class="field">
+        <label class="lbl">Stage</label>
+        <select name="stage">
+          {% for s in stage_options %}
+            <option value="{{ s }}" {% if ticket.stage == s %}selected{% endif %}>{{ s|replace('_', ' ') }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Tech Notes</label>
+        <textarea name="tech_notes" rows="4">{{ ticket.tech_notes }}</textarea>
+      </div>
+      <button type="submit" class="btn green">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

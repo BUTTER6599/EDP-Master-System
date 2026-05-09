@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}New Ticket - EDP Make Ready{% endblock %}
+{% block head %}
+<style>
+.rad-grid { display: grid; gap: 8px; }
+.rad-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.rad-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.rad-tile {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-size: 18px; font-weight: 700;
+  padding: 18px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  min-height: 56px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rad-tile.sel {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(59, 130, 246, .1);
+}
+.photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.photo-slot {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+}
+.photo-slot.has { border-color: var(--ok); }
+.photo-slot .lbl-tag {
+  font-size: 14px; color: var(--sub);
+  text-align: center; margin-bottom: 6px;
+  min-height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1.2;
+}
+.photo-slot img.thumb {
+  display: none; width: 100%; height: 120px;
+  object-fit: cover; border-radius: 8px; margin-bottom: 6px;
+}
+.photo-btns { display: flex; gap: 6px; }
+.photo-btn {
+  flex: 1; color: #fff; font-size: 16px; font-weight: 700;
+  padding: 10px; border-radius: 8px; cursor: pointer;
+  text-align: center; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-btn.cam { background: #1d4ed8; }
+.photo-btn.lib { background: #374151; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="topbar">
+  <a href="/" class="back">Back</a>
+  <div class="ttl">New Ticket</div>
+</div>
+
+<div class="container">
+  {% if request.query_params.get('error') %}
+  <div class="card" style="border-color: var(--danger); color: var(--danger);">
+    {{ request.query_params.get('error') }}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/new" enctype="multipart/form-data" id="newForm">
+
+    <div class="field">
+      <label class="lbl">Ticket Type *</label>
+      <div class="rad-grid cols-3">
+        <label class="rad-tile">
+          <input type="radio" name="ticket_type" value="INVENTORY" required hidden>
+          <span>INVENTORY</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="ticket_type" value="SERVICE" hidden>
+          <span>SERVICE</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="ticket_type" value="PARTS" hidden>
+          <span>PARTS ONLY</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" id="cust-name-fld" style="display: none;">
+      <label class="lbl">Customer Name *</label>
+      <input type="text" name="customer_name" id="customer_name">
+    </div>
+    <div class="field" id="cust-phone-fld" style="display: none;">
+      <label class="lbl">Customer Phone *</label>
+      <input type="tel" name="customer_phone" id="customer_phone">
+    </div>
+
+    <div class="field">
+      <label class="lbl">Brand</label>
+      <select name="brand">
+        <option value="">Select brand...</option>
+        {% for b in ['Whirlpool','Maytag','Amana','Roper','Estate','Admiral','KitchenAid','GE','Hotpoint','Frigidaire','Electrolux','LG','Samsung','Kenmore','Other'] %}
+        <option value="{{ b }}">{{ b }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Category</label>
+      <select name="category" id="category">
+        <option value="">Select category...</option>
+        <option value="Washer">Washer</option>
+        <option value="Dryer">Dryer</option>
+        <option value="Stackable Washer Dryer">Stackable Washer Dryer</option>
+        <option value="Refrigerator">Refrigerator</option>
+        <option value="Stove">Stove</option>
+        <option value="Freezer">Freezer</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="field" id="fuel-fld" style="display: none;">
+      <label class="lbl">Fuel Type</label>
+      <div class="rad-grid cols-2">
+        <label class="rad-tile">
+          <input type="radio" name="fuel_type" value="ELECTRIC" hidden>
+          <span>ELECTRIC</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="fuel_type" value="GAS" hidden>
+          <span>GAS</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Model Number</label>
+      <input type="text" name="model" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label class="lbl">Serial Number</label>
+      <input type="text" name="serial" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label class="lbl">Condition</label>
+      <div class="rad-grid cols-2">
+        <label class="rad-tile">
+          <input type="radio" name="condition" value="WORKING" hidden>
+          <span>WORKING</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="condition" value="NEEDS_REPAIR" hidden>
+          <span>NEEDS REPAIR</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="condition" value="PARTS_ONLY" hidden>
+          <span>PARTS ONLY</span>
+        </label>
+        <label class="rad-tile">
+          <input type="radio" name="condition" value="UNKNOWN" hidden>
+          <span>UNKNOWN</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Photos (up to 10)</label>
+      <div class="photo-grid">
+        {% set labels = ['Front Face','Model and Serial Tag','Right Side','Left Side','Back','Inside','Detail','Detail','Detail','Detail'] %}
+        {% for i in range(1, 11) %}
+          <div class="photo-slot" data-idx="{{ i }}">
+            <div class="lbl-tag">Photo {{ i }} - {{ labels[i-1] }}</div>
+            <img class="thumb" alt="Photo {{ i }} preview">
+            <div class="photo-btns">
+              <label class="photo-btn cam">
+                Camera
+                <input type="file" name="photo_{{ i }}_cam"
+                       accept="image/*" capture="environment"
+                       class="cam-input" style="display: none;">
+              </label>
+              <label class="photo-btn lib">
+                Library
+                <input type="file" name="photo_{{ i }}_lib"
+                       accept="image/*"
+                       class="lib-input" style="display: none;">
+              </label>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Vendor / Picker</label>
+      <input type="text" name="vendor" id="vendor" list="vendors" autocomplete="off">
+      <datalist id="vendors">
+        <option value="Ray">
+        <option value="Angela">
+        <option value="Garrett">
+        <option value="Randy Powell">
+        <option value="Chris Beckham">
+        <option value="Walk-In">
+        <option value="Taylor">
+        <option value="Joe">
+      </datalist>
+    </div>
+
+    {% if user.role == 'owner' %}
+    <div class="field">
+      <label class="lbl">Purchase Price ($)</label>
+      <input type="number" step="0.01" name="purchase_price" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label class="lbl">Target Sale Price ($)</label>
+      <input type="number" step="0.01" name="target_price" inputmode="decimal">
+    </div>
+    {% endif %}
+
+    <div class="field">
+      <label class="lbl">Problem / What is wrong</label>
+      <textarea name="problem" rows="4" placeholder="Describe the issue..."></textarea>
+    </div>
+    <div class="field">
+      <label class="lbl">Tech Notes</label>
+      <textarea name="tech_notes" rows="3"></textarea>
+    </div>
+
+    <button type="submit" class="btn green" id="submitBtn">Submit - Create Ticket</button>
+    <div id="submitMsg" style="text-align: center; color: var(--sub); margin-top: 10px; min-height: 24px;"></div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js"></script>
+{% endblock %}
