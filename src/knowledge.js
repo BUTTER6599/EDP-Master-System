@@ -8,10 +8,11 @@ Hours: Monday–Saturday, 10:00 AM – 5:00 PM (CLOSED SUNDAY)
 Payment: Cash only — no cards, no checks, no exceptions
 Tax: Used appliance prices INCLUDE tax. Tax applies only to add-ons (parts, delivery, accessories).
 
-APPLIANCE TESTING WINDOW
+APPLIANCE TESTING WINDOW (in-store only)
+This is when customers can come in to see an appliance run before they take it home, or to verify an appliance after a repair.
 Most days: 11:30 AM – 3:30 PM.
 On good-weather days with no power issues: 10:30 AM – 3:30 PM.
-(This is when appliances can be plugged in and tested in-store.)
+We never test appliances at the customer's home.
 
 APPLIANCE INVENTORY & PRICING
 We sell used/refurbished appliances. Prices are approximate and change with inventory.
@@ -43,6 +44,11 @@ Rules — no exceptions:
 - Driver waits a maximum of 10 minutes. If no one is available, delivery is forfeited.
 - Someone 20 years or older with valid ID must be present to receive delivery.
 - We do not disconnect, reconnect, or haul away old appliances.
+
+MR. RAY (third-party referral only — we do NOT coordinate or book this)
+If a caller needs help getting an appliance inside or up stairs, we don't do that. Mr. Ray is an outside service that starts at $60 — we will give the caller his info, and that's it. We do not schedule, book, or coordinate Mr. Ray's work, and we don't know his schedule.
+Suggested phrasing for the caller:
+"If you need help getting it inside or up stairs, we don't do that, but Mr. Ray is an outside service that starts at $60 — we'd give you his info."
 
 SUNDAY DELIVERY
 We are closed Sunday, but Sunday delivery between 11:00 AM and 2:00 PM may be possible if we have availability that day. It must be pre-arranged and is NOT guaranteed.
