@@ -43,11 +43,11 @@ def _require_login(request: Request):
     return None
 
 
-def _days_held(date_received: str) -> int:
-    if not date_received:
+def _days_held(start_date: str) -> int:
+    if not start_date:
         return 0
     try:
-        d = datetime.strptime(str(date_received)[:10], "%Y-%m-%d").date()
+        d = datetime.strptime(str(start_date)[:10], "%Y-%m-%d").date()
         return (datetime.now().date() - d).days
     except Exception:
         return 0
@@ -91,21 +91,21 @@ def queue(request: Request, q: Optional[str] = None, created: Optional[str] = No
         return templates.TemplateResponse(
             "queue.html",
             {"request": request, "user": user, "tickets": [],
-             "q": q or "", "error": f"Sheet error: {e}", "created": created},
+             "q": q or "", "error": "Sheet error: " + str(e), "created": created},
         )
     out = []
     qlow = (q or "").lower().strip()
     for t in tickets:
-        t["days_held"] = _days_held(t.get("date_received", ""))
+        t["days_held"] = _days_held(t.get("StartDate", ""))
         if qlow:
             blob = " ".join(
                 str(t.get(k, "")) for k in
-                ("brand", "model", "customer_name", "ticket_id", "category", "vendor")
+                ("Brand", "Model", "ItemID", "Notes", "AssignedTo")
             ).lower()
             if qlow not in blob:
                 continue
         out.append(t)
-    out.sort(key=lambda x: STAGE_ORDER.get((x.get("stage") or "").upper(), 99))
+    out.sort(key=lambda x: STAGE_ORDER.get((x.get("Stage") or "").upper(), 99))
     return templates.TemplateResponse(
         "queue.html",
         {"request": request, "user": user, "tickets": out,
@@ -115,17 +115,17 @@ def queue(request: Request, q: Optional[str] = None, created: Optional[str] = No
 
 # ------------------- TICKET DETAIL -------------------
 
-@app.get("/ticket/{ticket_id}", response_class=HTMLResponse)
-def ticket_detail(request: Request, ticket_id: str):
+@app.get("/ticket/{item_id}", response_class=HTMLResponse)
+def ticket_detail(request: Request, item_id: str):
     redirect = _require_login(request)
     if redirect:
         return redirect
     user = auth.current_user(request)
-    t = sheets.get_ticket(ticket_id)
+    t = sheets.get_ticket(item_id)
     if not t:
         raise HTTPException(404, "Ticket not found")
-    photos = [p.strip() for p in (t.get("photos") or "").split(",") if p.strip()]
-    t["days_held"] = _days_held(t.get("date_received", ""))
+    photos = [p.strip() for p in (t.get("RepairPhotos") or "").split(",") if p.strip()]
+    t["days_held"] = _days_held(t.get("StartDate", ""))
     return templates.TemplateResponse(
         "ticket.html",
         {"request": request, "user": user, "ticket": t,
@@ -133,9 +133,9 @@ def ticket_detail(request: Request, ticket_id: str):
     )
 
 
-@app.post("/ticket/{ticket_id}/edit")
+@app.post("/ticket/{item_id}/edit")
 def ticket_edit(
-    request: Request, ticket_id: str,
+    request: Request, item_id: str,
     stage: str = Form(""), tech_notes: str = Form(""),
 ):
     redirect = _require_login(request)
@@ -143,11 +143,10 @@ def ticket_edit(
         return redirect
     updates = {}
     if stage:
-        updates["stage"] = stage
-        updates["status"] = stage
-    updates["tech_notes"] = tech_notes
-    sheets.update_ticket(ticket_id, updates)
-    return RedirectResponse(url=f"/ticket/{ticket_id}", status_code=302)
+        updates["Stage"] = stage
+    updates["RepairNotes"] = tech_notes
+    sheets.update_ticket(item_id, updates)
+    return RedirectResponse(url="/ticket/" + item_id, status_code=302)
 
 
 # ------------------- NEW INTAKE -------------------
@@ -175,12 +174,13 @@ async def new_ticket_submit(request: Request):
     if ticket_type not in ("INVENTORY", "SERVICE", "PARTS"):
         return RedirectResponse(url="/new?error=Pick+ticket+type", status_code=302)
 
+    # Upload photos
     photo_urls = []
     for i in range(1, 11):
         upload = None
-        cam = form.get(f"photo_{i}_cam")
-        lib = form.get(f"photo_{i}_lib")
-        if cam and getattr(cam, "filename", "") and getattr(cam, "filename"):
+        cam = form.get("photo_" + str(i) + "_cam")
+        lib = form.get("photo_" + str(i) + "_lib")
+        if cam and getattr(cam, "filename", ""):
             upload = cam
         elif lib and getattr(lib, "filename", ""):
             upload = lib
@@ -189,39 +189,70 @@ async def new_ticket_submit(request: Request):
             if not data:
                 continue
             ts = int(datetime.now().timestamp())
-            safe_name = f"mr_{ts}_p{i}_" + (upload.filename or "photo.jpg").replace(" ", "_")
+            safe_name = "mr_" + str(ts) + "_p" + str(i) + "_" + (upload.filename or "photo.jpg").replace(" ", "_")
             try:
                 url = drive.upload_photo(
                     data, safe_name, upload.content_type or "image/jpeg"
                 )
                 photo_urls.append(url)
             except Exception as e:
-                print(f"[drive] upload failed slot {i}: {e}")
+                print("[drive] upload failed slot " + str(i) + ": " + str(e))
+
+    # Pull form values
+    brand = (form.get("brand") or "").strip()
+    model = (form.get("model") or "").strip()
+    serial = (form.get("serial") or "").strip()
+    problem = (form.get("problem") or "").strip()
+    tech_notes = (form.get("tech_notes") or "").strip()
+    vendor = (form.get("vendor") or "").strip()
+    customer_name = (form.get("customer_name") or "").strip()
+    purchase_price = (form.get("purchase_price") or "").strip()
+
+    # Build RepairNotes from problem + tech notes
+    repair_parts = []
+    if problem:
+        repair_parts.append("Problem: " + problem)
+    if tech_notes:
+        repair_parts.append("Tech Notes: " + tech_notes)
+    repair_notes = "\n".join(repair_parts)
+
+    # Build Notes from vendor + customer (service) + purchase price (owner)
+    notes_parts = []
+    if vendor:
+        notes_parts.append("Vendor: " + vendor)
+    if ticket_type == "SERVICE" and customer_name:
+        notes_parts.append("Customer: " + customer_name)
+    if user.get("role") == "owner" and purchase_price:
+        notes_parts.append("Purchase: $" + purchase_price)
+    notes = " | ".join(notes_parts)
 
     fields = {
-        "ticket_type": ticket_type,
-        "brand": (form.get("brand") or "").strip(),
-        "category": (form.get("category") or "").strip(),
-        "fuel_type": (form.get("fuel_type") or "").strip(),
-        "model": (form.get("model") or "").strip(),
-        "serial": (form.get("serial") or "").strip(),
-        "condition": (form.get("condition") or "").strip(),
-        "customer_name": (form.get("customer_name") or "").strip() if ticket_type == "SERVICE" else "",
-        "customer_phone": (form.get("customer_phone") or "").strip() if ticket_type == "SERVICE" else "",
-        "vendor": (form.get("vendor") or "").strip(),
-        "problem": (form.get("problem") or "").strip(),
-        "tech_notes": (form.get("tech_notes") or "").strip(),
-        "photos": ",".join(photo_urls),
+        "Type": ticket_type,
+        "Brand": brand,
+        "Model": model,
+        "Serial": serial,
+        "Stage": "RECEIVED",
+        "CleanDone": "",
+        "CleanPhotos": "",
+        "RepairDone": "",
+        "RepairPhotos": ",".join(photo_urls),
+        "RepairNotes": repair_notes,
+        "PaintDone": "",
+        "PaintPhotos": "",
+        "FinalTestDone": "",
+        "FinalTestPhotos": "",
+        "AssignedTo": "",
+        "StartDate": datetime.now().strftime("%Y-%m-%d"),
+        "CompletedDate": "",
+        "ApprovedBy": "",
+        "ApprovedDate": "",
+        "Notes": notes,
     }
-
-    if user.get("role") == "owner":
-        fields["purchase_price"] = (form.get("purchase_price") or "").strip()
-        fields["target_price"] = (form.get("target_price") or "").strip()
 
     try:
         sheets.create_ticket(fields)
     except Exception as e:
-        return RedirectResponse(url=f"/new?error=Save+failed:+{e}", status_code=302)
+        return RedirectResponse(url="/new?error=Save+failed:+" + str(e), status_code=302)
 
     return RedirectResponse(url="/?created=1", status_code=302)
 

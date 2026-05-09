@@ -13,7 +13,7 @@
 
   <form method="get" action="/" style="margin-bottom: 16px;">
     <input type="text" name="q" value="{{ q }}"
-      placeholder="Search brand, model, customer..."
+      placeholder="Search brand, model, ItemID..."
       style="margin-bottom: 8px;">
     <button class="btn" type="submit">Search</button>
   </form>
@@ -41,28 +41,28 @@
   {% else %}
     {% for t in tickets %}
       {% set border = 'var(--border)' %}
-      {% if t.stage == 'FLOOR_READY' %}{% set border = 'var(--ok)' %}{% endif %}
-      {% if t.stage == 'WAITING_PARTS' %}{% set border = 'var(--warn)' %}{% endif %}
+      {% if t.Stage == 'FLOOR_READY' %}{% set border = 'var(--ok)' %}{% endif %}
+      {% if t.Stage == 'WAITING_PARTS' %}{% set border = 'var(--warn)' %}{% endif %}
       {% if (t.days_held or 0) > 30 %}{% set border = 'var(--danger)' %}{% endif %}
-      <a href="/ticket/{{ t.ticket_id }}"
+      <a href="/ticket/{{ t.ItemID }}"
          style="display: block; background: var(--card);
                 border: 2px solid {{ border }};
                 border-radius: 16px; padding: 18px; margin-bottom: 14px;
                 color: var(--text);">
         <div style="font-size: 22px; font-weight: 700; line-height: 1.2; margin-bottom: 6px;">
-          {{ t.brand }} {{ t.model or t.ticket_id }}
+          {{ t.Brand }} {{ t.Model or t.ItemID }}
         </div>
         <div style="font-size: 18px; color: var(--sub); margin-bottom: 10px;">
-          {{ t.category }}{% if t.customer_name %} - {{ t.customer_name }}{% endif %}
+          {{ t.ItemID }}{% if t.AssignedTo %} - {{ t.AssignedTo }}{% endif %}
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
           <span class="spill
-            {% if t.stage == 'FLOOR_READY' %}fr{% endif %}
-            {% if t.stage == 'WAITING_PARTS' %}wp{% endif %}">
-            {{ (t.stage or 'RECEIVED')|replace('_', ' ') }}
+            {% if t.Stage == 'FLOOR_READY' %}fr{% endif %}
+            {% if t.Stage == 'WAITING_PARTS' %}wp{% endif %}">
+            {{ (t.Stage or 'RECEIVED')|replace('_', ' ') }}
           </span>
-          {% if t.ticket_type %}
-          <span class="spill sv">{{ t.ticket_type }}</span>
+          {% if t.Type %}
+          <span class="spill sv">{{ t.Type }}</span>
           {% endif %}
           {% if (t.days_held or 0) > 0 %}
           <span class="spill dh {% if (t.days_held or 0) > 30 %}red{% endif %}">

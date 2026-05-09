@@ -2,7 +2,6 @@
 
 import os
 import json
-import time
 from datetime import datetime
 from threading import Lock
 
@@ -17,12 +16,15 @@ SCOPES = [
 SHEET_ID = os.environ.get("SHEET_ID", "")
 TAB = "MAKE_READY"
 
+# Actual column headers in the MAKE_READY tab, in order.
 EXPECTED_COLUMNS = [
-    "ticket_id", "date_received", "ticket_type", "brand", "model",
-    "serial", "category", "fuel_type", "condition", "stage",
-    "assigned_to", "customer_name", "customer_phone", "problem",
-    "vendor", "purchase_price", "target_price", "tech_notes",
-    "photos", "status",
+    "ItemID", "Type", "Brand", "Model", "Serial", "Stage",
+    "CleanDone", "CleanPhotos",
+    "RepairDone", "RepairPhotos", "RepairNotes",
+    "PaintDone", "PaintPhotos",
+    "FinalTestDone", "FinalTestPhotos",
+    "AssignedTo", "StartDate", "CompletedDate",
+    "ApprovedBy", "ApprovedDate", "Notes",
 ]
 
 _lock = Lock()
@@ -55,23 +57,19 @@ def _get_sheet():
         return _sheet
 
 
-def _ensure_headers():
+def _read_headers():
+    """Return the actual header row from the sheet. If empty, seed it."""
     sheet = _get_sheet()
     headers = sheet.row_values(1)
     if not headers:
         sheet.update("A1", [EXPECTED_COLUMNS])
         return list(EXPECTED_COLUMNS)
-    missing = [c for c in EXPECTED_COLUMNS if c not in headers]
-    if missing:
-        new_headers = headers + missing
-        sheet.update("A1", [new_headers])
-        return new_headers
     return headers
 
 
 def get_all_tickets():
     sheet = _get_sheet()
-    headers = _ensure_headers()
+    headers = _read_headers()
     rows = sheet.get_all_values()
     out = []
     if len(rows) < 2:
@@ -79,43 +77,68 @@ def get_all_tickets():
     for row in rows[1:]:
         padded = row + [""] * (len(headers) - len(row))
         d = dict(zip(headers, padded))
-        if d.get("ticket_id"):
+        if d.get("ItemID"):
             out.append(d)
     return out
 
 
-def get_ticket(ticket_id):
+def get_ticket(item_id):
     for t in get_all_tickets():
-        if t.get("ticket_id") == ticket_id:
+        if t.get("ItemID") == item_id:
             return t
     return None
 
 
-def create_ticket(fields):
+def _next_item_id():
+    """Return the next sequential ItemID for today, e.g. MR-20260509-001."""
     sheet = _get_sheet()
-    headers = _ensure_headers()
-    ticket_id = "MR-" + str(int(time.time()))
-    fields["ticket_id"] = ticket_id
-    fields.setdefault("date_received", datetime.now().strftime("%Y-%m-%d"))
-    fields.setdefault("stage", "RECEIVED")
-    fields.setdefault("status", "RECEIVED")
+    today = datetime.now().strftime("%Y%m%d")
+    prefix = "MR-" + today + "-"
+    rows = sheet.get_all_values()
+    max_n = 0
+    if len(rows) > 1:
+        for row in rows[1:]:
+            if row and row[0].startswith(prefix):
+                tail = row[0][len(prefix):]
+                try:
+                    n = int(tail)
+                    if n > max_n:
+                        max_n = n
+                except ValueError:
+                    pass
+    return prefix + ("%03d" % (max_n + 1))
+
+
+def create_ticket(fields):
+    """Append a new row keyed by exact sheet column names.
+
+    Auto-fills ItemID, Stage, StartDate if not provided.
+    Returns the ItemID.
+    """
+    sheet = _get_sheet()
+    headers = _read_headers()
+    if not fields.get("ItemID"):
+        fields["ItemID"] = _next_item_id()
+    fields.setdefault("Stage", "RECEIVED")
+    fields.setdefault("StartDate", datetime.now().strftime("%Y-%m-%d"))
     row = [str(fields.get(h, "")) for h in headers]
     sheet.append_row(row, value_input_option="USER_ENTERED")
-    return ticket_id
+    return fields["ItemID"]
 
 
-def update_ticket(ticket_id, updates):
+def update_ticket(item_id, updates):
+    """Update fields on the row with the given ItemID. Returns True if found."""
     sheet = _get_sheet()
-    headers = _ensure_headers()
+    headers = _read_headers()
     rows = sheet.get_all_values()
     for i, row in enumerate(rows[1:], start=2):
         padded = row + [""] * (len(headers) - len(row))
         d = dict(zip(headers, padded))
-        if d.get("ticket_id") == ticket_id:
+        if d.get("ItemID") == item_id:
             new_row = list(padded)
             for k, v in updates.items():
                 if k in headers:
                     new_row[headers.index(k)] = str(v)
-            sheet.update(f"A{i}", [new_row], value_input_option="USER_ENTERED")
+            sheet.update("A" + str(i), [new_row], value_input_option="USER_ENTERED")
             return True
     return False
