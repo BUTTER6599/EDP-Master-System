@@ -17,7 +17,7 @@ export const agents = {
   // ─── BRIAN — The whole receptionist ──────────────────────────────────────
   brian: {
     name: 'Brian',
-    voice: 'en-US-Studio-Q', // Google — Studio-tier natural male
+    voice: 'en-US-Neural2-A', // Google — warmer male (Studio-Q not supported by ConversationRelay)
     ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hey, this is Brian at The Electronics Depot. How can I help you today?`,
