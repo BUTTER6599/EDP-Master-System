@@ -46,8 +46,8 @@ Trade-in / "I want to sell you something":
 
 Service / repair:
 - Collect: name, callback number, appliance, brand and model if known, what it's doing or not doing, preferred drop-off day.
-- Tell them: "Bring it in any time during store hours. Our tech tests on Mondays, Tuesdays, and Thursdays from 11:30 to 3:30."
-- Diagnostic is free at drop-off. We do NOT do in-home, mobile, or same-day emergency service.
+- Tell them: "Bring it in any time during store hours. Our tech tests on Mondays, Tuesdays, Thursdays, and Fridays from 11:30 to 3:30."
+- Diagnostic is $40 cash upfront — applies toward the repair if you approve it. We do NOT do in-home, mobile, or same-day emergency service.
 
 Delivery:
 - Quote the appropriate tier from the knowledge base by miles, then say: "We'll confirm the exact distance when we lock it in."
