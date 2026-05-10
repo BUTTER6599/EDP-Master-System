@@ -106,15 +106,28 @@ wss.on('connection', (ws, req) => {
 
         if (!rawText) return;
 
+        const intakeMatch = rawText.match(/\[INTAKE:(SALES|REPAIR|SELL|GENERAL)\]/);
+        const intakeType = intakeMatch ? intakeMatch[1] : null;
         const shouldHangup = rawText.includes('[HANGUP]');
-        const text = shouldHangup ? rawText.replace(/\[HANGUP\]/g, '').trim() : rawText;
+
+        const text = rawText
+          .replace(/\[INTAKE:(?:SALES|REPAIR|SELL|GENERAL)\]/g, '')
+          .replace(/\[HANGUP\]/g, '')
+          .trim();
 
         if (!text) return;
 
-        console.log(`[${agent.name}] reply: ${text}${shouldHangup ? ' [HANGUP]' : ''}`);
+        const tokens = [intakeType && `[INTAKE:${intakeType}]`, shouldHangup && '[HANGUP]']
+          .filter(Boolean)
+          .join(' ');
+        console.log(`[${agent.name}] reply: ${text}${tokens ? ' ' + tokens : ''}`);
         history.push({ role: 'assistant', content: text });
 
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
+
+        if (intakeType) {
+          summarizeAndPushIntake(intakeType, history.slice(), from);
+        }
 
         if (shouldHangup) {
           console.log('[hangup] ending call');
@@ -173,6 +186,31 @@ wss.on('connection', (ws, req) => {
     sendPush(summary ? `${header}\nSummary: ${summary}` : header);
   });
 });
+
+async function summarizeAndPushIntake(type, history, from) {
+  let summary = null;
+  try {
+    const transcript = history
+      .map((m) => `${m.role === 'user' ? 'Caller' : 'Brian'}: ${m.content}`)
+      .join('\n');
+    const reply = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 120,
+      system: 'Summarize this customer intake call in ONE sentence: who, what they want, key details collected. Be concise.',
+      messages: [{ role: 'user', content: transcript }],
+    });
+    summary = reply.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join(' ')
+      .trim() || null;
+  } catch (err) {
+    console.error('[intake summary error]', err.message);
+  }
+
+  const header = `📋 INTAKE COMPLETE — ${type}\nCaller: ${from || 'unknown'}`;
+  sendPush(summary ? `${header}\nSummary: ${summary}` : header);
+}
 
 function escapeXml(s) {
   return String(s)
