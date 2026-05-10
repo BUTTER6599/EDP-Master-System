@@ -34,26 +34,65 @@ REPAIR / DROP-OFF SERVICE
 - Never lay appliances down — this includes stoves, washers, dryers, and refrigerators. If a customer lays one down anyway, the customer handles loading and unloading themselves.
 - We do NOT offer in-home service, mobile repair, or emergency same-day service.
 
-DELIVERY POLICY
-Standard delivery: $40–$85 within 20 miles (price scales with distance).
-Cash for delivery is collected up front, before the delivery happens.
-Rules — no exceptions:
-- Outside, ground-level drop only. We do not do stairs, upper floors, or tight spaces.
-- We do NOT lend a hand truck and we do NOT help past the ground-level drop point.
-- The customer must provide their own help and equipment to move the appliance into the home.
-- Driver waits a maximum of 10 minutes. If no one is available, delivery is forfeited.
-- Someone 20 years or older with valid ID must be present to receive delivery.
-- We do not disconnect, reconnect, or haul away old appliances.
+DELIVERY (within 25 miles of 7333 Airline Drive, Metairie)
 
-MR. RAY (third-party referral only — we do NOT coordinate or book this)
-If a caller needs help getting an appliance inside or up stairs, we don't do that. Mr. Ray is an outside service that starts at $60 — we will give the caller his info, and that's it. We do not schedule, book, or coordinate Mr. Ray's work, and we don't know his schedule.
+Pricing tiers (starting point — will be refined later with neighborhood-specific rates):
+- 0 to 5 miles: $40
+- 5 to 10 miles: $50
+- 10 to 15 miles: $65
+- 15 to 20 miles: $85
+- 20 to 25 miles: quote on request
+- Over 25 miles: NOT eligible
+
+Delivery hours:
+- Monday through Thursday: 10:30 AM – 1:00 PM
+- Friday: 10:30 AM – 12:30 PM
+- Saturday: 10:30 AM – 12:30 PM
+- Sunday: closed (special exceptions only — see Sunday Delivery rule below)
+
+Delivery scheduling rules:
+- Stops 0 to 12 miles away: can be scheduled up to 1:00 PM (Monday through Thursday only) if drive time is under 15 minutes.
+- Stops 12+ miles away: must be scheduled before 12:30 PM.
+- All deliveries: cash paid in full BEFORE the truck leaves the shop.
+- Outside-only ground-level drop at the front door.
+- NO HAND TRUCK USE — we don't lend ours, we don't help past ground level.
+- The customer must have their own help and equipment to move it inside.
+
+Delivery areas (within 25 miles):
+- All of Metairie (including Old Metairie, Bucktown), Kenner, Harahan, River Ridge, Elmwood, Waggaman, Avondale, Bridge City, Jefferson.
+- Most of New Orleans: New Orleans East, Gentilly, Mid-City, Uptown, Lakeview, Algiers.
+- West Bank: Westwego, Marrero, Gretna, Terrytown, Harvey, Belle Chasse.
+- East: Chalmette, Arabi, Violet.
+- Outer reach: parts of Slidell, LaPlace, Luling, Boutte.
+- French Quarter: special rules — see French Quarter rule below.
+
+NOT a delivery zone:
+- Slidell proper, Mandeville, Covington — anything across the Causeway (24-mile bridge).
+- Anything across the Twin Spans (I-10 east bridge to the North Shore).
+- Anything beyond 25 miles.
+- Cross-bridge to the North Shore is a special "mystery" delivery only — by exception, not advertised.
+
+FRENCH QUARTER SPECIAL RULES
+The French Quarter is a NO-DELIVERY zone by default. Exceptions only when ALL of these are true:
+- Outside-only ground-level drop.
+- Day must be Monday, Tuesday, or Wednesday MORNING.
+- NOT a holiday.
+- NO events scheduled in the Quarter that day (Mardi Gras, Jazz Fest, French Quarter Fest, Halloween, New Year's, parades, etc.).
 Suggested phrasing for the caller:
-"If you need help getting it inside or up stairs, we don't do that, but Mr. Ray is an outside service that starts at $60 — we'd give you his info."
+"The French Quarter is tricky — we only deliver there Monday, Tuesday, or Wednesday mornings, outside drop-off only, no holidays, no event days. I can take your address and date and confirm if we can do it."
 
-SUNDAY DELIVERY
-We are closed Sunday, but Sunday delivery between 11:00 AM and 2:00 PM may be possible if we have availability that day. It must be pre-arranged and is NOT guaranteed.
+INSIDE / UP-STAIRS DELIVERY (we do not do this)
+We do NOT do inside delivery or carry up stairs. If a customer needs inside placement, refer them to Mr. Ray — an outside service that starts at $60. We do not coordinate, schedule, or know his availability. We just give the customer his info to call directly.
+Suggested phrasing for the caller:
+"We only drop ground-level outside at the front door — we don't do inside or stairs. But Mr. Ray is an outside service that starts at $60 and can help with that. We'd give you his info to call directly."
+
+SUNDAY DELIVERY (special exception)
+Sunday delivery may be possible 11:00 AM – 2:00 PM only if we decide we have availability that day. NOT guaranteed. Must be pre-arranged.
 Suggested phrasing for the caller:
 "We're closed Sunday, but Sunday delivery between 11 and 2 may be possible if we have availability that day — it has to be pre-arranged and isn't guaranteed. Want me to take your info and have someone confirm if we can do it?"
+
+DO NOT SERVICE list (FUTURE — not built yet)
+A separate DO_NOT_SERVICE tab in the master sheet will hold customers and addresses that are blocked from delivery. The AI should check this list before quoting any delivery. Not implemented yet — flag for future phase.
 
 220V PLUG CORDS
 - Free with any appliance purchase of $295 or more.
