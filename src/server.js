@@ -57,6 +57,7 @@ wss.on('connection', (ws, req) => {
   let history = [];
   let callSid = null;
   let from = null;
+  const callStartTime = Date.now();
 
   console.log(`[ws] connected agent=${agent.name}`);
 
@@ -97,18 +98,28 @@ wss.on('connection', (ws, req) => {
           messages: history,
         });
 
-        const text = reply.content
+        const rawText = reply.content
           .filter((b) => b.type === 'text')
           .map((b) => b.text)
           .join(' ')
           .trim();
 
+        if (!rawText) return;
+
+        const shouldHangup = rawText.includes('[HANGUP]');
+        const text = shouldHangup ? rawText.replace(/\[HANGUP\]/g, '').trim() : rawText;
+
         if (!text) return;
 
-        console.log(`[${agent.name}] reply: ${text}`);
+        console.log(`[${agent.name}] reply: ${text}${shouldHangup ? ' [HANGUP]' : ''}`);
         history.push({ role: 'assistant', content: text });
 
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
+
+        if (shouldHangup) {
+          console.log('[hangup] ending call');
+          ws.send(JSON.stringify({ type: 'end', handoffData: JSON.stringify({ reason: 'completed' }) }));
+        }
       } catch (err) {
         console.error('[claude error]', err);
         ws.send(JSON.stringify({
@@ -130,8 +141,36 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', async () => {
     console.log(`[ws] closed callSid=${callSid} from=${from} finalAgent=${agent.name}`);
+
+    const totalSec = Math.round((Date.now() - callStartTime) / 1000);
+    const durationStr = `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`;
+
+    let summary = null;
+    if (history.length > 0) {
+      try {
+        const transcript = history
+          .map((m) => `${m.role === 'user' ? 'Caller' : 'Brian'}: ${m.content}`)
+          .join('\n');
+        const summaryReply = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 120,
+          system: 'Summarize this phone call in ONE sentence: who was it, what they wanted, any action items. Be concise.',
+          messages: [{ role: 'user', content: transcript }],
+        });
+        summary = summaryReply.content
+          .filter((b) => b.type === 'text')
+          .map((b) => b.text)
+          .join(' ')
+          .trim() || null;
+      } catch (err) {
+        console.error('[summary error]', err.message);
+      }
+    }
+
+    const header = `☎️ Call ended — ${from || 'unknown'}\nDuration: ${durationStr}`;
+    sendPush(summary ? `${header}\nSummary: ${summary}` : header);
   });
 });
 

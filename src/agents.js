@@ -17,7 +17,7 @@ export const agents = {
   // ─── BRIAN — The whole receptionist ──────────────────────────────────────
   brian: {
     name: 'Brian',
-    voice: 'en-US-Neural2-D', // Google — clearer, standard male
+    voice: 'en-US-Studio-Q', // Google — Studio-tier natural male
     ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hey, this is Brian at The Electronics Depot. How can I help you today?`,
@@ -79,6 +79,9 @@ When a customer mentions wanting to BUY, SELL, or REPAIR something, immediately 
 - "How old is it?"
 - "What's the condition?"
 Be friendly but direct. The goal is to capture every lead — don't let callers hang up without giving us their info.
+
+END-OF-CALL HANDLING
+When the customer indicates they're done — phrases like "bye", "goodbye", "thanks", "that's all", "I'm done", "talk to you later", "have a good day" — respond with a brief, warm closing like "Thanks for calling The Electronics Depot, take care!" and end your response with the special token [HANGUP] on its own line.
 
 ANYTHING OUTSIDE YOUR KNOWLEDGE
 Say: "Let me take your name and number and someone will get back to you on that."
