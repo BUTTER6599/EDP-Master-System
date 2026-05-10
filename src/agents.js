@@ -75,5 +75,6 @@ ${knowledgeBase}`,
 
 export function getAgent(key) {
   const k = (key || '').toLowerCase();
-  return agents[k] || agents[process.env.DEFAULT_AGENT || 'brian'];
+  const envDefault = (process.env.DEFAULT_AGENT || '').toLowerCase();
+  return agents[k] || agents[envDefault] || agents.brian;
 }

@@ -28,7 +28,7 @@ app.get('/', (_req, res) => res.send('EDP AI Receptionist running'));
 
 app.post('/twilio/voice', (req, res) => {
   const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'brian';
-  const agent = getAgent(agentKey);
+  const agent = getAgent(agentKey) || agents.brian;
   const wsUrl = `wss://${PUBLIC_HOST}/voice?agent=${encodeURIComponent(agentKey)}`;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -53,7 +53,7 @@ wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const initialAgentKey = url.searchParams.get('agent') || process.env.DEFAULT_AGENT || 'brian';
 
-  let agent = getAgent(initialAgentKey);
+  let agent = getAgent(initialAgentKey) || agents.brian;
   let history = [];
   let callSid = null;
   let from = null;
