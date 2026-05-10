@@ -4,6 +4,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import Anthropic from '@anthropic-ai/sdk';
 import { getAgent, agents } from './agents.js';
+import { sendPush } from './pushover.js';
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_HOST = process.env.PUBLIC_HOST;
@@ -89,6 +90,13 @@ wss.on('connection', (ws, req) => {
       callSid = msg.callSid;
       from = msg.from;
       console.log(`[setup] callSid=${callSid} from=${from}`);
+      const time = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date());
+      sendPush(`📞 Incoming call from ${from}\nAgent: ${agent.name}\nTime: ${time} CT`);
       return;
     }
 
@@ -127,6 +135,7 @@ wss.on('connection', (ws, req) => {
           history = []; // fresh context for the new specialist
           transferred = true;
           console.log(`[transfer] ${prev} → ${agent.name}`);
+          sendPush(`🔁 Transfer: ${prev} → ${agent.name}\nCaller: ${from}`);
         }
 
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
