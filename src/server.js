@@ -27,7 +27,7 @@ app.use(express.json());
 app.get('/', (_req, res) => res.send('EDP AI Receptionist running'));
 
 app.post('/twilio/voice', (req, res) => {
-  const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'lo';
+  const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'brian';
   const agent = getAgent(agentKey);
   const wsUrl = `wss://${PUBLIC_HOST}/voice?agent=${encodeURIComponent(agentKey)}`;
 
@@ -49,27 +49,9 @@ app.post('/twilio/voice', (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/voice' });
 
-// Keywords Lo uses to signal a transfer — Lo includes one of these phrases
-// and we swap the active agent silently without the caller knowing.
-const TRANSFER_MAP = {
-  latoya: 'latoya', 'sales specialist': 'latoya', 'sales': 'latoya', 'sell to you': 'latoya', 'trade in': 'latoya',
-  sofia: 'sofia', 'service intake': 'sofia', 'repair intake': 'sofia', 'service specialist': 'sofia', 'warranty specialist': 'sofia',
-  elena: 'elena', 'schedule specialist': 'elena', 'appointment': 'elena',
-  marcus: 'marcus', 'delivery specialist': 'marcus', 'pickup specialist': 'marcus',
-  'office intake': 'office', 'office': 'office',
-};
-
-function detectTransfer(text) {
-  const lower = text.toLowerCase();
-  for (const [phrase, agentKey] of Object.entries(TRANSFER_MAP)) {
-    if (lower.includes(phrase)) return agentKey;
-  }
-  return null;
-}
-
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const initialAgentKey = url.searchParams.get('agent') || process.env.DEFAULT_AGENT || 'lo';
+  const initialAgentKey = url.searchParams.get('agent') || process.env.DEFAULT_AGENT || 'brian';
 
   let agent = getAgent(initialAgentKey);
   let history = [];
@@ -126,27 +108,7 @@ wss.on('connection', (ws, req) => {
         console.log(`[${agent.name}] reply: ${text}`);
         history.push({ role: 'assistant', content: text });
 
-        // Check if Lo (or any agent) is signaling a transfer
-        const transferTo = detectTransfer(text);
-        let transferred = false;
-        if (transferTo && agents[transferTo] && agents[transferTo] !== agent) {
-          const prev = agent.name;
-          agent = agents[transferTo];
-          history = []; // fresh context for the new specialist
-          transferred = true;
-          console.log(`[transfer] ${prev} → ${agent.name}`);
-          sendPush(`🔁 Transfer: ${prev} → ${agent.name}\nCaller: ${from}`);
-        }
-
         ws.send(JSON.stringify({ type: 'text', token: text, last: true }));
-
-        // Right after transfer, immediately have the new agent introduce
-        // themselves so the caller doesn't hear silence and hang up.
-        if (transferred) {
-          history.push({ role: 'assistant', content: agent.greeting });
-          console.log(`[${agent.name}] greeting: ${agent.greeting}`);
-          ws.send(JSON.stringify({ type: 'text', token: agent.greeting, last: true }));
-        }
       } catch (err) {
         console.error('[claude error]', err);
         ws.send(JSON.stringify({
