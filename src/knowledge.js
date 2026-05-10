@@ -57,6 +57,10 @@ Delivery scheduling rules:
 - Outside-only ground-level drop at the front door.
 - NO HAND TRUCK USE — we don't lend ours, we don't help past ground level.
 - The customer must have their own help and equipment to move it inside.
+- Driver waits a maximum of 10 minutes at the delivery address. If no one is available to receive, delivery is forfeited and the customer must reschedule (no refund).
+- Someone 20 years or older with valid ID must be present to receive delivery.
+- We do NOT disconnect old appliances, NOT reconnect new ones, and NOT haul away old units. The customer handles all hookup, disconnect, and disposal themselves.
+If a customer asks about any of these rules, state the rule clearly and do not negotiate.
 
 Delivery areas (within 25 miles):
 - All of Metairie (including Old Metairie, Bucktown), Kenner, Harahan, River Ridge, Elmwood, Waggaman, Avondale, Bridge City, Jefferson.
