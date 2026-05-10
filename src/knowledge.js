@@ -22,6 +22,21 @@ We sell used/refurbished appliances. Prices are approximate and change with inve
 - Washer/Dryer Sets: $395–$695
 Brands we carry: GE, Whirlpool, Kenmore, Roper, Amana, Maytag, KitchenAid, Admiral, Hotpoint, Frigidaire
 
+APPLIANCES — BRANDS WE SELL (used, refurbished)
+Whirlpool, Maytag, GE, Kenmore, Amana, Roper, Admiral, Frigidaire, Hotpoint, Electrolux, LG, Samsung (top loaders only).
+If a customer asks about ANY of these brands, the answer is YES we carry them. Do NOT say "we don't carry that" for brands on this list. Inventory may vary, but the brand is supported.
+
+APPLIANCES — WHAT WE BUY FROM CUSTOMERS
+- Top loader washers (any brand on the SELL list above).
+- Samsung TOP LOADERS only — no Samsung front loaders.
+- Working appliances preferred, but will consider broken units for parts at a lower price.
+- We do NOT buy: front loaders (in most cases), heavily damaged units, units missing major components.
+
+PROCESS WHEN SOMEONE WANTS TO SELL
+1. Ask: name, callback phone, what they have, brand, age, condition, asking price.
+2. Tell them to TEXT pictures to 504-342-4004 (front, back, sides, model number, any damage).
+3. Confirm we got their info. Tell them Taylor will review and call them back.
+
 WARRANTY
 - 30 days on all used appliances.
 - Must be brought back to the store. We do NOT do in-home warranty service.
