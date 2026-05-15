@@ -46,6 +46,60 @@ app.post('/twilio/voice', (req, res) => {
   res.type('text/xml').send(twiml);
 });
 
+const VOICE_PICKER_MAP = {
+  '1': { voice: 'Google.en-US-Wavenet-A', name: 'Wavenet A' },
+  '2': { voice: 'Google.en-US-Wavenet-B', name: 'Wavenet B' },
+  '3': { voice: 'Google.en-US-Wavenet-D', name: 'Wavenet D' },
+  '4': { voice: 'Google.en-US-Wavenet-I', name: 'Wavenet I' },
+  '5': { voice: 'Google.en-US-Wavenet-J', name: 'Wavenet J' },
+  '6': { voice: 'Google.en-US-Neural2-D', name: 'Neural Two D' },
+  '7': { voice: 'Google.en-US-Neural2-H', name: 'Neural Two H' },
+  '8': { voice: 'Google.en-US-Neural2-F', name: 'Neural Two F' },
+  '9': { voice: 'Google.en-US-Wavenet-F', name: 'Wavenet F' },
+  '0': { voice: 'Google.en-US-Wavenet-C', name: 'Wavenet C' },
+};
+
+const VOICE_PICKER_SAMPLE = "Thanks for calling The Electronics Depot. This is your AI receptionist. We have top-load washers from Whirlpool, Maytag, GE, and Kenmore in stock right now. Prices run two sixty-five to three ninety-five. What can I help you find?";
+
+function voicePickerMenuTwiml() {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather numDigits="1" action="/twilio/voice-picker-play" method="POST" timeout="10">
+    <Say voice="Google.en-US-Neural2-D">Welcome to the Electronics Depot voice picker. Press 1 to hear voice A. Press 2 for voice B. Press 3 for voice D. Press 4 for voice I. Press 5 for voice J. Press 6 for Neural Two D. Press 7 for Neural Two H. Press 8 for Neural Two F. Press 9 for Wavenet F. Press 0 for Wavenet C. Press a digit now.</Say>
+  </Gather>
+  <Redirect>/twilio/voice-picker</Redirect>
+</Response>`;
+}
+
+app.all('/twilio/voice-picker', (_req, res) => {
+  res.type('text/xml').send(voicePickerMenuTwiml());
+});
+
+app.post('/twilio/voice-picker-play', (req, res) => {
+  const digit = (req.body && req.body.Digits) ? String(req.body.Digits).trim() : '';
+  const choice = VOICE_PICKER_MAP[digit];
+
+  if (!choice) {
+    res.type('text/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Redirect>/twilio/voice-picker</Redirect>
+</Response>`);
+    return;
+  }
+
+  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="${choice.voice}">${escapeXml(VOICE_PICKER_SAMPLE)}</Say>
+  <Say voice="Google.en-US-Neural2-D">That was voice ${escapeXml(choice.name)}. Press another digit to hear a different voice, or hang up to end.</Say>
+  <Gather numDigits="1" action="/twilio/voice-picker-play" method="POST" timeout="10">
+    <Say voice="Google.en-US-Neural2-D">Press a digit.</Say>
+  </Gather>
+  <Redirect>/twilio/voice-picker</Redirect>
+</Response>`;
+
+  res.type('text/xml').send(twiml);
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/voice' });
 
