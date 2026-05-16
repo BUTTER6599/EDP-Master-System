@@ -47,16 +47,16 @@ app.post('/twilio/voice', (req, res) => {
 });
 
 const VOICE_PICKER_MAP = {
-  '1': { voice: 'Google.en-US-Wavenet-D', name: "Wavenet D, Brian's current voice" },
-  '2': { voice: 'Google.en-US-Wavenet-J', name: 'Wavenet J, deeper male alt' },
-  '3': { voice: 'Google.en-US-Neural2-D', name: 'Neural Two D, standard male alt' },
-  '4': { voice: 'Google.en-US-Wavenet-C', name: 'Wavenet C, friendly female for future' },
-  '5': { voice: 'Google.en-US-Neural2-E', name: 'Neural Two E, female alt' },
-  '6': { voice: 'Google.en-US-Neural2-G', name: 'Neural Two G, younger female' },
-  '7': { voice: 'Google.en-US-Wavenet-E', name: 'Wavenet E, bright female' },
-  '8': { voice: 'Google.en-US-Wavenet-G', name: 'Wavenet G, youthful female' },
-  '9': { voice: 'Google.en-US-Wavenet-H', name: 'Wavenet H, warm female' },
-  '0': { voice: 'Google.en-US-Polyglot-1', name: 'Polyglot One, mature multi-lingual male' },
+  '1': { voice: 'Google.en-US-Wavenet-J', name: "Wavenet J, Brian's current voice" },
+  '2': { voice: 'Google.en-US-Polyglot-1', name: 'Polyglot One, mature US male' },
+  '3': { voice: 'Google.en-GB-Wavenet-B', name: 'British Wavenet B, male' },
+  '4': { voice: 'Google.en-GB-Wavenet-D', name: 'British Wavenet D, male alt' },
+  '5': { voice: 'Google.en-AU-Wavenet-B', name: 'Australian Wavenet B, male' },
+  '6': { voice: 'Google.en-AU-Wavenet-D', name: 'Australian Wavenet D, male alt' },
+  '7': { voice: 'Google.en-IN-Wavenet-B', name: 'Indian English Wavenet B, male' },
+  '8': { voice: 'Google.en-IN-Wavenet-C', name: 'Indian English Wavenet C, male alt' },
+  '9': { voice: 'Google.en-US-Wavenet-I', name: 'Wavenet I, US male alt' },
+  '0': { voice: 'Google.en-GB-Neural2-B', name: 'British Neural Two B, male' },
 };
 
 const VOICE_PICKER_SAMPLE = "Thanks for calling The Electronics Depot. This is your AI receptionist. We have top-load washers from Whirlpool, Maytag, GE, and Kenmore in stock right now. Prices run two sixty-five to three ninety-five. What can I help you find?";
@@ -65,7 +65,7 @@ function voicePickerMenuTwiml() {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather numDigits="1" action="/twilio/voice-picker-play" method="POST" timeout="10">
-    <Say voice="Google.en-US-Neural2-D">Welcome to the Electronics Depot voice picker. Press 1 for Wavenet D, Brian's current voice. Press 2 for Wavenet J, deeper male. Press 3 for Neural Two D, standard male. Press 4 for Wavenet C, friendly female. Press 5 for Neural Two E, female alt. Press 6 for Neural Two G, younger female. Press 7 for Wavenet E, bright female. Press 8 for Wavenet G, youthful female. Press 9 for Wavenet H, warm female. Press 0 for Polyglot One, mature male. Press a digit now.</Say>
+    <Say voice="Google.en-US-Neural2-D">Welcome to the Electronics Depot voice picker. Press 1 for Wavenet J, Brian's current voice. Press 2 for Polyglot One, mature US male. Press 3 for British Wavenet B. Press 4 for British Wavenet D. Press 5 for Australian Wavenet B. Press 6 for Australian Wavenet D. Press 7 for Indian English Wavenet B. Press 8 for Indian English Wavenet C. Press 9 for Wavenet I, US male alt. Press 0 for British Neural Two B. Press a digit now.</Say>
   </Gather>
   <Redirect>/twilio/voice-picker</Redirect>
 </Response>`;
