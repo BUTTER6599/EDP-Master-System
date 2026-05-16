@@ -17,7 +17,7 @@ export const agents = {
   // ─── BRIAN — The whole receptionist ──────────────────────────────────────
   brian: {
     name: 'Brian',
-    voice: 'en-US-Wavenet-A', // Google — warm conversational male (untested)
+    voice: 'en-US-Wavenet-D', // Google — Taylor's pick from the voice picker
     ttsProvider: 'Google',
     language: 'en-US',
     greeting: `Hey, this is Brian at The Electronics Depot. How can I help you today?`,
