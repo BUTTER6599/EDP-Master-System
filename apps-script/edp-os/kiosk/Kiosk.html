@@ -639,7 +639,7 @@ function renderTiles(){
       if(lastTapId === emp.id && now - lastTapTime < 400){
         lastTapTime = 0;
         lastTapId = "";
-        openS2PinGate(emp.id);
+        openDetailPin(emp.id);
       } else {
         lastTapTime = now;
         lastTapId = emp.id;
@@ -651,7 +651,7 @@ function renderTiles(){
       if(lastTapId === emp.id && now - lastTapTime < 400){
         lastTapTime = 0;
         lastTapId = "";
-        openS2PinGate(emp.id);
+        openDetailPin(emp.id);
       } else {
         lastTapTime = now;
         lastTapId = emp.id;
@@ -680,7 +680,7 @@ function handleTileTap(empId){
   var last = lastTapMs[empId] || 0;
   if(last > 0 && (now - last) < DT_MS){
     lastTapMs[empId] = 0;
-    openS2PinGate(empId);
+    openDetailPin(empId);
     return;
   }
   lastTapMs[empId] = now;
@@ -918,7 +918,7 @@ function submitPunch(empId,action,pin,photoB64,registerB64){
 }
 
 /* SCREEN 2 — pay details (opens after double-tap + PIN + face photo) */
-function openS2PinGate(empId){
+function openDetailPin(empId){
   selEmpId = empId;
   pendingAction = "VIEW_DETAILS";
   var emp = findEmp(empId); if(!emp) return;
