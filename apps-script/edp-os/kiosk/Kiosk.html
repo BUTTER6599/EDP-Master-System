@@ -15,12 +15,9 @@
       -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
       touch-action: manipulation;
     }
-
-
     .app { display:flex; flex-direction:column; padding:10px; gap:10px; padding-bottom:30px; }
 
     .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; background:linear-gradient(135deg,#0B1930,#152444); border-radius:18px; padding:12px 18px; border:1px solid rgba(255,255,255,0.07); box-shadow:0 8px 24px rgba(0,0,0,0.4); }
-
     .clock-block { display:flex; flex-direction:column; }
     .clock-time  { font-size:clamp(22px,4vw,38px); font-weight:900; line-height:1; }
     .clock-date  { font-size:clamp(10px,1.5vw,13px); color:#6880A0; margin-top:3px; }
@@ -37,7 +34,6 @@
     .cd-val   { font-size:clamp(22px,4vw,42px); font-weight:1000; color:#FFD740; letter-spacing:-1px; }
 
     .action-panel { background:linear-gradient(135deg,#0B1930,#152444); border-radius:18px; padding:14px 16px; border:1px solid rgba(255,255,255,0.07); box-shadow:0 8px 24px rgba(0,0,0,0.3); }
-
     .ap-title { font-size:clamp(12px,2vw,17px); font-weight:900; color:#6880A0; text-align:center; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; }
     .ap-btns { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
     .ap-btn { border-radius:16px; padding:20px 8px; font-size:clamp(14px,2.5vw,20px); font-weight:900; border:none; cursor:pointer; color:#fff; box-shadow:0 4px 14px rgba(0,0,0,0.35); line-height:1.25; }
@@ -49,18 +45,42 @@
 
     .tiles-wrap { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
     @media (min-width:640px) { .tiles-wrap { grid-template-columns:repeat(4,1fr); } }
-    .emp-tile { border-radius:20px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; border:2px solid transparent; box-shadow:0 6px 20px rgba(0,0,0,0.4); transition:transform .12s,border-color .12s; min-height:120px; justify-content:center; -webkit-tap-highlight-color:transparent; }
-
-    .emp-tile.selected  { border-color:#FFF; box-shadow:0 0 0 3px rgba(255,255,255,0.25),0 6px 20px rgba(0,0,0,0.4); transform:scale(1.04); }
-    .emp-tile.working   { animation:workingGlow 2s ease-in-out infinite; }
-    @keyframes workingGlow { 0%,100%{box-shadow:0 6px 20px rgba(0,0,0,0.4);opacity:1;} 50%{box-shadow:0 0 28px rgba(0,230,118,0.55),0 6px 20px rgba(0,0,0,0.4);opacity:.88;} }
+    .emp-tile { border-radius:20px; padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; border:2px solid transparent; box-shadow:0 6px 20px rgba(0,0,0,0.4); transition:transform .12s,border-color .12s; min-height:240px; justify-content:flex-start; -webkit-tap-highlight-color:transparent; }
+    .emp-tile.selected { border-color:#FFF; box-shadow:0 0 0 3px rgba(255,255,255,0.25),0 6px 20px rgba(0,0,0,0.4); transform:scale(1.04); }
+    .emp-tile.working  {
+      border:3px solid rgba(255,255,255,0.9);
+      animation:ringBlink 1s ease-in-out infinite;
+    }
+    @keyframes ringBlink {
+      0%,100%{ border-color:rgba(255,255,255,0.9); box-shadow:0 0 0 3px rgba(255,255,255,0.3),0 6px 20px rgba(0,0,0,0.4); }
+      50%     { border-color:rgba(255,255,255,0.15); box-shadow:0 6px 20px rgba(0,0,0,0.4); }
+    }
+    .emp-tile.working .emp-state {
+      animation:badgeBlink 1s ease-in-out infinite;
+      animation-delay:0.33s;
+      background:rgba(0,200,83,0.5);
+      color:#fff;
+    }
+    @keyframes badgeBlink {
+      0%,100%{ opacity:1; background:rgba(0,200,83,0.55); }
+      50%     { opacity:0.2; background:rgba(0,200,83,0.1); }
+    }
+    .emp-tile.working .emp-avatar {
+      animation:avatarBlink 1s ease-in-out infinite;
+      animation-delay:0.66s;
+    }
+    @keyframes avatarBlink {
+      0%,100%{ opacity:1; box-shadow:0 0 12px rgba(0,230,118,0.8),0 2px 10px rgba(0,0,0,0.4); }
+      50%     { opacity:0.35; box-shadow:0 2px 10px rgba(0,0,0,0.4); }
+    }
     .emp-tile:active { transform:scale(0.97); }
-    .emp-avatar { width:52px; height:52px; border-radius:50%; overflow:hidden; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:900; flex-shrink:0; }
+    .emp-avatar { width:80px; height:80px; border-radius:50%; overflow:hidden; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; flex-shrink:0; margin-top:4px; border:2px solid rgba(255,255,255,0.3); box-shadow:0 2px 10px rgba(0,0,0,0.4); }
     .emp-avatar img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
-    .emp-name  { font-size:clamp(15px,2.8vw,22px); font-weight:1000; text-align:center; }
-    .emp-state { font-size:clamp(9px,1.4vw,12px); font-weight:800; padding:3px 9px; border-radius:20px; background:rgba(0,0,0,0.35); letter-spacing:.5px; }
-    .emp-timer { font-size:clamp(12px,2vw,18px); font-weight:900; }
-    .emp-week  { font-size:15px; font-weight:800; color:rgba(255,255,255,.75); margin-top:2px; text-align:center; }
+    .emp-name  { font-size:clamp(20px,4vw,30px); font-weight:1000; text-align:center; color:#FFFFFF; letter-spacing:.5px; text-shadow:0 1px 4px rgba(0,0,0,0.5); }
+    .emp-state { font-size:clamp(11px,1.8vw,15px); font-weight:900; padding:3px 10px; border-radius:20px; background:rgba(0,0,0,0.4); letter-spacing:.5px; color:#FFFFFF; }
+    .emp-timer { font-size:clamp(14px,2.5vw,20px); font-weight:900; text-align:center; color:#FFFFFF; }
+    .emp-week  { font-size:clamp(16px,3vw,24px); font-weight:800; color:#FFFFFF; text-align:center; }
+    .emp-stat  { font-size:clamp(16px,3vw,24px); font-weight:800; text-align:center; width:100%; color:#FFFFFF; }
 
     .overlay { position:fixed; inset:0; z-index:500; display:none; flex-direction:column; background:linear-gradient(180deg,#04101E,#071E33); overflow-y:auto; }
     .overlay.active { display:flex; }
@@ -83,46 +103,38 @@
     .key-ok  { background:linear-gradient(135deg,#00C853,#00963C); border:none; }
     .pin-err { min-height:28px; font-size:clamp(13px,2vw,18px); color:#FF8A80; font-weight:900; text-align:center; }
 
-    /* CAMERA OVERLAY
-       - Opens automatically for front and rear
-       - 5-second countdown auto-fires the photo
-       - TAKE NOW button fires immediately
-       - SKIP button if needed
-       - NO preview screen — goes straight to next step */
+    /* CAMERA OVERLAY — uses <label> wrapping <input type="file"> so the
+       tap is a real user gesture (Android sometimes blocks programmatic
+       .click() inside the GAS iframe). */
     .cam-overlay { padding:0; gap:0; }
+    .cam-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:20px; background:#060E1C; }
+    .cam-title { font-size:clamp(20px,5vw,32px); font-weight:1000; color:#FFD740; text-align:center; line-height:1.2; }
+    .cam-step  { font-size:clamp(13px,2vw,16px); color:rgba(255,255,255,.55); text-align:center; }
+    .cam-flip-hint { background:rgba(0,200,83,.15); border:2px solid #00C853; border-radius:14px; padding:12px 16px; font-size:clamp(14px,2.5vw,18px); color:#00E676; text-align:center; line-height:1.4; width:100%; max-width:420px; }
+    .cam-emoji { font-size:clamp(90px,25vw,150px); text-align:center; animation:emojiBounce 1.1s ease-in-out infinite; }
+    @keyframes emojiBounce { 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
+    .cam-cd-num { font-size:clamp(60px,18vw,100px); font-weight:1000; color:#FFD740; text-align:center; line-height:1; min-height:1.2em; }
+    .cam-bar-wrap { width:100%; max-width:360px; height:12px; background:rgba(255,255,255,.15); border-radius:7px; overflow:hidden; }
+    .cam-bar-fill { height:100%; background:#FFD740; border-radius:7px; width:100%; transition:width 1s linear; }
+    .cam-bar-label { font-size:clamp(14px,2.5vw,18px); color:rgba(255,255,255,.65); text-align:center; }
 
-    /* Full screen video */
-    .cam-video-wrap { position:relative; width:100%; flex:1; background:#000; overflow:hidden; min-height:0; }
-    #camVideo { width:100%; height:100%; object-fit:cover; display:block; }
-    #camVideo.mirrored { transform:scaleX(-1); }
-
-    /* Big countdown number over the video */
-    .cam-cd-big { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-    .cam-cd-num { font-size:clamp(110px,30vw,200px); font-weight:1000; color:#FFD740; text-shadow:0 0 60px rgba(0,0,0,1), 0 4px 24px rgba(0,0,0,1); line-height:1; animation:cdPulse .9s ease-in-out infinite; }
-    @keyframes cdPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.1);opacity:.8;} }
-
-    /* Top info bar */
-    .cam-top { position:absolute; top:0; left:0; right:0; background:linear-gradient(rgba(0,0,0,.75),transparent); padding:18px 16px 32px; z-index:5; }
-    .cam-title { font-size:clamp(18px,4vw,28px); font-weight:1000; color:#FFD740; text-align:center; }
-    .cam-step  { font-size:clamp(13px,2vw,16px); color:rgba(255,255,255,.6); text-align:center; margin-top:4px; }
-
-    /* White flash effect */
-    .cam-flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:10; transition:opacity .08s; }
-    .cam-flash.on { opacity:1; }
-
-    /* Bottom controls */
-    .cam-bottom { flex-shrink:0; background:linear-gradient(transparent,rgba(0,0,0,.9)); padding:0 16px 30px; display:flex; flex-direction:column; align-items:center; gap:12px; }
-    .cam-bar-wrap { width:100%; max-width:360px; height:10px; background:rgba(255,255,255,.2); border-radius:6px; overflow:hidden; }
-    .cam-bar-fill { height:100%; background:#FFD740; border-radius:6px; width:100%; transition:width 1s linear; }
-    .cam-bar-label { font-size:clamp(14px,2.5vw,18px); color:rgba(255,255,255,.7); text-align:center; }
-
-    /* TAKE NOW — big orange pulsing button */
-    .cam-take-btn { width:100%; max-width:420px; padding:24px; border-radius:22px; border:none; cursor:pointer; font-size:clamp(22px,5vw,34px); font-weight:1000; color:#fff; background:linear-gradient(135deg,#FF6F00,#E65100); animation:tapGlow 1s ease-in-out infinite; -webkit-tap-highlight-color:transparent; text-align:center; }
+    .cam-take-label {
+      display:block; width:100%; max-width:420px;
+      padding:26px; border-radius:22px; cursor:pointer;
+      font-size:clamp(22px,5vw,34px); font-weight:1000; color:#fff;
+      text-align:center; line-height:1.2;
+      background:linear-gradient(135deg,#FF6F00,#E65100);
+      animation:tapGlow 1s ease-in-out infinite;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none; -webkit-user-select:none;
+    }
+    .cam-take-label.ready {
+      background:linear-gradient(135deg,#D50000,#B71C1C);
+    }
     @keyframes tapGlow { 0%,100%{box-shadow:0 0 0 0 rgba(255,111,0,.5);} 50%{box-shadow:0 0 0 22px rgba(255,111,0,0);} }
-    .cam-skip-btn { padding:12px 32px; border-radius:14px; border:1px solid rgba(255,255,255,.22); cursor:pointer; font-size:clamp(14px,2.5vw,18px); font-weight:800; color:rgba(255,255,255,.6); background:rgba(255,255,255,.07); }
+    #camFileInput { position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
 
-    /* Canvas hidden — used only for capture */
-    #camCanvas { display:none; }
+    .cam-skip-btn { padding:14px 40px; border-radius:16px; border:1px solid rgba(255,255,255,.22); cursor:pointer; font-size:clamp(15px,2.5vw,20px); font-weight:800; color:rgba(255,255,255,.65); background:rgba(255,255,255,.07); -webkit-tap-highlight-color:transparent; }
 
     /* CHECKLIST */
     .chk-overlay { padding:18px; gap:12px; }
@@ -139,7 +151,7 @@
     .chk-btn   { border-radius:16px; padding:22px 10px; font-size:clamp(18px,2.8vw,26px); font-weight:1000; border:none; cursor:pointer; color:#fff; min-height:64px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
     .chk-done    { background:linear-gradient(135deg,#00C853,#00963C); }
     .chk-problem { background:linear-gradient(135deg,#FF6F00,#BF360C); }
-    .chk-photo   { background:linear-gradient(135deg,#0D47A1,#01579B); }
+    .chk-photo   { display:block; width:100%; padding:18px; border-radius:16px; border:none; cursor:pointer; font-size:clamp(17px,2.8vw,24px); font-weight:1000; color:#fff; background:linear-gradient(135deg,#0D47A1,#01579B); text-align:center; -webkit-tap-highlight-color:transparent; }
 
     .ntf-overlay { padding:30px; gap:20px; align-items:center; justify-content:center; }
     .ntf-icon  { font-size:80px; text-align:center; }
@@ -170,17 +182,42 @@
 
     .flash { position:fixed; inset:0; z-index:9000; display:none; align-items:center; justify-content:center; pointer-events:none; }
     .flash.show { display:flex; }
-    .flash-inner { font-size:clamp(22px,5vw,52px); font-weight:1000; padding:22px 36px; border-radius:24px; text-align:center; background:rgba(0,0,0,.8); box-shadow:0 12px 40px rgba(0,0,0,.6); white-space:pre-line; }
+    .flash-inner { font-size:clamp(22px,5vw,52px); font-weight:1000; padding:22px 36px; border-radius:24px; text-align:center; background:rgba(0,0,0,.85); box-shadow:0 12px 40px rgba(0,0,0,.6); white-space:pre-line; }
+
+    /* SCREEN 2 — pay details (PIN-gated, opens on double-tap) */
+    .s2-overlay { padding:0; }
+    .s2-content {
+      flex:1; display:flex; flex-direction:column; gap:16px;
+      padding:24px 20px 60px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    }
+    .s2-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .s2-name { font-size:clamp(34px,7vw,52px); font-weight:1000; line-height:1; color:#FFFFFF; text-shadow:0 2px 6px rgba(0,0,0,.6); }
+    .s2-close-btn { border-radius:14px; padding:14px 24px; font-size:clamp(15px,2.2vw,20px); font-weight:1000; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.3); color:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .s2-section { background:rgba(0,0,0,.4); border-radius:18px; padding:16px 20px; border:1px solid rgba(255,255,255,.12); }
+    .s2-label { font-size:clamp(12px,1.8vw,16px); font-weight:900; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; }
+    .s2-line { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+    .s2-hrs { font-size:clamp(22px,4vw,32px); font-weight:900; color:#FFFFFF; }
+    .s2-pay { font-size:clamp(24px,4.5vw,38px); font-weight:1000; }
+    .s2-pay.green { color:#00E676; }
+    .s2-pay.blue  { color:#40C4FF; }
+    .s2-section.paycheck { background:rgba(0,0,0,.6); border:2px solid rgba(255,255,255,.22); }
+    .s2-pay-big { font-size:clamp(56px,12vw,96px); font-weight:1000; color:#FFFFFF; line-height:1; text-shadow:0 4px 14px rgba(0,0,0,.7); }
+    .s2-pay-blue-big { font-size:clamp(34px,6vw,52px); font-weight:1000; color:#40C4FF; }
+    .s2-note { font-size:clamp(12px,1.8vw,15px); color:rgba(255,255,255,.6); margin-top:8px; font-style:italic; }
+
+    /* PROCESSING — covers everything while server is working */
+    .proc-overlay { z-index:999; align-items:center; justify-content:center; padding:30px; gap:18px; }
+    .proc-icon { font-size:clamp(80px,18vw,140px); animation:procSpin 1.4s linear infinite; }
+    @keyframes procSpin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+    .proc-msg { font-size:clamp(28px,6vw,52px); font-weight:1000; color:#FFFFFF; text-align:center; line-height:1.25; text-shadow:0 3px 12px rgba(0,0,0,.6); }
+    .proc-sub { font-size:clamp(18px,3vw,26px); font-weight:800; color:rgba(255,255,255,.85); text-align:center; }
   </style>
 </head>
 <body>
 
-
 <div class="flash" id="flash"><div class="flash-inner" id="flashText"></div></div>
 
 <div class="app">
-
-
   <div class="header">
     <div class="clock-block">
       <div class="clock-time"  id="clockTime">--:--</div>
@@ -233,22 +270,24 @@
   <div class="pin-err" id="pinErr"></div>
 </div>
 
-<!-- CAMERA OVERLAY — full screen, no preview, straight to next step -->
+<!-- CAMERA OVERLAY -->
 <div class="overlay cam-overlay" id="camOverlay">
-  <div class="cam-video-wrap">
-    <video id="camVideo" autoplay playsinline muted></video>
-    <canvas id="camCanvas"></canvas>
-    <div class="cam-top">
-      <div class="cam-title" id="camTitle">Take Photo</div>
-      <div class="cam-step"  id="camStep"></div>
+  <div class="cam-body">
+    <div class="cam-title"    id="camTitle">Take Photo</div>
+    <div class="cam-step"     id="camStep"></div>
+    <div class="cam-flip-hint" id="camFlipHint" style="display:none">
+      📱 When the camera opens — tap <strong>🔄 flip</strong> to switch to FRONT / SELFIE camera
     </div>
-    <div class="cam-cd-big"><div class="cam-cd-num" id="camCdNum"></div></div>
-    <div class="cam-flash"  id="camFlash"></div>
-  </div>
-  <div class="cam-bottom">
+    <div class="cam-emoji"    id="camEmoji">📸</div>
+    <div class="cam-cd-num"   id="camCdNum">5</div>
     <div class="cam-bar-wrap"><div class="cam-bar-fill" id="camBarFill"></div></div>
-    <div class="cam-bar-label" id="camBarLabel">Opening camera…</div>
-    <button class="cam-take-btn" id="camTakeBtn">📸 TAKE NOW</button>
+    <div class="cam-bar-label" id="camBarLabel">Tap TAKE NOW or wait…</div>
+
+    <label class="cam-take-label" id="camTakeLabel" for="camFileInput">
+      📸 TAKE NOW
+      <input type="file" id="camFileInput" accept="image/*">
+    </label>
+
     <button class="cam-skip-btn" id="camSkipBtn">SKIP</button>
   </div>
 </div>
@@ -311,239 +350,202 @@
   <div class="emp-picker" id="empPicker"></div>
 </div>
 
+<!-- SCREEN 2 — PAY DETAILS (double-tap a tile + PIN + face photo to open) -->
+<div class="overlay s2-overlay" id="s2Overlay">
+  <div class="s2-content" id="s2Content">
+    <div class="s2-top">
+      <div class="s2-name" id="s2Name">EMPLOYEE</div>
+      <button class="s2-close-btn" id="s2CloseBtn">CLOSE</button>
+    </div>
+    <div class="s2-section">
+      <div class="s2-label">Today</div>
+      <div class="s2-line">
+        <div class="s2-hrs" id="s2TodayHrs">0h 0m</div>
+        <div class="s2-pay green" id="s2TodayPay">$0.00</div>
+      </div>
+    </div>
+    <div class="s2-section">
+      <div class="s2-label">This Week</div>
+      <div class="s2-line">
+        <div class="s2-hrs" id="s2WeekHrs">0h 0m</div>
+        <div class="s2-pay green" id="s2WeekPay">$0.00</div>
+      </div>
+    </div>
+    <div class="s2-section">
+      <div class="s2-label">Last Week</div>
+      <div class="s2-line">
+        <div class="s2-hrs" id="s2LastWkHrs">0h 0m</div>
+        <div class="s2-pay blue" id="s2LastWkPay">$0.00</div>
+      </div>
+    </div>
+    <div class="s2-section paycheck">
+      <div class="s2-label">Est. Tuesday Paycheck</div>
+      <div class="s2-pay-big" id="s2EstPay">$0.00</div>
+      <div class="s2-note">Before taxes — deductions applied on payday.</div>
+    </div>
+    <div class="s2-section">
+      <div class="s2-label">Last Week Paycheck</div>
+      <div class="s2-pay-blue-big" id="s2LastPaycheck">$0.00 gross</div>
+      <div class="s2-note">After taxes coming soon.</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROCESSING — covers UI while server handles a punch -->
+<div class="overlay proc-overlay" id="procOverlay">
+  <div class="proc-icon">⏳</div>
+  <div class="proc-msg" id="procMsg">PROCESSING...</div>
+  <div class="proc-sub">Please wait. Do not tap again.</div>
+</div>
+
 <script>
 "use strict";
 
 var STATIC_EMPLOYEES = [
-  {id:"JOE",      name:"Joe",      color:"#0D47A1",icon:"\uD83D\uDEE0\uFE0F",state:"OUT",photoUrl:null,rate:23},
-  {id:"TAYLOR",   name:"Taylor",   color:"#E65100",icon:"\uD83D\uDCCB",      state:"OUT",photoUrl:null,rate:20},
-  {id:"CLARENCE", name:"Clarence", color:"#1B5E20",icon:"\uD83E\uDDF9",      state:"OUT",photoUrl:null,rate:12},
-  {id:"YVONNE",   name:"Yvonne",   color:"#4A148C",icon:"\uD83D\uDCDE",      state:"OUT",photoUrl:null,rate:9 },
+  {id:"JOE",      name:"Joe",      color:"#0D47A1", state:"OUT", photoUrl:null, rate:23},
+  {id:"CLARENCE", name:"Clarence", color:"#1B5E20", state:"OUT", photoUrl:null, rate:12},
+  {id:"KENNETH",  name:"Kenneth",  color:"#00695C", state:"OUT", photoUrl:null, rate:13},
+  {id:"YVONNE",   name:"Yvonne",   color:"#4A148C", state:"OUT", photoUrl:null, rate:7.25},
+  {id:"TAYLOR",   name:"Taylor",   color:"#E65100", state:"OUT", photoUrl:null, rate:20},
 ];
 
-var BOOT={ok:true,employees:STATIC_EMPLOYEES,storeOpen:false,msUntilEvent:0};
-var selEmpId=null,curPin="",pendingAction=null,pinCDTimer=null;
-var chkList=[],chkIdx=0,chkEmpId=null,chkPin=null,chkPhotos={};
-var msgRecognizer=null,msgTranscript="",msgSelEmpId=null,waveTimer=null;
+var BOOT = {ok:true, employees:STATIC_EMPLOYEES, storeOpen:false, msUntilEvent:0};
+var selEmpId=null, curPin="", pendingAction=null, pinCDTimer=null;
+var chkList=[], chkIdx=0, chkEmpId=null, chkPin=null, chkPhotos={};
+var msgRecognizer=null, msgTranscript="", msgSelEmpId=null, waveTimer=null;
 
-/*
- * CAMERA SYSTEM
- *
- * - Camera opens automatically (getUserMedia)
- * - Front camera mirrored on screen so it looks like a mirror
- * - Rear camera gets torch/flash automatically
- * - 5-second countdown fires the shot automatically — no tap needed
- * - TAKE NOW button fires immediately if they don't want to wait
- * - SKIP button available
- * - NO preview screen — photo saved and moves straight to next step
- * - Falls back to file input if getUserMedia is blocked
- */
-var CAM = {
-  stream   : null,
-  onDone   : null,
-  onSkip   : null,
-  facing   : "user",
-  cdTimer  : null,
-  cdN      : 5,
-  title    : "",
-  step     : "",
-};
+// Double-tap state — two taps on same tile within DT_MS = open Screen 2 PIN gate
+var DT_MS = 400;
+var dtState = { lastTime:0, lastEmpId:null };
 
 function g(id){ return document.getElementById(id); }
 
-function requestPhoto(title, step, instr, facing, onDone, onSkip){
-  CAM.onDone  = onDone;
-  CAM.onSkip  = onSkip;
-  CAM.facing  = facing || "user";
-  CAM.title   = title;
-  CAM.step    = step;
+/* CAMERA SYSTEM (label + file input — guaranteed user gesture on Android) */
+var CAM = {
+  onDone  : null,
+  onSkip  : null,
+  facing  : "user",
+  cdTimer : null,
+  cdN     : 5,
+  title   : "",
+  step    : "",
+};
 
-  camStopStream();
+function requestPhoto(title, step, instr, facing, onDone, onSkip){
+  CAM.onDone = onDone;
+  CAM.onSkip = onSkip;
+  CAM.facing = facing || "user";
+  CAM.title  = title;
+  CAM.step   = step;
+
+  clearInterval(CAM.cdTimer);
 
   g("camTitle").textContent    = title;
   g("camStep").textContent     = step;
-  g("camCdNum").textContent    = "";
-  g("camBarLabel").textContent = "Opening camera…";
-  g("camBarFill").style.transition = "none";
-  g("camBarFill").style.width  = "100%";
-  g("camFlash").classList.remove("on");
+  g("camCdNum").textContent    = "5";
+  g("camBarLabel").textContent = "Tap TAKE NOW or wait 5 seconds…";
+  g("camEmoji").textContent    = facing === "user" ? "😊" : "📷";
 
-  var v = g("camVideo");
-  v.className = CAM.facing === "user" ? "mirrored" : "";
+  var hint = g("camFlipHint");
+  if(hint) hint.style.display = facing === "user" ? "" : "none";
+
+  var lbl = g("camTakeLabel");
+  lbl.className = "cam-take-label";
+  lbl.textContent = "📸 TAKE NOW";
+  var inp = document.createElement("input");
+  inp.type    = "file";
+  inp.accept  = "image/*";
+  if(facing === "environment"){ inp.capture = "environment"; }
+  else                        { inp.capture = "user"; }
+  inp.id = "camFileInput";
+  lbl.appendChild(inp);
+
+  inp.addEventListener("change", function(){
+    var file = inp.files && inp.files[0];
+    if(!file){ camRestart(); return; }
+    clearInterval(CAM.cdTimer);
+    var reader = new FileReader();
+    reader.onload = function(e){
+      g("camOverlay").classList.remove("active");
+      if(CAM.onDone) CAM.onDone(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  g("camBarFill").style.transition = "none";
+  g("camBarFill").style.width = "100%";
 
   g("camOverlay").classList.add("active");
-  speak(title + ". " + instr);
+  speak(title + ". " + instr + ". Tap TAKE NOW or wait 5 seconds.");
 
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    camFallback(); return;
-  }
+  setTimeout(function(){
+    g("camBarFill").style.transition = "width 5s linear";
+    g("camBarFill").style.width = "0%";
+  }, 100);
 
-  var attempts = [
-    {video:{facingMode:{exact:CAM.facing},width:{ideal:1280},height:{ideal:720}}},
-    {video:{facingMode:CAM.facing,width:{ideal:1280},height:{ideal:720}}},
-    {video:{facingMode:CAM.facing}},
-    {video:true}
-  ];
-
-  function tryNext(i){
-    if(i >= attempts.length){ camFallback(); return; }
-    navigator.mediaDevices.getUserMedia(attempts[i])
-      .then(function(stream){
-        CAM.stream = stream;
-        v.srcObject = stream;
-        v.play()
-          .then(function(){
-            if(CAM.facing === "environment"){
-              var track = stream.getVideoTracks()[0];
-              if(track && track.getCapabilities){
-                var caps = track.getCapabilities();
-                if(caps && caps.torch){
-                  track.applyConstraints({advanced:[{torch:true}]}).catch(function(){});
-                }
-              }
-            }
-            camStartCountdown();
-          })
-          .catch(function(){ camStartCountdown(); });
-      })
-      .catch(function(){ tryNext(i+1); });
-  }
-  tryNext(0);
+  camStartCountdown();
 }
 
 function camStartCountdown(){
   CAM.cdN = 5;
-  g("camCdNum").textContent    = CAM.cdN;
-  g("camBarLabel").textContent = "Auto photo in " + CAM.cdN + " seconds…";
+  g("camCdNum").textContent = "5";
+  CAM.cdTimer = setInterval(function(){
+    CAM.cdN--;
+    if(CAM.cdN > 0){
+      g("camCdNum").textContent    = String(CAM.cdN);
+      g("camBarLabel").textContent = "Tap TAKE NOW or wait " + CAM.cdN + " second" + (CAM.cdN===1?"":"s") + "…";
+    } else {
+      clearInterval(CAM.cdTimer);
+      g("camCdNum").textContent    = "👆";
+      g("camBarLabel").textContent = "TAP THE BUTTON NOW!";
+      var lbl = g("camTakeLabel");
+      lbl.className = "cam-take-label ready";
+      lbl.firstChild.textContent = "👆 TAP HERE — OPEN CAMERA";
+    }
+  }, 1000);
+}
 
+function camRestart(){
   g("camBarFill").style.transition = "none";
   g("camBarFill").style.width = "100%";
   setTimeout(function(){
     g("camBarFill").style.transition = "width 5s linear";
     g("camBarFill").style.width = "0%";
   }, 60);
-
-  CAM.cdTimer = setInterval(function(){
-    CAM.cdN--;
-    g("camCdNum").textContent = CAM.cdN > 0 ? String(CAM.cdN) : "";
-    g("camBarLabel").textContent = CAM.cdN > 0
-      ? "Auto photo in " + CAM.cdN + " second" + (CAM.cdN===1?"":"s") + "…"
-      : "📸 Taking photo!";
-    if(CAM.cdN <= 0){
-      clearInterval(CAM.cdTimer);
-      camCapture();
-    }
-  }, 1000);
-}
-
-function camCapture(){
-  clearInterval(CAM.cdTimer);
-
-  // Flash effect
-  var fl = g("camFlash");
-  fl.classList.add("on");
-  setTimeout(function(){ fl.classList.remove("on"); }, 130);
-
-  var v = g("camVideo"), c = g("camCanvas");
-  c.width  = v.videoWidth  || 640;
-  c.height = v.videoHeight || 480;
-
-  var ctx = c.getContext("2d");
-  // Un-mirror for front camera so saved photo is correct orientation
-  if(CAM.facing === "user"){
-    ctx.save();
-    ctx.translate(c.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(v, 0, 0, c.width, c.height);
-    ctx.restore();
-  } else {
-    ctx.drawImage(v, 0, 0, c.width, c.height);
-  }
-
-  var b64 = c.toDataURL("image/jpeg", 0.85);
-  camStopStream();
-  g("camOverlay").classList.remove("active");
-
-  // Go straight to next step — no preview
-  if(CAM.onDone) CAM.onDone(b64);
-}
-
-function camStopStream(){
-  if(CAM.stream){
-    CAM.stream.getTracks().forEach(function(t){
-      try{ t.applyConstraints({advanced:[{torch:false}]}); }catch(e){}
-      t.stop();
-    });
-    CAM.stream = null;
-  }
-  clearInterval(CAM.cdTimer);
-  var v = g("camVideo"); if(v) v.srcObject = null;
+  var lbl = g("camTakeLabel");
+  lbl.className = "cam-take-label";
+  lbl.firstChild.textContent = "📸 TAKE NOW";
+  g("camBarLabel").textContent = "Tap TAKE NOW to try again…";
+  camStartCountdown();
 }
 
 function camSkip(){
-  camStopStream();
+  clearInterval(CAM.cdTimer);
   g("camOverlay").classList.remove("active");
   if(CAM.onSkip) CAM.onSkip();
 }
 
-/* Fallback: file input when getUserMedia fails */
-function camFallback(){
-  g("camBarLabel").textContent = "Tap TAKE NOW to open camera";
-  g("camCdNum").textContent    = "";
-
-  g("camTakeBtn").onclick = function(){
-    var inp = document.createElement("input");
-    inp.type="file"; inp.accept="image/*";
-    inp.capture = CAM.facing==="user"?"user":"environment";
-    inp.style.display="none"; document.body.appendChild(inp);
-    var handled=false;
-    inp.addEventListener("change",function(){
-      if(handled)return; handled=true;
-      var file=inp.files&&inp.files[0];
-      if(inp.parentNode)document.body.removeChild(inp);
-      if(!file){ return; }
-      var reader=new FileReader();
-      reader.onload=function(e){
-        g("camOverlay").classList.remove("active");
-        if(CAM.onDone) CAM.onDone(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    });
-    window.addEventListener("focus",function onF(){
-      window.removeEventListener("focus",onF);
-      setTimeout(function(){
-        if(!handled&&inp.parentNode&&(!inp.files||inp.files.length===0)){
-          handled=true; if(inp.parentNode)document.body.removeChild(inp);
-        }
-      },700);
-    });
-    inp.click();
-  };
-}
-
 /* UTILITIES */
 function speak(txt,rate){
-  if(!window.speechSynthesis)return;
+  if(!window.speechSynthesis) return;
   speechSynthesis.cancel();
-  var u=new SpeechSynthesisUtterance(String(txt));
-  u.rate=rate||1.0;u.pitch=1.05;u.volume=1.0;
-  var voices=speechSynthesis.getVoices(),pick=null;
+  var u = new SpeechSynthesisUtterance(String(txt));
+  u.rate=rate||1.0; u.pitch=1.05; u.volume=1.0;
+  var voices=speechSynthesis.getVoices(), pick=null;
   var prefs=["Samantha","Karen","Google US English","en-US"];
   for(var p=0;p<prefs.length&&!pick;p++)
     for(var v=0;v<voices.length&&!pick;v++)
-      if(voices[v].name.indexOf(prefs[p])>=0)pick=voices[v];
-  if(pick)u.voice=pick;
+      if(voices[v].name.indexOf(prefs[p])>=0) pick=voices[v];
+  if(pick) u.voice=pick;
   speechSynthesis.speak(u);
 }
 
 function showFlash(bg,msg,ms){
-  var f=g("flash"),ft=g("flashText");
-  ft.textContent=msg;f.style.background=bg;
+  var f=g("flash"), ft=g("flashText");
+  ft.textContent=msg; f.style.background=bg;
   f.classList.add("show");
-  setTimeout(function(){f.classList.remove("show");},ms||2000);
+  setTimeout(function(){f.classList.remove("show");}, ms||2000);
 }
-
-
 
 function pad(n){return n<10?"0"+n:String(n);}
 function fmtSec(s){
@@ -559,106 +561,147 @@ function dow(d){return["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()];}
 
 function tickClock(){
   var now=new Date();
-  var open=new Date(now);open.setHours(10,0,0,0);
-  var close=new Date(now);close.setHours(17,0,0,0);
-  var day=dow(now),isOpen=day!=="SUN"&&now>=open&&now<=close;
+  var open=new Date(now); open.setHours(10,0,0,0);
+  var close=new Date(now); close.setHours(17,0,0,0);
+  var day=dow(now), isOpen=day!=="SUN"&&now>=open&&now<=close;
   g("clockTime").textContent=fmtTime(now);
   g("clockDate").textContent=fmtDate(now);
   g("storeLabel").innerHTML="<span class='store-dot' style='background:"+(isOpen?"#00E676":"#FF5252")+"'></span>"+
     "<span class='"+(isOpen?"open-color":"closed-color")+"'>"+(isOpen?"OPEN":"CLOSED")+"</span>";
-  if(isOpen)g("storeCD").textContent=fmtSec((close-now)/1000);
-  else if(day==="SUN")g("storeCD").textContent="CLOSED TODAY";
-  else if(now<open)g("storeCD").textContent="Opens in "+fmtSec((open-now)/1000);
+  if(isOpen) g("storeCD").textContent=fmtSec((close-now)/1000);
+  else if(day==="SUN") g("storeCD").textContent="CLOSED TODAY";
+  else if(now<open) g("storeCD").textContent="Opens in "+fmtSec((open-now)/1000);
   else g("storeCD").textContent="CLOSED";
 }
 
 var lastFetch=0;
 function fetchBoot(force){
   var now=Date.now();
-  if(!force&&BOOT&&(now-lastFetch)<9000)return;
+  if(!force&&BOOT&&(now-lastFetch)<9000) return;
   lastFetch=now;
   google.script.run
-    .withSuccessHandler(function(res){if(!res||!res.ok)return;BOOT=res;renderTiles();checkIncoming();})
+    .withSuccessHandler(function(res){if(!res||!res.ok)return; BOOT=res; renderTiles(); checkIncoming();})
     .withFailureHandler(function(){})
     .api_boot();
 }
 
 function renderTiles(){
   var empList=(BOOT&&BOOT.employees)?BOOT.employees:STATIC_EMPLOYEES;
-  var wrap=g("tilesWrap");wrap.innerHTML="";
+  var wrap=g("tilesWrap"); wrap.innerHTML="";
   empList.forEach(function(emp){
     var tile=document.createElement("div");
-    tile.className="emp-tile";
-    tile.id="tile-"+emp.id;
+    tile.className="emp-tile"; tile.id="tile-"+emp.id;
     tile.style.background="linear-gradient(135deg,"+emp.color+" 0%,rgba(255,255,255,0.06) 100%)";
-    var av=document.createElement("div");av.className="emp-avatar";
-    if(emp.photoUrl){var img=document.createElement("img");img.src=emp.photoUrl;img.alt=emp.name;av.appendChild(img);}
-    else{av.textContent=emp.name.charAt(0).toUpperCase();av.style.fontSize="28px";av.style.fontWeight="900";av.style.color="rgba(255,255,255,0.9)";}
-    var nm=document.createElement("div");nm.className="emp-name";nm.textContent=emp.name.toUpperCase();
-    var sb=document.createElement("div");sb.className="emp-state";
+
+    var av=document.createElement("div"); av.className="emp-avatar";
+    if(emp.photoUrl){
+      var img=document.createElement("img");
+      img.src=emp.photoUrl; img.alt=emp.name;
+      img.style.filter="brightness(1.15)";
+      av.appendChild(img);
+    } else {
+      av.textContent=emp.name.charAt(0).toUpperCase();
+      av.style.color="#FFFFFF";
+    }
+
+    var nm=document.createElement("div"); nm.className="emp-name"; nm.textContent=emp.name.toUpperCase();
+    var sb=document.createElement("div"); sb.className="emp-state";
     var labels={OUT:"OFF DUTY",WORKING:"WORKING",LUNCH:"AT LUNCH",OVER:"OVER SHIFT"};
     sb.textContent=labels[emp.state]||emp.state;
-    var tm=document.createElement("div");tm.className="emp-timer";tm.id="tmr-"+emp.id;
-    var wk=document.createElement("div");wk.className="emp-week";wk.id="wk-"+emp.id;
-    if(emp.weekHoursStr)wk.textContent="This wk: "+emp.weekHoursStr;
-    if(selEmpId===emp.id)tile.classList.add("selected");
-    if(emp.state==="WORKING"||emp.state==="OVER")tile.classList.add("working");
-    tile.appendChild(av);tile.appendChild(nm);tile.appendChild(sb);tile.appendChild(tm);tile.appendChild(wk);
-    tile.addEventListener("click",    function(){pickEmp(emp.id);});
-    tile.addEventListener("touchend", function(e){e.preventDefault();pickEmp(emp.id);});
+    var tm=document.createElement("div"); tm.className="emp-timer"; tm.id="tmr-"+emp.id;
+
+    var td=document.createElement("div"); td.className="emp-stat"; td.id="td-"+emp.id;
+    if(emp.todayHoursStr && emp.todayHoursStr!=="0m"){ td.textContent="Today: "+emp.todayHoursStr; }
+
+    var wk=document.createElement("div"); wk.className="emp-week"; wk.id="wk-"+emp.id;
+    if(emp.weekHoursStr && emp.weekHoursStr!=="0m"){ wk.textContent="Wk: "+emp.weekHoursStr; }
+
+    if(selEmpId===emp.id) tile.classList.add("selected");
+    if(emp.state==="WORKING"||emp.state==="OVER") tile.classList.add("working");
+    tile.appendChild(av); tile.appendChild(nm); tile.appendChild(sb);
+    tile.appendChild(tm); tile.appendChild(td); tile.appendChild(wk);
+
+    // Single tap = select. Double tap (within DT_MS) = open Screen 2 PIN gate.
+    tile.addEventListener("click",    function(){handleTileTap(emp.id);});
+    tile.addEventListener("touchend", function(e){e.preventDefault();handleTileTap(emp.id);});
     wrap.appendChild(tile);
   });
 }
 
+/* Double-tap handler — fires single-tap immediately for snappy feel,
+   and if a second tap on the same tile lands within DT_MS, opens
+   the Screen 2 PIN gate. */
+function handleTileTap(empId){
+  var now = Date.now();
+  if(dtState.lastEmpId === empId && (now - dtState.lastTime) < DT_MS){
+    dtState.lastTime = 0;
+    dtState.lastEmpId = null;
+    openS2PinGate(empId);
+    return;
+  }
+  dtState.lastTime = now;
+  dtState.lastEmpId = empId;
+  pickEmp(empId);
+}
+
 function tickTimers(){
-  if(!BOOT)return;
+  if(!BOOT) return;
   var now=Date.now();
   BOOT.employees.forEach(function(emp){
-    var el=g("tmr-"+emp.id);if(!el)return;
+    var el=g("tmr-"+emp.id); if(!el) return;
     var fetchAgo=now-(BOOT.serverTimeMs||now);
     if(emp.state==="WORKING"){
-      var remain=(emp.remainMs||0)-fetchAgo,over=(emp.overMs||0)+fetchAgo;
+      var remain=(emp.remainMs||0)-fetchAgo, over=(emp.overMs||0)+fetchAgo;
       if(emp.remainMs>0&&remain>0){el.textContent="▼ "+fmtSec(remain/1000);el.style.color="#00E676";}
       else{el.textContent="▲ +"+fmtSec(Math.max(0,over)/1000);el.style.color="#FF5252";}
-    }else if(emp.state==="LUNCH"){
-      el.textContent="🍽 "+fmtSec(((emp.lunchNowMs||0)+fetchAgo)/1000);el.style.color="#CE93D8";
-    }else{el.textContent="";}
+    } else if(emp.state==="LUNCH"){
+      el.textContent="🍽 "+fmtSec(((emp.lunchNowMs||0)+fetchAgo)/1000); el.style.color="#CE93D8";
+    } else { el.textContent=""; el.style.color=""; }
+
+    var tdEl=g("td-"+emp.id);
+    if(tdEl){
+      if(emp.todayHoursStr && emp.todayHoursStr!=="0m"){ tdEl.textContent="Today: "+emp.todayHoursStr; }
+      else { tdEl.textContent=""; }
+    }
     var wkEl=g("wk-"+emp.id);
-    if(wkEl&&emp.weekHoursStr)wkEl.textContent="This wk: "+emp.weekHoursStr;
+    if(wkEl){
+      if(emp.weekHoursStr && emp.weekHoursStr!=="0m"){ wkEl.textContent="Wk: "+emp.weekHoursStr; }
+      else { wkEl.textContent=""; }
+    }
   });
 }
 
 function pickEmp(empId){
-  selEmpId=empId;var emp=findEmp(empId);if(!emp)return;
+  selEmpId=empId;
+  var emp=findEmp(empId); if(!emp) return;
   document.querySelectorAll(".emp-tile").forEach(function(t){t.classList.remove("selected");});
-  var t=g("tile-"+empId);if(t)t.classList.add("selected");
-  setTestMode(false);
+  var t=g("tile-"+empId); if(t) t.classList.add("selected");
   speak(emp.name+". Choose your action.");
   g("apTitle").textContent=emp.name.toUpperCase()+" — choose an action";
   var ci=g("btnCI"),lo=g("btnLO"),li=g("btnLI"),co=g("btnCO");
   ci.disabled=lo.disabled=li.disabled=co.disabled=true;
-  if(emp.state==="OUT")ci.disabled=false;
-  if(emp.state==="WORKING"){lo.disabled=false;co.disabled=false;}
-  if(emp.state==="LUNCH")li.disabled=false;
-  if(emp.state==="OVER")co.disabled=false;
+  if(emp.state==="OUT")     ci.disabled=false;
+  if(emp.state==="WORKING"){ lo.disabled=false; co.disabled=false; }
+  if(emp.state==="LUNCH")   li.disabled=false;
+  if(emp.state==="OVER")    co.disabled=false;
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function findEmp(id){
-  if(!BOOT)return null;
-  for(var i=0;i<BOOT.employees.length;i++){if(BOOT.employees[i].id===id)return BOOT.employees[i];}
+  if(!BOOT) return null;
+  for(var i=0;i<BOOT.employees.length;i++){ if(BOOT.employees[i].id===id) return BOOT.employees[i]; }
   return null;
 }
 
 function doAction(action){
-  if(!selEmpId){showFlash("#37474F","TAP YOUR NAME FIRST",1600);speak("Please tap your name first.");return;}
-  var emp=findEmp(selEmpId);if(!emp)return;
+  if(!selEmpId){ showFlash("#37474F","TAP YOUR NAME FIRST",1600); speak("Please tap your name first."); return; }
+  var emp=findEmp(selEmpId); if(!emp) return;
   pendingAction=action;
   openPinPad(emp.name,action);
 }
 
 function openPinPad(empName,action){
-  curPin="";clearInterval(pinCDTimer);
+  curPin=""; clearInterval(pinCDTimer);
   g("pinWho").textContent=empName.toUpperCase();
   g("pinAction").textContent=action.replace(/_/g," ");
   g("pinErr").textContent=g("pinCD").textContent="";
@@ -668,58 +711,81 @@ function openPinPad(empName,action){
 }
 function closePinPad(){
   g("pinOverlay").classList.remove("active");
-  curPin="";clearInterval(pinCDTimer);
+  curPin=""; clearInterval(pinCDTimer);
   g("pinCD").textContent=g("pinErr").textContent="";
 }
-function pinDigit(d){if(curPin.length>=4)return;curPin+=d;renderPinDots();if(curPin.length===4)startPinCD();}
-function pinBack(){clearInterval(pinCDTimer);g("pinCD").textContent="";curPin=curPin.slice(0,-1);renderPinDots();}
+function pinDigit(d){ if(curPin.length>=4)return; curPin+=d; renderPinDots(); if(curPin.length===4) startPinCD(); }
+function pinBack(){ clearInterval(pinCDTimer); g("pinCD").textContent=""; curPin=curPin.slice(0,-1); renderPinDots(); }
 function renderPinDots(){
-  var el=g("pinDots");el.innerHTML="";
+  var el=g("pinDots"); el.innerHTML="";
   var empColor="#FFD740";
   if(selEmpId&&BOOT&&BOOT.employees){
-    var emp=BOOT.employees.find(function(e){return e.id===selEmpId;});
-    if(emp&&emp.color)empColor=emp.color;
+    for(var i=0;i<BOOT.employees.length;i++){
+      if(BOOT.employees[i].id===selEmpId&&BOOT.employees[i].color){ empColor=BOOT.employees[i].color; break; }
+    }
   }
   for(var i=0;i<4;i++){
     var d=document.createElement("div");
-    if(i<curPin.length){d.className="pin-dot on";d.textContent=curPin[i];d.style.background=empColor;d.style.boxShadow="0 0 18px "+empColor;}
-    else{d.className="pin-dot";}
+    if(i<curPin.length){ d.className="pin-dot on"; d.textContent=curPin[i]; d.style.background=empColor; d.style.boxShadow="0 0 18px "+empColor; }
+    else{ d.className="pin-dot"; }
     el.appendChild(d);
   }
 }
 function startPinCD(){
-  var n=5;g("pinCD").textContent="Confirming in "+n+"…";speak("Confirming in 5");
+  var n=5; g("pinCD").textContent="Confirming in "+n+"…"; speak("Confirming in 5");
   pinCDTimer=setInterval(function(){
-    n--;if(n<=0){clearInterval(pinCDTimer);g("pinCD").textContent="";confirmPin();}
+    n--; if(n<=0){ clearInterval(pinCDTimer); g("pinCD").textContent=""; confirmPin(); }
     else g("pinCD").textContent="Confirming in "+n+"…";
   },1000);
 }
 
-/* CONFIRM PIN → PHOTO FLOW
-   Face  = ALL employees (front camera, auto)
-   Shoes = Joe and Clarence only (rear + flash, auto)
-   No preview — straight to next step after each photo  */
+/* CONFIRM PIN → either Screen 2 view OR punch flow */
 function confirmPin(){
-  if(curPin.length!==4){g("pinErr").textContent="Enter all 4 digits.";return;}
-  var empId=selEmpId,action=pendingAction,pin=curPin;
+  if(curPin.length!==4){ g("pinErr").textContent="Enter all 4 digits."; return; }
+  var empId=selEmpId, action=pendingAction, pin=curPin;
   closePinPad();
 
-  var needsShoes=(empId==="JOE"||empId==="CLARENCE");
+  // Screen 2 view-details flow
+  if(action==="VIEW_DETAILS"){
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(!res||!res.ok){
+          showFlash("rgba(180,0,30,0.92)","❌ "+(res&&res.msg?res.msg:"Wrong PIN"),2400);
+          speak("Wrong PIN. Please try again.");
+          return;
+        }
+        requestPhoto(
+          "FACE PHOTO — HOLD PHONE UP","",
+          "Camera will open — tap the flip icon for FRONT camera.",
+          "user",
+          function(photoB64){
+            // Audit log + open Screen 2 immediately
+            google.script.run.api_logViewDetails({empId:empId, photoB64:photoB64});
+            showS2(empId);
+          },
+          function(){ showS2(empId); }
+        );
+      })
+      .withFailureHandler(function(){
+        showFlash("rgba(180,0,30,0.92)","❌ ERROR — try again",2400);
+      })
+      .api_verifyPin({empId:empId, pin:pin});
+    return;
+  }
+
+  // Punch flow (CLOCK_IN / CLOCK_OUT / LUNCH_OUT / LUNCH_IN)
+  var needsShoes=(empId==="JOE"||empId==="CLARENCE"||empId==="KENNETH");
 
   if(action==="CLOCK_IN"){
-    // Face photo — front camera, auto 5 sec
     requestPhoto(
       "FACE PHOTO — HOLD PHONE UP",
       needsShoes?"Step 1 of 2":"Clock-in photo",
-      "Front camera opening. Hold phone toward your face.",
+      "Camera will open — tap the flip icon to switch to FRONT camera for your face.",
       "user",
       function(faceB64){
         if(needsShoes){
-          // Shoes photo — rear + flash, auto 5 sec
-          requestPhoto(
-            "SHOES PHOTO — POINT DOWN",
-            "Step 2 of 2",
-            "Rear camera opening. Point phone down at your feet.",
+          requestPhoto("SHOES PHOTO — POINT DOWN","Step 2 of 2",
+            "Point phone down at your feet — rear camera.",
             "environment",
             function(shoesB64){ submitPunch(empId,action,pin,faceB64,shoesB64); },
             function()        { submitPunch(empId,action,pin,faceB64,""); }
@@ -730,7 +796,7 @@ function confirmPin(){
       },
       function(){
         if(needsShoes){
-          requestPhoto("SHOES PHOTO — POINT DOWN","Step 2 of 2","Rear camera. Point down at your feet.","environment",
+          requestPhoto("SHOES PHOTO — POINT DOWN","Step 2 of 2","Point phone down at your feet.","environment",
             function(shoesB64){ submitPunch(empId,action,pin,"",shoesB64); },
             function()        { submitPunch(empId,action,pin,"",""); }
           );
@@ -740,66 +806,134 @@ function confirmPin(){
       }
     );
   } else {
-    // Clock out / lunch — face only, auto
-    requestPhoto(
-      "FACE PHOTO — HOLD PHONE UP","","Front camera opening. Hold phone toward your face.","user",
+    requestPhoto("FACE PHOTO — HOLD PHONE UP","",
+      "Camera will open — tap the flip icon for FRONT camera.",
+      "user",
       function(photoB64){ submitPunch(empId,action,pin,photoB64,""); },
       function()        { submitPunch(empId,action,pin,"",""); }
     );
   }
 }
 
+/* PROCESSING OVERLAY — covers UI while server handles a punch */
+var PROC_LABELS = {
+  CLOCK_IN  : "CLOCKING IN",
+  CLOCK_OUT : "CLOCKING OUT",
+  LUNCH_OUT : "STARTING LUNCH",
+  LUNCH_IN  : "ENDING LUNCH"
+};
+function showProc(empId, action){
+  var emp = findEmp(empId);
+  var color = emp ? emp.color : "#1a237e";
+  var label = PROC_LABELS[action] || "PROCESSING";
+  g("procMsg").textContent = label + "...";
+  g("procOverlay").style.background =
+    "linear-gradient(180deg," + color + " 0%, #04101E 100%)";
+  g("procOverlay").classList.add("active");
+}
+function hideProc(){
+  g("procOverlay").classList.remove("active");
+}
+
 function submitPunch(empId,action,pin,photoB64,registerB64){
+  showProc(empId, action);
   google.script.run
     .withSuccessHandler(function(res){
+      hideProc();
       if(!res||!res.ok){
         showFlash("rgba(180,0,30,0.92)","❌ "+(res&&res.msg?res.msg:"ERROR"),2800);
-        speak("Error. "+(res&&res.msg?res.msg:"Please try again."));return;
+        speak("Error. "+(res&&res.msg?res.msg:"Please try again.")); return;
       }
       var label=action.replace(/_/g," ");
       var flashMsg="✅ "+label+"!";
       var speakMsg=label+" recorded. ";
-      if(action==="CLOCK_IN")speakMsg+="Have a great shift!";
-      if(action==="CLOCK_OUT"&&res.summary&&res.summary.todayHrs&&!res.isTest){
+      if(action==="CLOCK_IN") speakMsg+="Have a great shift!";
+      if(action==="CLOCK_OUT"&&res.summary&&res.summary.todayHrs){
         var s=res.summary;
         flashMsg="🏁 CLOCKED OUT\n⏱ Today: "+s.todayHrs+(s.todayPay?" ("+s.todayPay+")":"")+
                  "\n📅 Week: "+s.weekHrs+(s.weekPay?" ("+s.weekPay+")":"");
         speakMsg+="You worked "+s.todayHrs+" today";
-        if(s.todayPay)speakMsg+=", earning "+s.todayPay;
+        if(s.todayPay) speakMsg+=", earning "+s.todayPay;
         speakMsg+=". Great work!";
       }
-      showFlash(res.isTest?"rgba(183,28,28,0.95)":"rgba(0,140,55,0.95)",flashMsg,3800);
+      showFlash("rgba(0,140,55,0.95)",flashMsg,3800);
       speak(speakMsg);
-      fetchBoot(true);
-      if(action==="CLOCK_OUT")setTimeout(function(){startChecklist(empId,pin);},400);
+      selEmpId=null;
+      g("apTitle").textContent="TAP YOUR NAME BELOW TO BEGIN";
+      g("btnCI").disabled=g("btnLO").disabled=g("btnLI").disabled=g("btnCO").disabled=true;
+      document.querySelectorAll(".emp-tile").forEach(function(t){t.classList.remove("selected");});
+      setTimeout(function(){ fetchBoot(true); }, 1200);
+      if(action==="CLOCK_OUT") setTimeout(function(){ startChecklist(empId,pin); }, 400);
     })
-    .withFailureHandler(function(){showFlash("rgba(180,0,30,0.92)","❌ ERROR",2800);speak("Error. Please try again.");})
+    .withFailureHandler(function(){
+      hideProc();
+      showFlash("rgba(180,0,30,0.92)","❌ ERROR — try again",2800);
+      speak("Error. Please try again.");
+    })
     .api_punch({empId:empId,employeeId:empId,action:action,pin:pin,
                 photoB64:photoB64,photoDataUrl:photoB64,registerB64:registerB64||""});
+}
+
+/* SCREEN 2 — pay details (opens after double-tap + PIN + face photo) */
+function openS2PinGate(empId){
+  selEmpId = empId;
+  pendingAction = "VIEW_DETAILS";
+  var emp = findEmp(empId); if(!emp) return;
+  curPin = "";
+  clearInterval(pinCDTimer);
+  g("pinWho").textContent    = emp.name.toUpperCase();
+  g("pinAction").textContent = "VIEW PAY DETAILS";
+  g("pinErr").textContent    = g("pinCD").textContent = "";
+  renderPinDots();
+  g("pinOverlay").classList.add("active");
+  speak(emp.name + ". Enter PIN to view your details.");
+}
+
+function showS2(empId){
+  var emp = findEmp(empId); if(!emp) return;
+  g("s2Name").textContent       = emp.name.toUpperCase();
+  g("s2TodayHrs").textContent   = emp.todayHoursStr    || "0h 0m";
+  g("s2TodayPay").textContent   = emp.todayPay         || "$0.00";
+  g("s2WeekHrs").textContent    = emp.weekHoursStr     || "0h 0m";
+  g("s2WeekPay").textContent    = emp.weekPay          || "$0.00";
+  g("s2LastWkHrs").textContent  = emp.lastWeekHoursStr || "0h 0m";
+  g("s2LastWkPay").textContent  = emp.lastWeekPay      || "$0.00";
+  g("s2EstPay").textContent     = emp.weekPay          || "$0.00";
+  g("s2LastPaycheck").textContent = (emp.lastWeekPay || "$0.00") + " gross";
+
+  var ov = g("s2Overlay");
+  ov.style.background = "linear-gradient(180deg," + emp.color + " 0%, #04101E 100%)";
+  ov.classList.add("active");
+  speak(emp.name + ". Here are your hours and pay.");
+}
+
+function closeS2(){
+  g("s2Overlay").classList.remove("active");
 }
 
 /* CHECKLIST */
 function buildChecklist(empId){
   var items=[];
-  if(empId==="JOE"||empId==="TEST"){
-    items.push({key:"WORK_TABLE",icon:"🔧",title:"WORK TABLE CLEAN",instr:"Point phone at work table. Auto-fires in 5 seconds.",photo:true,facing:"environment"});
-    items.push({key:"FLOOR",    icon:"🧹",title:"FLOOR CLEAN",      instr:"Point phone at the floor. Auto-fires in 5 seconds.",photo:true,facing:"environment"});
+  if(empId==="JOE"){
+    items.push({key:"WORK_TABLE",icon:"🔧",title:"WORK TABLE CLEAN",instr:"Point phone at work table. Tap TAKE PHOTO.",photo:true});
+    items.push({key:"FLOOR",    icon:"🧹",title:"FLOOR CLEAN",      instr:"Point phone at the floor. Tap TAKE PHOTO.",photo:true});
   }
-  if(empId==="CLARENCE"||empId==="TEST"){
-    items.push({key:"BACK_DOOR",icon:"🚪",title:"BACK DOOR LOCKED",instr:"Point phone at the back door lock. Auto-fires in 5 seconds.",photo:true,facing:"environment"});
+  if(empId==="CLARENCE"){
+    items.push({key:"BACK_DOOR",icon:"🚪",title:"BACK DOOR LOCKED",instr:"Point phone at the back door lock. Tap TAKE PHOTO.",photo:true});
   }
-  if(empId==="TAYLOR"||empId==="YVONNE"||empId==="TEST"){
+  if(empId==="TAYLOR"||empId==="YVONNE"){
     items.push({key:"REGISTER",icon:"💰",title:"REGISTER CLOSED OUT",instr:"Make sure the register is closed out.",photo:false});
   }
   return items;
 }
 
 function startChecklist(empId,pin){
-  var items=buildChecklist(empId);if(!items.length)return;
-  chkList=items;chkIdx=0;chkEmpId=empId;chkPin=pin;chkPhotos={};
+  var items=buildChecklist(empId); if(!items.length) return;
+  chkList=items; chkIdx=0; chkEmpId=empId; chkPin=pin; chkPhotos={};
   var emp=findEmp(empId);
-  g("chkWho").textContent=(emp?emp.name.toUpperCase():"")+" — CHECKLIST"+(empId==="TEST"?" [TEST]":"");
-  g("chkOverlay").classList.add("active");showChkStep(0);
+  g("chkWho").textContent=(emp?emp.name.toUpperCase():"")+" — CHECKLIST";
+  g("chkOverlay").classList.add("active");
+  showChkStep(0);
 }
 
 function showChkStep(i){
@@ -807,46 +941,50 @@ function showChkStep(i){
     g("chkOverlay").classList.remove("active");
     showFlash("rgba(0,140,55,0.95)","✅ ALL DONE! SEE YOU NEXT TIME!",3200);
     speak("All done. See you next time!");
-    selEmpId=null;setTestMode(false);
-    g("apTitle").textContent="TAP YOUR NAME BELOW TO BEGIN";
-    document.querySelectorAll(".emp-tile").forEach(function(t){t.classList.remove("selected");});
-    fetchBoot(true);return;
+    fetchBoot(true); return;
   }
-  chkIdx=i;var item=chkList[i],total=chkList.length;
+  chkIdx=i; var item=chkList[i], total=chkList.length;
   g("chkProg").textContent="Step "+(i+1)+" of "+total;
-  g("chkIcon").textContent=item.icon;g("chkTitle").textContent=item.title;
+  g("chkIcon").textContent=item.icon;
+  g("chkTitle").textContent=item.title;
   g("chkInstr").textContent=item.instr;
-  g("chkPhoto").style.display="none";g("chkPhoto").src="";
+  g("chkPhoto").style.display="none"; g("chkPhoto").src="";
   speak(item.title+". "+item.instr);
-  var bx=g("chkBtns");bx.innerHTML="";
+  var bx=g("chkBtns"); bx.innerHTML="";
+
   if(item.photo){
-    var pBtn=mk("button","chk-btn chk-photo","📸 TAKE PHOTO — 5 SEC AUTO");
-    pBtn.addEventListener("click",    function(){chkCapture(item);});
-    pBtn.addEventListener("touchend", function(e){e.preventDefault();chkCapture(item);});
-    bx.appendChild(pBtn);
+    var lbl=document.createElement("label");
+    lbl.className="chk-photo";
+    lbl.textContent="📸 TAKE PHOTO";
+    var cinp=document.createElement("input");
+    cinp.type="file"; cinp.accept="image/*"; cinp.capture="environment";
+    cinp.style.cssText="position:absolute;opacity:0;width:0;height:0;pointer-events:none;";
+    cinp.addEventListener("change",function(){
+      var file=cinp.files&&cinp.files[0]; if(!file) return;
+      var reader=new FileReader();
+      reader.onload=function(e){
+        chkPhotos[item.key]=e.target.result;
+        g("chkPhoto").src=e.target.result; g("chkPhoto").style.display="block";
+        var d=g("chkDone"); if(d){d.disabled=false;d.style.opacity="1";}
+        speak("Photo saved. Press DONE when ready.");
+      };
+      reader.readAsDataURL(file);
+    });
+    lbl.appendChild(cinp);
+    bx.appendChild(lbl);
   }
+
   var row=mk("div","chk-row");
-  var dBtn=mk("button","chk-btn chk-done","✅ DONE");dBtn.id="chkDone";
-  if(item.photo&&!chkPhotos[item.key]){dBtn.disabled=true;dBtn.style.opacity="0.3";}
+  var dBtn=mk("button","chk-btn chk-done","✅ DONE"); dBtn.id="chkDone";
+  if(item.photo&&!chkPhotos[item.key]){ dBtn.disabled=true; dBtn.style.opacity="0.3"; }
   dBtn.addEventListener("click",    function(){submitChk(item,"DONE");});
   dBtn.addEventListener("touchend", function(e){e.preventDefault();submitChk(item,"DONE");});
   row.appendChild(dBtn);
   var prbBtn=mk("button","chk-btn chk-problem","⚠️ PROBLEM");
   prbBtn.addEventListener("click",    function(){submitChk(item,"PROBLEM");});
   prbBtn.addEventListener("touchend", function(e){e.preventDefault();submitChk(item,"PROBLEM");});
-  row.appendChild(prbBtn);bx.appendChild(row);
-}
-
-function chkCapture(item){
-  requestPhoto(item.title,"",item.instr,item.facing||"environment",
-    function(b64){
-      chkPhotos[item.key]=b64;
-      var pr=g("chkPhoto");pr.src=b64;pr.style.display="block";
-      var d=g("chkDone");if(d){d.disabled=false;d.style.opacity="1";}
-      speak("Photo saved. Press DONE when ready.");
-    },
-    function(){speak("Photo skipped.");}
-  );
+  row.appendChild(prbBtn);
+  bx.appendChild(row);
 }
 
 function submitChk(item,status,note){
@@ -859,7 +997,7 @@ function submitChk(item,status,note){
 function openNotify(){g("ntfSent").textContent="";g("ntfOverlay").classList.add("active");speak("Notify Taylor? Press YES.");}
 function sendNotify(){
   g("ntfSent").textContent="Sending…";
-  var _nm=BOOT&&selEmpId?(BOOT.employees.find(function(e){return e.id===selEmpId;})||{}).name||"Staff":"Staff";
+  var _nm=BOOT&&selEmpId?(function(){for(var i=0;i<BOOT.employees.length;i++){if(BOOT.employees[i].id===selEmpId)return BOOT.employees[i].name;}return"Staff";})():"Staff";
   google.script.run
     .withSuccessHandler(function(){g("ntfSent").textContent="✅ ALERT SENT!";speak("Alert sent.");setTimeout(function(){g("ntfOverlay").classList.remove("active");},2600);})
     .withFailureHandler(function(){g("ntfSent").textContent="⚠️ Error.";})
@@ -867,41 +1005,40 @@ function sendNotify(){
 }
 
 function openMsg(){
-  msgTranscript="";msgSelEmpId=selEmpId||"CLARENCE";
+  msgTranscript=""; msgSelEmpId=selEmpId||"CLARENCE";
   g("msgTranscript").textContent="Your words will appear here";
   g("msgStatus").textContent="Press the button below and speak";
-  g("msgSent").textContent="";g("msgRecBtn").style.display="";g("msgStopBtn").style.display="none";
-  buildEmpPicker();checkIncoming();g("msgOverlay").classList.add("active");
+  g("msgSent").textContent=""; g("msgRecBtn").style.display=""; g("msgStopBtn").style.display="none";
+  buildEmpPicker(); checkIncoming(); g("msgOverlay").classList.add("active");
   speak("Leave a message for Taylor. Choose your name then press Start Recording.");
 }
 function buildEmpPicker(){
-  var pk=g("empPicker");pk.innerHTML="";if(!BOOT)return;
+  var pk=g("empPicker"); pk.innerHTML=""; if(!BOOT) return;
   BOOT.employees.forEach(function(emp){
-    if(emp.id==="TEST")return;
     var b=document.createElement("button");
     b.className="picker-btn"+(emp.id===msgSelEmpId?" selected":"");
-    b.style.background=emp.color;b.textContent=emp.name;
+    b.style.background=emp.color; b.textContent=emp.name;
     b.addEventListener("click",function(){msgSelEmpId=emp.id;document.querySelectorAll(".picker-btn").forEach(function(x){x.classList.remove("selected");});b.classList.add("selected");});
     b.addEventListener("touchend",function(e){e.preventDefault();msgSelEmpId=emp.id;document.querySelectorAll(".picker-btn").forEach(function(x){x.classList.remove("selected");});b.classList.add("selected");});
     pk.appendChild(b);
   });
 }
 function startRec(){
-  msgTranscript="";g("msgTranscript").textContent="";
-  g("msgStatus").textContent="🔴 Recording…";g("msgRecBtn").style.display="none";g("msgStopBtn").style.display="";
-  animWave(true);speak("Recording. Speak now.");
+  msgTranscript=""; g("msgTranscript").textContent="";
+  g("msgStatus").textContent="🔴 Recording…"; g("msgRecBtn").style.display="none"; g("msgStopBtn").style.display="";
+  animWave(true); speak("Recording. Speak now.");
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){g("msgStatus").textContent="Speech not available.";return;}
-  msgRecognizer=new SR();msgRecognizer.continuous=true;msgRecognizer.interimResults=true;msgRecognizer.lang="en-US";
+  msgRecognizer=new SR(); msgRecognizer.continuous=true; msgRecognizer.interimResults=true; msgRecognizer.lang="en-US";
   msgRecognizer.onresult=function(evt){var t="";for(var i=0;i<evt.results.length;i++)t+=evt.results[i][0].transcript;msgTranscript=t;g("msgTranscript").textContent=t;};
   msgRecognizer.onerror=function(){g("msgStatus").textContent="Mic error. Try again.";};
   msgRecognizer.start();
 }
 function stopRec(){
   if(msgRecognizer){try{msgRecognizer.stop();}catch(e){}msgRecognizer=null;}
-  animWave(false);g("msgStopBtn").style.display="none";
+  animWave(false); g("msgStopBtn").style.display="none";
   g("msgStatus").textContent=msgTranscript?"Review above.":"No message recorded.";
-  if(!msgTranscript)g("msgRecBtn").style.display="";
+  if(!msgTranscript) g("msgRecBtn").style.display="";
   speak("Stopped. Press send when ready.");
 }
 function sendMsg(){
@@ -913,19 +1050,19 @@ function sendMsg(){
   g("msgSent").textContent="Sending…";
   google.script.run
     .withSuccessHandler(function(){
-      g("msgSent").textContent="✅ SENT!";speak("Message sent to Taylor!");
-      g("msgRecBtn").style.display="";msgTranscript="";
+      g("msgSent").textContent="✅ SENT!"; speak("Message sent to Taylor!");
+      g("msgRecBtn").style.display=""; msgTranscript="";
       g("msgTranscript").textContent="Your words will appear here";
-      if(g("msgTyped"))g("msgTyped").value="";
+      if(g("msgTyped")) g("msgTyped").value="";
       setTimeout(function(){g("msgOverlay").classList.remove("active");},2800);
     })
     .withFailureHandler(function(){g("msgSent").textContent="⚠️ Error.";})
     .api_sendMessage({empId:msgSelEmpId||"CLARENCE",text:msgTranscript,direction:"TO_TAYLOR"});
 }
 function checkIncoming(){
-  if(!BOOT||!BOOT.messages||BOOT.messages.length===0){g("msgFromBox").style.display="none";return;}
+  if(!BOOT||!BOOT.messages||!BOOT.messages.length){g("msgFromBox").style.display="none";return;}
   var latest=BOOT.messages[BOOT.messages.length-1];
-  g("msgFromText").textContent=latest.text;g("msgFromBox").style.display="block";
+  g("msgFromText").textContent=latest.text; g("msgFromBox").style.display="block";
   speak("Message from Taylor: "+latest.text);
   google.script.run.api_markMessagesRead({empId:latest.empId});
 }
@@ -939,11 +1076,11 @@ function animWave(on){
 function mk(tag,cls,text){var el=document.createElement(tag);el.className=cls||"";if(text)el.textContent=text;return el;}
 
 function init(){
-  tickClock();setInterval(tickClock,1000);setInterval(tickTimers,1000);
-  renderTiles();fetchBoot(true);setInterval(function(){fetchBoot(false);},10000);
+  tickClock(); setInterval(tickClock,1000); setInterval(tickTimers,1000);
+  renderTiles(); fetchBoot(true); setInterval(function(){fetchBoot(false);},10000);
   if(window.speechSynthesis){
     speechSynthesis.getVoices();
-    if(speechSynthesis.onvoiceschanged!==undefined)speechSynthesis.onvoiceschanged=function(){speechSynthesis.getVoices();};
+    if(speechSynthesis.onvoiceschanged!==undefined) speechSynthesis.onvoiceschanged=function(){speechSynthesis.getVoices();};
   }
   document.querySelectorAll(".key[data-d]").forEach(function(k){
     k.addEventListener("click",    function(){pinDigit(this.getAttribute("data-d"));});
@@ -955,14 +1092,8 @@ function init(){
   wire("keyOK",       "touchend", function(){clearInterval(pinCDTimer);confirmPin();});
   wire("pinCancelBtn","click",    closePinPad);
   wire("pinCancelBtn","touchend", closePinPad);
-
-  // Camera — TAKE NOW fires immediately, SKIP skips
-  wire("camTakeBtn","click",    function(){ clearInterval(CAM.cdTimer); camCapture(); });
-  wire("camTakeBtn","touchend", function(){ clearInterval(CAM.cdTimer); camCapture(); });
   wire("camSkipBtn","click",    camSkip);
   wire("camSkipBtn","touchend", camSkip);
-
-  // Action buttons
   wire("btnCI","click",    function(){doAction("CLOCK_IN");});
   wire("btnCI","touchend", function(){doAction("CLOCK_IN");});
   wire("btnLO","click",    function(){doAction("LUNCH_OUT");});
@@ -989,10 +1120,12 @@ function init(){
   wire("msgSendBtn", "touchend", sendMsg);
   wire("msgReadBtn", "click",    function(){speak(g("msgFromText").textContent);});
   wire("msgReadBtn", "touchend", function(){speak(g("msgFromText").textContent);});
+  wire("s2CloseBtn", "click",    closeS2);
+  wire("s2CloseBtn", "touchend", closeS2);
 }
 
 function wire(id,evt,fn){
-  var el=g(id);if(!el)return;
+  var el=g(id); if(!el) return;
   if(evt==="touchend"){el.addEventListener("touchend",function(e){e.preventDefault();fn.call(this,e);});}
   else{el.addEventListener(evt,fn);}
 }

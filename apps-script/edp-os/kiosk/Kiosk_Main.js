@@ -24,9 +24,10 @@ var KIOSK_ALERT_EMAIL = KIOSK_PROPS.getProperty("KIOSK_ALERT_EMAIL") || "";
 
 var KIOSK_EMPLOYEES = [
   { id:"JOE",      name:"Joe",      color:"#0D47A1", icon:"🛠️", weeklyHours:20, rate:23.00 },
-  { id:"TAYLOR",   name:"Taylor",   color:"#4E342E", icon:"📋", weeklyHours:20, rate:20.00 },
   { id:"CLARENCE", name:"Clarence", color:"#1B5E20", icon:"🧹", weeklyHours:10, rate:12.00 },
-  { id:"YVONNE",   name:"Yvonne",   color:"#4A148C", icon:"📞", weeklyHours:8,  rate:9.00  },
+  { id:"KENNETH",  name:"Kenneth",  color:"#00695C", icon:"🔨", weeklyHours:20, rate:13.00 },
+  { id:"YVONNE",   name:"Yvonne",   color:"#4A148C", icon:"📞", weeklyHours:8,  rate:7.25  },
+  { id:"TAYLOR",   name:"Taylor",   color:"#E65100", icon:"📋", weeklyHours:20, rate:20.00 },
   // TEST employee — PIN 0000 — logs to TEST_LOGS only, never touches real payroll
   { id:"TEST",     name:"TEST",     color:"#B71C1C", icon:"🧪", weeklyHours:8,  rate:0.00  },
 ];
@@ -64,13 +65,16 @@ function api_boot() {
   var sh = _getOrCreateLog(ss);
   var now = new Date(), nowMs = now.getTime();
   var wkStart = _weekStart(now).getTime();
+  var lwkStart = wkStart - 7*86400000;
+  var todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+  var todayStartMs = todayStart.getTime();
 
   var states = {};
   KIOSK_EMPLOYEES.forEach(function(e) {
     states[e.id] = {
       id:e.id, name:e.name, color:e.color, icon:e.icon, rate:e.rate,
       state:"OUT", clockInTime:null, lunchOutTime:null,
-      workedMs:0, lunchMs:0, weekWorkedMs:0,
+      workedMs:0, lunchMs:0, weekWorkedMs:0, todayWorkedMs:0, lastWeekWorkedMs:0,
       targetMs: e.weeklyHours * 3600000,
     };
   });
@@ -87,13 +91,25 @@ function api_boot() {
         emp.state="WORKING"; emp.clockInTime=t; emp.lunchOutTime=null; emp.workedMs=0; emp.lunchMs=0;
         if (t>=wkStart) emp._shiftStart=t;
       } else if (action==="LUNCH_OUT") {
-        if (emp.clockInTime) { var seg=t-emp.clockInTime; emp.workedMs+=seg; if(emp.clockInTime>=wkStart) emp.weekWorkedMs+=seg; }
+        if (emp.clockInTime) {
+          var seg=t-emp.clockInTime;
+          emp.workedMs+=seg;
+          if(emp.clockInTime>=wkStart) emp.weekWorkedMs+=seg;
+          if(emp.clockInTime>=lwkStart && emp.clockInTime<wkStart) emp.lastWeekWorkedMs+=seg;
+          if(emp.clockInTime>=todayStartMs) emp.todayWorkedMs+=seg;
+        }
         emp.state="LUNCH"; emp.lunchOutTime=t; emp.clockInTime=null;
       } else if (action==="LUNCH_IN") {
         if (emp.lunchOutTime) emp.lunchMs+=t-emp.lunchOutTime;
         emp.state="WORKING"; emp.clockInTime=t; emp.lunchOutTime=null;
       } else if (action==="CLOCK_OUT") {
-        if (emp.clockInTime) { var seg2=t-emp.clockInTime; emp.workedMs+=seg2; if(emp.clockInTime>=wkStart) emp.weekWorkedMs+=seg2; }
+        if (emp.clockInTime) {
+          var seg2=t-emp.clockInTime;
+          emp.workedMs+=seg2;
+          if(emp.clockInTime>=wkStart) emp.weekWorkedMs+=seg2;
+          if(emp.clockInTime>=lwkStart && emp.clockInTime<wkStart) emp.lastWeekWorkedMs+=seg2;
+          if(emp.clockInTime>=todayStartMs) emp.todayWorkedMs+=seg2;
+        }
         emp.state="OUT"; emp.clockInTime=null; emp.lunchOutTime=null; emp.workedMs=0; emp.lunchMs=0;
       }
     });
@@ -106,9 +122,15 @@ function api_boot() {
       emp.remainMs = Math.max(0,emp.targetMs-emp.totalWorkedMs);
       emp.overMs   = Math.max(0,emp.totalWorkedMs-emp.targetMs);
       if (emp.clockInTime>=wkStart) emp.weekWorkedMs+=(nowMs-emp.clockInTime);
+      if (emp.clockInTime>=todayStartMs) emp.todayWorkedMs+=(nowMs-emp.clockInTime);
     }
     if (emp.state==="LUNCH"&&emp.lunchOutTime) emp.lunchNowMs=nowMs-emp.lunchOutTime;
-    emp.weekHoursStr = _fmtHours(emp.weekWorkedMs);
+    emp.weekHoursStr     = _fmtHours(emp.weekWorkedMs);
+    emp.todayHoursStr    = _fmtHours(emp.todayWorkedMs);
+    emp.lastWeekHoursStr = _fmtHours(emp.lastWeekWorkedMs);
+    emp.todayPay    = "$"+(emp.todayWorkedMs   /3600000*emp.rate).toFixed(2);
+    emp.weekPay     = "$"+(emp.weekWorkedMs    /3600000*emp.rate).toFixed(2);
+    emp.lastWeekPay = "$"+(emp.lastWeekWorkedMs/3600000*emp.rate).toFixed(2);
   });
 
   var dow=now.getDay(), isOpenDay=(dow>=1&&dow<=6);
@@ -242,6 +264,41 @@ function api_checklist(data) {
 }
 
 // ═══════════════════════════════════════════════════════
+// api_verifyPin — verify a PIN without performing any punch.
+// Used by Screen 2 (double-tap to view pay details).
+// ═══════════════════════════════════════════════════════
+function api_verifyPin(data) {
+  var empId = data.empId || "";
+  var pin   = String(data.pin || "");
+  var emp   = KIOSK_EMPLOYEES.find(function(e){ return e.id===empId; });
+  if (!emp) return {ok:false,msg:"Employee not found."};
+  var stored = PropertiesService.getScriptProperties().getProperty("PIN_"+empId);
+  if (!stored) return {ok:false,msg:"PIN not set. Run SETUP_KIOSK."};
+  if (_hashPin(pin) !== stored) return {ok:false,msg:"Wrong PIN. Try again."};
+  return {ok:true};
+}
+
+// ═══════════════════════════════════════════════════════
+// api_logViewDetails — save face photo + audit row when an
+// employee opens Screen 2. No Pushover, no email.
+// ═══════════════════════════════════════════════════════
+function api_logViewDetails(data) {
+  var empId = data.empId || "";
+  var photo = data.photoB64 || data.photoDataUrl || "";
+  var emp   = KIOSK_EMPLOYEES.find(function(e){ return e.id===empId; });
+  if (!emp || empId === "TEST") return {ok:false};
+
+  var photoId = "";
+  if (photo && photo.length > 200) {
+    try { photoId = _saveToDrive(emp.name,"VIEW_DETAILS",photo); }
+    catch(e) { Logger.log("View details photo error: "+e.message); }
+  }
+  var ss = SpreadsheetApp.openById(KIOSK_SHEET_ID);
+  _getOrCreateLog(ss).appendRow([new Date(), empId, emp.name, "VIEW_DETAILS", photoId, "", ""]);
+  return {ok:true};
+}
+
+// ═══════════════════════════════════════════════════════
 // SCHEDULE ALERTS — fires every 1 minute via trigger
 // Run SETUP_SCHEDULE_TRIGGER() once to install
 // ═══════════════════════════════════════════════════════
@@ -287,12 +344,13 @@ function SETUP_KIOSK() {
   props.setProperty("PIN_JOE",      _hashPin("9544"));
   props.setProperty("PIN_TAYLOR",   _hashPin("9911"));
   props.setProperty("PIN_CLARENCE", _hashPin("1200"));
+  props.setProperty("PIN_KENNETH",  _hashPin("1047"));
   props.setProperty("PIN_YVONNE",   _hashPin("7864"));
   props.setProperty("PIN_TEST",     _hashPin("0000")); // test PIN — always 0000
   var ss=SpreadsheetApp.openById(KIOSK_SHEET_ID);
   _getOrCreateLog(ss); _getOrCreateTestLog(ss); _getOrCreateMsgTab(ss); _getOrCreateSchedule(ss);
   Logger.log("✅ KIOSK SETUP COMPLETE");
-  Logger.log("Real PINs: Joe=9544  Taylor=9911  Clarence=1200  Yvonne=7864");
+  Logger.log("Real PINs: Joe=9544  Taylor=9911  Clarence=1200  Kenneth=1047  Yvonne=7864");
   Logger.log("Test PIN:  TEST=0000  (logs to TEST_LOGS only)");
   Logger.log("NEXT: Run SETUP_SCHEDULE_TRIGGER()");
 }
