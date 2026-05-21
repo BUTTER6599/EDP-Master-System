@@ -414,9 +414,14 @@ var selEmpId=null, curPin="", pendingAction=null, pinCDTimer=null;
 var chkList=[], chkIdx=0, chkEmpId=null, chkPin=null, chkPhotos={};
 var msgRecognizer=null, msgTranscript="", msgSelEmpId=null, waveTimer=null;
 
-// Double-tap state — two taps on same tile within DT_MS = open Screen 2 PIN gate
-var DT_MS = 400;
-var dtState = { lastTime:0, lastEmpId:null };
+// Double-tap state — two taps on same tile within DT_MS = open Screen 2 PIN gate.
+// Tracked per employee ID so tapping Joe then Clarence quickly doesn't get confused.
+// DEDUP_MS swallows the synthetic click that follows a touchend on the same element
+// (iPad/Android fire both — without this, single tap = double tap = Screen 2 every time).
+var DT_MS    = 400;
+var DEDUP_MS = 100;
+var lastTapMs   = {}; // empId -> Date.now() of the previous real tap
+var lastEventMs = {}; // empId -> Date.now() of the most recent fired event (for dedup)
 
 function g(id){ return document.getElementById(id); }
 
@@ -630,17 +635,26 @@ function renderTiles(){
 
 /* Double-tap handler — fires single-tap immediately for snappy feel,
    and if a second tap on the same tile lands within DT_MS, opens
-   the Screen 2 PIN gate. */
+   the Screen 2 PIN gate.
+   Per-empId tracking + touchend/click dedup. */
 function handleTileTap(empId){
   var now = Date.now();
-  if(dtState.lastEmpId === empId && (now - dtState.lastTime) < DT_MS){
-    dtState.lastTime = 0;
-    dtState.lastEmpId = null;
+
+  // Dedup: ignore the synthetic click that fires right after touchend.
+  if(lastEventMs[empId] && (now - lastEventMs[empId]) < DEDUP_MS){
+    lastEventMs[empId] = now;
+    return;
+  }
+  lastEventMs[empId] = now;
+
+  // Double tap check (per employee)
+  var last = lastTapMs[empId] || 0;
+  if(last > 0 && (now - last) < DT_MS){
+    lastTapMs[empId] = 0;
     openS2PinGate(empId);
     return;
   }
-  dtState.lastTime = now;
-  dtState.lastEmpId = empId;
+  lastTapMs[empId] = now;
   pickEmp(empId);
 }
 
