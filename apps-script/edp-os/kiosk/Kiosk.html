@@ -593,6 +593,12 @@ function fetchBoot(force){
 function renderTiles(){
   var empList=(BOOT&&BOOT.employees)?BOOT.employees:STATIC_EMPLOYEES;
   var wrap=g("tilesWrap"); wrap.innerHTML="";
+
+  // Double-tap tracking — shared across all tiles built in this render pass.
+  // Two taps on the same tile within 400ms = open Screen 2 PIN gate.
+  var lastTapTime = 0;
+  var lastTapId   = "";
+
   empList.forEach(function(emp){
     var tile=document.createElement("div");
     tile.className="emp-tile"; tile.id="tile-"+emp.id;
@@ -626,9 +632,32 @@ function renderTiles(){
     tile.appendChild(av); tile.appendChild(nm); tile.appendChild(sb);
     tile.appendChild(tm); tile.appendChild(td); tile.appendChild(wk);
 
-    // Single tap = select. Double tap (within DT_MS) = open Screen 2 PIN gate.
-    tile.addEventListener("click",    function(){handleTileTap(emp.id);});
-    tile.addEventListener("touchend", function(e){e.preventDefault();handleTileTap(emp.id);});
+    // Single tap = select. Double tap (within 400ms) = open Screen 2 PIN gate.
+    tile.addEventListener("touchend", function(e){
+      e.preventDefault();
+      var now = Date.now();
+      if(lastTapId === emp.id && now - lastTapTime < 400){
+        lastTapTime = 0;
+        lastTapId = "";
+        openS2PinGate(emp.id);
+      } else {
+        lastTapTime = now;
+        lastTapId = emp.id;
+        pickEmp(emp.id);
+      }
+    });
+    tile.addEventListener("click", function(){
+      var now = Date.now();
+      if(lastTapId === emp.id && now - lastTapTime < 400){
+        lastTapTime = 0;
+        lastTapId = "";
+        openS2PinGate(emp.id);
+      } else {
+        lastTapTime = now;
+        lastTapId = emp.id;
+        pickEmp(emp.id);
+      }
+    });
     wrap.appendChild(tile);
   });
 }
