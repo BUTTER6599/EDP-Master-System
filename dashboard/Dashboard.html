@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EDP Command Center</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#F0F2F5;--surface:#FFFFFF;--surface2:#F8F9FA;
+  --border:#E2E8F0;--text:#1A202C;--text2:#4A5568;--text3:#718096;
+  --shadow:0 2px 8px rgba(0,0,0,.08);--shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --radius:14px;--radius-sm:8px;
+}
+body.dark{
+  --bg:#0F1117;--surface:#1A1D27;--surface2:#22263A;
+  --border:#2D3148;--text:#F0F4FF;--text2:#B0BAD4;--text3:#6B7A9C;
+  --shadow:0 2px 8px rgba(0,0,0,.4);--shadow-lg:0 8px 24px rgba(0,0,0,.5);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:var(--surface);
+  border-bottom:1px solid var(--border);box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:space-between;padding:12px 20px;gap:12px;}
+.nav-brand{display:flex;align-items:center;gap:10px;}
+.nav-logo{width:38px;height:38px;background:linear-gradient(135deg,#FF6B35,#EA580C);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#fff;font-weight:900;}
+.nav-title{font-size:16px;font-weight:700;color:var(--text);}
+.nav-sub{font-size:11px;color:var(--text3);}
+.nav-right{display:flex;align-items:center;gap:8px;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  border-radius:20px;font-size:12px;font-weight:700;}
+.pill.open{background:#D1FAE5;color:#065F46;}
+.pill.closed{background:#FEE2E2;color:#991B1B;animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-icon{width:36px;height:36px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface2);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:16px;color:var(--text);transition:.15s;}
+.btn-icon:hover{background:var(--border);}
+.nav-time{font-size:13px;font-weight:600;color:var(--text2);}
+.version{font-size:10px;color:var(--text3);font-weight:600;}
+
+/* REFRESH BAR */
+.refresh-wrap{height:3px;background:var(--border);}
+.refresh-bar{height:3px;background:linear-gradient(90deg,#EA580C,#2563EB);width:100%;}
+
+/* PAGE */
+.page{max-width:1400px;margin:0 auto;padding:20px 16px 60px;}
+
+/* STAT CARDS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+@media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow);transition:border-color .4s,background .4s;}
+.stat-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:6px;}
+.stat-value{font-size:28px;font-weight:800;color:var(--text);line-height:1;transition:color .4s;}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.stat-goals{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;}
+.stat-goals span{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.sg-red   {background:#FEE2E2;color:#991B1B;}
+.sg-yellow{background:#FEF3C7;color:#92400E;}
+.sg-green {background:#D1FAE5;color:#065F46;}
+/* card color states */
+.stat-card.st-red   {border-color:#EF4444 !important;background:#FFF5F5 !important;}
+.stat-card.st-yellow{border-color:#F59E0B !important;background:#FFFBEB !important;}
+.stat-card.st-green {border-color:#10B981 !important;background:#F0FDF4 !important;}
+.stat-card.st-red    .stat-value{color:#EF4444 !important;}
+.stat-card.st-yellow .stat-value{color:#D97706 !important;}
+.stat-card.st-green  .stat-value{color:#10B981 !important;}
+body.dark .stat-card.st-red   {background:#2D0A0A !important;}
+body.dark .stat-card.st-yellow{background:#2D1F00 !important;}
+body.dark .stat-card.st-green {background:#022C1A !important;}
+@keyframes flashGreen{
+  0%,100%{border-color:#10B981;box-shadow:var(--shadow);}
+  50%{border-color:#34D399;box-shadow:0 0 18px #10B98177;}
+}
+.stat-card.st-flash{animation:flashGreen 1.1s ease-in-out 8;}
+/* analytics */
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:700px){.analytics-grid{grid-template-columns:1fr;}}
+.analytics-row{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.analytics-row:last-child{border-bottom:none;}
+.analytics-cat{color:var(--text2);font-weight:500;}
+.analytics-right{display:flex;gap:10px;align-items:center;}
+.analytics-cnt{font-weight:800;color:var(--text);font-size:15px;}
+.analytics-amt{font-weight:700;color:#10B981;}
+
+/* SECTION HEADER */
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.section-title{font-size:16px;font-weight:700;color:var(--text);}
+.section-sub{font-size:12px;color:var(--text3);}
+
+/* EMPLOYEE GRID */
+.emp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:24px;}
+
+/* EMPLOYEE CARD */
+.emp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;}
+
+/* CARD TOP STRIP */
+.emp-strip{height:5px;}
+
+/* CARD HEADER — always visible */
+.emp-header{padding:16px;cursor:pointer;display:flex;align-items:center;gap:12px;
+  transition:background .15s;}
+.emp-header:hover{background:var(--surface2);}
+.emp-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;}
+.emp-name{font-size:15px;font-weight:700;color:var(--text);}
+.emp-role{font-size:12px;color:var(--text3);margin-top:1px;}
+.emp-state{display:flex;align-items:center;gap:5px;margin-top:4px;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot.working{background:#10B981;animation:pulse 1.5s infinite;}
+.dot.lunch{background:#F59E0B;}
+.dot.out{background:#9CA3AF;}
+.dot.over{background:#EF4444;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.state-txt{font-size:12px;font-weight:600;}
+.emp-rate-box{margin-left:auto;text-align:right;flex-shrink:0;}
+.emp-rate{font-size:14px;font-weight:700;color:var(--text);}
+.emp-earned{font-size:11px;color:var(--text3);margin-top:2px;}
+.emp-chevron{font-size:12px;color:var(--text3);margin-left:8px;transition:transform .25s;}
+.emp-card.open .emp-chevron{transform:rotate(180deg);}
+
+/* CHART SECTION — always visible below header */
+.chart-section{padding:0 16px 14px;border-bottom:1px solid var(--border);}
+.chart-row{display:flex;align-items:center;gap:12px;}
+.chart-wrap{flex:1;height:90px;position:relative;}
+.chart-legend{display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:110px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);font-weight:500;}
+.legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+
+/* EXPANDABLE BODY */
+.emp-body{display:none;}
+.emp-card.open .emp-body{display:block;}
+
+/* TODAY SUMMARY */
+.today-summary{padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;gap:16px;background:var(--surface2);}
+.today-box{flex:1;text-align:center;}
+.today-val{font-size:20px;font-weight:800;color:var(--text);}
+.today-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+/* 2-WEEK CALENDAR */
+.cal-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+.cal-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-day{border-radius:6px;padding:5px 3px;text-align:center;font-size:10px;
+  border:1px solid transparent;min-height:48px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;}
+.cal-day.scheduled{background:var(--surface2);border-color:var(--border);}
+.cal-day.today{border-color:currentColor;font-weight:700;}
+.cal-day.has-hours{border-color:currentColor;}
+.cal-day.future{opacity:.4;}
+.cal-day.off{opacity:.25;}
+.cal-dn{font-size:9px;color:var(--text3);font-weight:600;}
+.cal-num{font-size:12px;font-weight:700;color:var(--text);}
+.cal-hrs{font-size:10px;font-weight:700;}
+.cal-pay{font-size:9px;color:var(--text3);}
+
+/* WEEK TOTALS */
+.week-totals{padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;gap:12px;}
+.wt-box{flex:1;background:var(--surface2);border-radius:8px;padding:10px;text-align:center;}
+.wt-val{font-size:18px;font-weight:800;color:var(--text);}
+.wt-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+/* PAYROLL HISTORY */
+.payroll-section{padding:14px 16px;}
+.ptabs{display:flex;gap:4px;margin-bottom:10px;}
+.ptab{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  background:var(--surface2);border:1px solid var(--border);cursor:pointer;color:var(--text2);}
+.ptab.active{background:var(--text);color:var(--surface);}
+.ptab-body{display:none;}
+.ptab-body.active{display:block;}
+.ph-row{display:flex;justify-content:space-between;padding:5px 0;
+  border-bottom:1px solid var(--border);font-size:12px;}
+.ph-row:last-child{border-bottom:none;}
+.ph-lbl{color:var(--text2);}
+.ph-val{font-weight:700;color:var(--text);}
+
+/* BOTTOM GRID */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:700px){.bottom-grid{grid-template-columns:1fr;}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow);}
+
+/* GOALS */
+.goal-item{margin-bottom:14px;}
+.goal-item:last-child{margin-bottom:0;}
+.goal-hdr{display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;}
+.goal-name{font-weight:600;color:var(--text);}
+.goal-amt{font-weight:700;color:var(--text);}
+.goal-bar{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.goal-fill{height:100%;border-radius:4px;transition:width .5s;}
+.goal-pct{font-size:11px;color:var(--text3);margin-top:3px;}
+
+/* STAGE CHIPS */
+.stage-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.chip{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1.5px solid;background:transparent;}
+
+/* PURCHASES TABLE */
+.ptable{width:100%;border-collapse:collapse;font-size:13px;}
+.ptable th{text-align:left;font-size:11px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:2px solid var(--border);}
+.ptable td{padding:8px;border-bottom:1px solid var(--border);color:var(--text2);}
+.ptable tr:last-child td{border-bottom:none;}
+
+/* QUICK LINKS */
+.qlinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.qlink{padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;
+  color:#fff;border:none;cursor:pointer;transition:.15s;}
+.qlink:hover{opacity:.85;}
+
+/* LOADING / ERROR */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:300px;gap:12px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);
+  border-top-color:#EA580C;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius);
+  padding:24px;text-align:center;max-width:400px;margin:40px auto;color:#991B1B;}
+
+/* FOOTER */
+footer{text-align:center;padding:20px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);}
+
+/* FINANCIAL PROTECTOR (V1) */
+.fp-wrap{margin-bottom:24px;}
+.fp-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+.fp-title{font-size:20px;font-weight:800;color:var(--text);}
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.fp-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+.fp-card h3{font-size:13px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.fp-big{font-size:30px;font-weight:900;color:var(--text);line-height:1.1;}
+.fp-sub{font-size:13px;color:var(--text3);margin-top:4px;}
+.fp-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:15px;gap:10px;}
+.fp-row:last-child{border-bottom:none;}
+.fp-row .k{color:var(--text2);}
+.fp-row .v{font-weight:800;color:var(--text);white-space:nowrap;}
+.fp-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.fp-chip.live{background:#D1FAE5;color:#065F46;}
+.fp-chip.estimate{background:#FEF3C7;color:#92400E;}
+.fp-chip.config{background:#E0E7FF;color:#3730A3;}
+.fp-bar{height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;margin-top:6px;}
+.fp-fill{height:100%;border-radius:5px;}
+.fp-badge{display:inline-block;font-size:22px;font-weight:900;padding:8px 18px;border-radius:12px;color:#fff;}
+.fp-badge.RED{background:#EF4444;}
+.fp-badge.YELLOW{background:#F59E0B;}
+.fp-badge.GREEN{background:#10B981;}
+.fp-card.status-RED{border-color:#EF4444;}
+.fp-card.status-YELLOW{border-color:#F59E0B;}
+.fp-card.status-GREEN{border-color:#10B981;}
+.fp-action{font-size:17px;font-weight:600;color:var(--text);line-height:1.45;}
+.fp-avail-red{color:#EF4444;}
+.fp-avail-green{color:#10B981;}
+.fp-err{background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius);padding:16px;color:#991B1B;font-weight:700;font-size:15px;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">E</div>
+    <div>
+      <div class="nav-title">EDP Command Center</div>
+      <div class="nav-sub">The Electronics Depot · Metairie, LA</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span id="storePill" class="pill closed">● CLOSED</span>
+    <span class="nav-time" id="navTime">--:-- --</span>
+    <button class="btn-icon" id="addSaleBtn" title="Add Sale">$</button>
+    <button class="btn-icon" id="addPurchaseBtn" title="Add Purchase">+</button>
+    <button class="btn-icon" id="refreshBtn" title="Refresh">🔄</button>
+    <button class="btn-icon" id="themeBtn" title="Toggle theme">🌙</button>
+    <span class="version">v2.1</span>
+  </div>
+</nav>
+<div class="refresh-wrap"><div class="refresh-bar" id="refreshBar"></div></div>
+
+<!-- MAIN -->
+<div class="page">
+  <div id="fpSection" class="fp-wrap">
+    <div class="loading" style="min-height:120px">
+      <div class="spinner"></div>
+      <div style="color:var(--text3);font-size:14px;">Loading Financial Protector...</div>
+    </div>
+  </div>
+  <div id="mainContent">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div style="color:var(--text3);font-size:14px;">Loading EDP dashboard...</div>
+    </div>
+  </div>
+</div>
+
+<footer>EDP Master System v2.1 · Owner Dashboard · The Electronics Depot LLC · 7333 Airline Dr, Metairie, LA 70003</footer>
+
+<!-- ADD SALE MODAL (outside #mainContent so refresh cannot destroy it) -->
+<div id="saleOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:420px;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;">Add Sale</div>
+      <button class="btn-icon" id="saleClose" title="Close">X</button>
+    </div>
+    <div id="saleError" style="display:none;color:#991B1B;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px;font-size:12px;margin-bottom:10px;"></div>
+    <form id="saleForm">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Amount *</label>
+      <input id="saleAmount" type="number" step="0.01" min="0" inputmode="decimal" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Category</label>
+      <select id="saleCategory" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+        <option value="">--</option>
+        <option value="Appliance Sale">Appliance Sale</option>
+        <option value="Repair">Repair</option>
+        <option value="Parts">Parts</option>
+        <option value="Delivery">Delivery</option>
+        <option value="Warranty">Warranty</option>
+        <option value="Other">Other</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Payment Type</label>
+      <select id="salePayment" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+        <option value="">--</option>
+        <option value="Cash">Cash</option>
+        <option value="Card">Card</option>
+        <option value="Other">Other</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Sale Date</label>
+      <input id="saleDate" type="date" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Notes</label>
+      <input id="saleNotes" type="text" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Entered By</label>
+      <input id="saleEnteredBy" type="text" style="width:100%;padding:8px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <button type="submit" id="saleSubmit" style="width:100%;padding:10px;background:#10B981;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Save Sale</button>
+    </form>
+  </div>
+</div>
+
+<!-- ADD PURCHASE MODAL (outside #mainContent so refresh cannot destroy it) -->
+<div id="purchaseOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:420px;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;">Add Purchase</div>
+      <button class="btn-icon" id="purchaseClose" title="Close">X</button>
+    </div>
+    <div id="purchaseError" style="display:none;color:#991B1B;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px;font-size:12px;margin-bottom:10px;"></div>
+    <form id="purchaseForm">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Vendor</label>
+      <input id="purchaseVendor" type="text" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Item</label>
+      <input id="purchaseItem" type="text" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Category</label>
+      <select id="purchaseCategory" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+        <option value="">--</option>
+        <option value="Appliance">Appliance</option>
+        <option value="Part">Part</option>
+        <option value="Tool">Tool</option>
+        <option value="Supplies">Supplies</option>
+        <option value="Repair Expense">Repair Expense</option>
+        <option value="Other">Other</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Cost *</label>
+      <input id="purchaseCost" type="number" step="0.01" min="0" inputmode="decimal" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Status</label>
+      <select id="purchaseStatus" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+        <option value="">--</option>
+        <option value="Planned">Planned</option>
+        <option value="Bought">Bought</option>
+        <option value="Hold">Hold</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Purchase Date</label>
+      <input id="purchaseDate" type="date" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Entered By</label>
+      <select id="purchaseEnteredBy" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+        <option value="">--</option>
+        <option value="Taylor">Taylor</option>
+        <option value="Yvonne">Yvonne</option>
+        <option value="Joe">Joe</option>
+        <option value="Kenneth">Kenneth</option>
+        <option value="Clarence">Clarence</option>
+      </select>
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Notes</label>
+      <input id="purchaseNotes" type="text" style="width:100%;padding:8px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);">
+      <button type="submit" id="purchaseSubmit" style="width:100%;padding:10px;background:#2563EB;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Save Purchase</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── THEME ───────────────────────────────────────────────────
+(function() {
+  var btn = document.getElementById('themeBtn');
+  function apply(dark) {
+    if (dark) {
+      document.body.classList.add('dark');
+      btn.textContent = '☀️';
+    } else {
+      document.body.classList.remove('dark');
+      btn.textContent = '🌙';
+    }
+  }
+  apply(false); // always start white
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    apply(!document.body.classList.contains('dark'));
+  });
+})();
+
+// ── CLOCK ───────────────────────────────────────────────────
+function updateClock() {
+  var now = new Date();
+  var h = now.getHours(), m = now.getMinutes();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var hh = h % 12 || 12;
+  document.getElementById('navTime').textContent = hh + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  var dow = now.getDay();
+  var open = dow !== 0 && h >= 10 && h < 17;
+  var pill = document.getElementById('storePill');
+  pill.textContent = open ? '● OPEN' : '● CLOSED';
+  pill.className = 'pill ' + (open ? 'open' : 'closed');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── DATA ────────────────────────────────────────────────────
+var charts = {};
+var REFRESH_SEC = 30;
+var refreshInterval;
+
+// Track which cards are open so refresh doesn't close them
+function getOpenCards() {
+  var open = [];
+  document.querySelectorAll('.emp-card.open').forEach(function(card) {
+    open.push(card.id);
+  });
+  return open;
+}
+
+function restoreOpenCards(openIds) {
+  openIds.forEach(function(id) {
+    var card = document.getElementById(id);
+    if (card) card.classList.add('open');
+  });
+}
+
+function loadDashboard() {
+  clearInterval(refreshInterval);
+  var openCards = getOpenCards(); // save before reload
+  startRefreshBar();
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (!data || !data.ok) { showError(data ? data.error : 'No response'); return; }
+      render(data, openCards); // pass open cards to render
+      startCountdown();
+    })
+    .withFailureHandler(function(err) { showError(err.message || String(err)); })
+    .api_getOwnerDashboard();
+}
+
+function startRefreshBar() {
+  var bar = document.getElementById('refreshBar');
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  setTimeout(function() {
+    bar.style.transition = 'width ' + REFRESH_SEC + 's linear';
+    bar.style.width = '0%';
+  }, 100);
+}
+
+function startCountdown() {
+  var t = REFRESH_SEC;
+  refreshInterval = setInterval(function() {
+    t--;
+    if (t <= 0) { clearInterval(refreshInterval); loadDashboard(); }
+  }, 1000);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadDashboard);
+
+// ── RENDER ──────────────────────────────────────────────────
+function render(data, openCards) {
+  openCards = openCards || [];
+  var emps = data.employees || [];
+  var fin  = data.financial  || {};
+  var inv  = data.inventory  || {};
+  var purch = data.purchases || [];
+
+  // Destroy old charts
+  Object.keys(charts).forEach(function(k) { charts[k].destroy(); delete charts[k]; });
+
+  var html = '';
+  html += renderStats(fin, inv);
+  html += '<div class="section-hdr" style="margin-top:8px">';
+  html += '<div class="section-title">👥 Team Status</div>';
+  if (emps.length) {
+    var wk = emps[0].week || {};
+    html += '<div class="section-sub">Pay Week: ' + (wk.weekStart||'') + ' – ' + (wk.weekEnd||'') + '</div>';
+  }
+  html += '</div>';
+  html += '<div class="emp-grid" id="empGrid">';
+  emps.forEach(function(emp) { html += buildEmpCard(emp); });
+  html += '</div>';
+  html += '<div class="bottom-grid">';
+  html += renderGoals(fin);
+  html += renderInventory(inv);
+  html += '</div>';
+  html += renderPurchases(purch);
+  html += renderAnalytics(fin);
+  html += renderQuickLinks();
+
+  document.getElementById('mainContent').innerHTML = html;
+
+  // Wire cards
+  emps.forEach(function(emp) {
+    wireCard(emp);
+    drawChart(emp);
+  });
+
+  // Restore previously open cards
+  restoreOpenCards(openCards);
+}
+
+// ── STAT CARDS ──────────────────────────────────────────────
+function getSalesClass(val, t1, t2, t3) {
+  // t1=yellow, t2=green, t3=flash green
+  if (val >= t3) return 'st-green st-flash';
+  if (val >= t2) return 'st-green';
+  if (val >= t1) return 'st-yellow';
+  return 'st-red';
+}
+
+function renderStats(fin, inv) {
+  var todayAmt = fin.todaySalesAmt || 0;
+  var weekAmt  = fin.weekSales     || 0;
+  var floorReady = (inv.stages && (inv.stages['FLOOR_READY'] || inv.stages['READY_FOR_SALE'])) || 0;
+  var inMR       = (inv.stages && (inv.stages['MAKE_READY']  || inv.stages['REPAIR']))         || 0;
+
+  var todayClass = getSalesClass(todayAmt, 400, 620, 860);
+  var weekClass  = getSalesClass(weekAmt,  2800, 3600, 4500);
+
+  function goalPills(labels) {
+    return '<div class="stat-goals">' + labels.map(function(l){
+      return '<span class="' + l.cls + '">' + l.txt + '</span>';
+    }).join('') + '</div>';
+  }
+
+  var todayGoals = goalPills([
+    {cls:'sg-red',   txt:'$400 Base'},
+    {cls:'sg-yellow',txt:'$620 Break-Even'},
+    {cls:'sg-green', txt:'$860 Goal'}
+  ]);
+  var weekGoals = goalPills([
+    {cls:'sg-red',   txt:'$2,800 Base'},
+    {cls:'sg-yellow',txt:'$3,600 Break-Even'},
+    {cls:'sg-green', txt:'$4,500 Goal'}
+  ]);
+
+  return '<div class="stats-row">' +
+
+    // TODAY SALES — color coded
+    '<div class="stat-card ' + todayClass + '" id="sc-today">' +
+    '<div class="stat-label">Today\'s Sales</div>' +
+    '<div class="stat-value">$' + todayAmt.toFixed(2) + '</div>' +
+    '<div class="stat-sub">' + (fin.todaySalesCount||0) + ' transaction' + (fin.todaySalesCount===1?'':'s') + '</div>' +
+    todayGoals + '</div>' +
+
+    // FLOOR READY
+    '<div class="stat-card">' +
+    '<div class="stat-label">Floor Ready</div>' +
+    '<div class="stat-value">' + floorReady + '</div>' +
+    '<div class="stat-sub">of ' + (inv.total||0) + ' total units</div></div>' +
+
+    // IN MAKE-READY
+    '<div class="stat-card">' +
+    '<div class="stat-label">In Make-Ready</div>' +
+    '<div class="stat-value">' + inMR + '</div>' +
+    '<div class="stat-sub">awaiting tech</div></div>' +
+
+    // WEEK SALES — color coded
+    '<div class="stat-card ' + weekClass + '" id="sc-week">' +
+    '<div class="stat-label">Week Sales</div>' +
+    '<div class="stat-value">$' + weekAmt.toFixed(2) + '</div>' +
+    '<div class="stat-sub">' + (fin.weekUnits||0) + ' unit' + (fin.weekUnits===1?'':'s') + '</div>' +
+    weekGoals + '</div>' +
+
+    '</div>';
+}
+
+// ── EMPLOYEE CARD ────────────────────────────────────────────
+function buildEmpCard(emp) {
+  var stateLabels = {WORKING:'Working', LUNCH:'On Lunch', OUT:'Off Clock', OVER:'Overtime'};
+  var stateColors = {WORKING:'#10B981', LUNCH:'#F59E0B', OUT:'#9CA3AF', OVER:'#EF4444'};
+  var dotClass = (emp.state||'OUT').toLowerCase();
+  if (dotClass === 'over') dotClass = 'over';
+  var stateColor = stateColors[emp.state] || '#9CA3AF';
+  var stateLbl = stateLabels[emp.state] || 'Off Clock';
+  var initials = emp.name.split(' ').map(function(n){return n[0];}).join('').toUpperCase().slice(0,2);
+  var wHrs = (emp.todayWorkedSec / 3600).toFixed(1);
+  var lHrs = (emp.todayLunchSec  / 3600).toFixed(1);
+  var earnedToday = (emp.todayWorkedSec / 3600 * emp.rate).toFixed(2);
+  var wk = emp.week || {};
+
+  var html = '';
+  html += '<div class="emp-card" id="card-' + emp.employeeId + '">';
+  html += '<div class="emp-strip" style="background:' + emp.color + '"></div>';
+
+  // HEADER
+  html += '<div class="emp-header" id="hdr-' + emp.employeeId + '">';
+  html += '<div class="emp-avatar" style="background:' + emp.color + '">' + initials + '</div>';
+  html += '<div style="flex:1">';
+  html += '<div class="emp-name">' + emp.name + '</div>';
+  html += '<div class="emp-role">' + emp.role + '</div>';
+  html += '<div class="emp-state"><div class="dot ' + dotClass + '"></div>';
+  html += '<span class="state-txt" style="color:' + stateColor + '">' + stateLbl + '</span></div>';
+  html += '</div>';
+  html += '<div class="emp-rate-box"><div class="emp-rate">$' + emp.rate + '/hr</div>';
+  html += '<div class="emp-earned">$' + earnedToday + ' today</div></div>';
+  html += '<div class="emp-chevron">▼</div>';
+  html += '</div>';
+
+  // CHART — always visible
+  html += '<div class="chart-section">';
+  html += '<div class="chart-row">';
+  html += '<div class="chart-wrap"><canvas id="chart-' + emp.employeeId + '"></canvas></div>';
+  html += '<div class="chart-legend">';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:' + emp.color + '"></div>Worked: ' + wHrs + 'h</div>';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div>Lunch: ' + lHrs + 'h</div>';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:#E2E8F0"></div>Remaining</div>';
+  html += '</div></div></div>';
+
+  // EXPANDABLE BODY
+  html += '<div class="emp-body">';
+
+  // TODAY SUMMARY
+  html += '<div class="today-summary">';
+  html += '<div class="today-box"><div class="today-val" style="color:' + emp.color + '">' + wHrs + 'h</div><div class="today-lbl">Worked Today</div></div>';
+  html += '<div class="today-box"><div class="today-val" style="color:#F59E0B">' + lHrs + 'h</div><div class="today-lbl">Lunch</div></div>';
+  html += '<div class="today-box"><div class="today-val">$' + earnedToday + '</div><div class="today-lbl">Earned Today</div></div>';
+  html += '</div>';
+
+  // 2-WEEK CALENDAR
+  html += buildCalendar(emp);
+
+  // WEEK TOTALS
+  html += '<div class="week-totals">';
+  html += '<div class="wt-box"><div class="wt-val" style="color:' + emp.color + '">' + (wk.totalHrs||0) + 'h</div><div class="wt-lbl">Week Hours</div></div>';
+  html += '<div class="wt-box"><div class="wt-val">$' + (wk.totalPay||0).toFixed(2) + '</div><div class="wt-lbl">Week Pay</div></div>';
+  html += '<div class="wt-box"><div class="wt-val">' + (wk.totalLunchHrs||0) + 'h</div><div class="wt-lbl">Week Lunch</div></div>';
+  html += '</div>';
+
+  // PAYROLL HISTORY TABS
+  html += buildPayrollTabs(emp);
+
+  html += '</div>'; // end emp-body
+  html += '</div>'; // end emp-card
+  return html;
+}
+
+// ── 2-WEEK CALENDAR ──────────────────────────────────────────
+function buildCalendar(emp) {
+  var days = emp.calDays || [];
+  if (!days.length) return '';
+
+  var html = '<div class="cal-section">';
+  html += '<div class="cal-label" style="color:' + emp.color + '">📅 Last 14 Days</div>';
+  html += '<div class="cal-grid">';
+
+  // Day headers
+  ['S','M','T','W','T','F','S'].forEach(function(d) {
+    html += '<div style="text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:2px 0">' + d + '</div>';
+  });
+
+  // Fill empty days before first entry
+  if (days.length) {
+    var firstDow = days[0].dayOfWeek;
+    for (var i = 0; i < firstDow; i++) {
+      html += '<div></div>';
+    }
+  }
+
+  days.forEach(function(d) {
+    var cls = 'cal-day';
+    if (d.scheduled) cls += ' scheduled';
+    if (d.isToday)   cls += ' today';
+    if (d.isFuture)  cls += ' future';
+    if (!d.scheduled) cls += ' off';
+    if (d.hoursWorked > 0) cls += ' has-hours';
+
+    var hrsColor = d.hoursWorked > 0 ? emp.color : 'var(--text3)';
+    var borderStyle = d.isToday ? 'border-color:' + emp.color + ';' : (d.hoursWorked > 0 ? 'border-color:' + emp.color + '44;' : '');
+
+    html += '<div class="' + cls + '" style="' + borderStyle + '">';
+    html += '<div class="cal-dn">' + d.dayName + '</div>';
+    html += '<div class="cal-num">' + d.dayNum + '</div>';
+    if (d.hoursWorked > 0) {
+      html += '<div class="cal-hrs" style="color:' + hrsColor + '">' + d.hoursWorked + 'h</div>';
+      html += '<div class="cal-pay">$' + d.earned.toFixed(0) + '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+// ── PAYROLL TABS ────────────────────────────────────────────
+function buildPayrollTabs(emp) {
+  var days = emp.calDays || [];
+  var wk = emp.week || {};
+
+  // Build daily rows
+  var workedDays = days.filter(function(d){ return d.hoursWorked > 0; });
+  var dayRows = workedDays.length ? workedDays.map(function(d) {
+    return '<div class="ph-row"><span class="ph-lbl">' + d.dayName + ' ' + d.monthShort + ' ' + d.dayNum + '</span>' +
+      '<span class="ph-val">' + d.hoursWorked + 'h · $' + d.earned.toFixed(2) + '</span></div>';
+  }).join('') : '<div style="color:var(--text3);font-size:12px;padding:4px 0">No data this period</div>';
+
+  var html = '<div class="payroll-section">';
+  html += '<div class="ptabs">';
+  html += '<div class="ptab active" data-period="week" data-id="' + emp.employeeId + '">Week</div>';
+  html += '<div class="ptab" data-period="daily" data-id="' + emp.employeeId + '">Daily</div>';
+  html += '</div>';
+
+  // Week tab
+  html += '<div class="ptab-body active" data-period="week" data-id="' + emp.employeeId + '">';
+  html += '<div class="ph-row"><span class="ph-lbl">Total Hours</span><span class="ph-val">' + (wk.totalHrs||0) + 'h</span></div>';
+  html += '<div class="ph-row"><span class="ph-lbl">Total Lunch</span><span class="ph-val">' + (wk.totalLunchHrs||0) + 'h</span></div>';
+  html += '<div class="ph-row"><span class="ph-lbl">Gross Pay</span><span class="ph-val">$' + (wk.totalPay||0).toFixed(2) + '</span></div>';
+  html += '<div class="ph-row"><span class="ph-lbl">Pay Week</span><span class="ph-val">' + (wk.weekStart||'') + ' – ' + (wk.weekEnd||'') + '</span></div>';
+  html += '</div>';
+
+  // Daily tab
+  html += '<div class="ptab-body" data-period="daily" data-id="' + emp.employeeId + '">';
+  html += dayRows;
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+// ── WIRE CARD (click to expand + tab switching) ──────────────
+function wireCard(emp) {
+  var card = document.getElementById('card-' + emp.employeeId);
+  var hdr  = document.getElementById('hdr-' + emp.employeeId);
+  if (!card || !hdr) return;
+
+  hdr.addEventListener('click', function() {
+    card.classList.toggle('open');
+  });
+
+  // Tab switching
+  card.querySelectorAll('.ptab').forEach(function(tab) {
+    tab.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var id = this.dataset.id;
+      var period = this.dataset.period;
+      card.querySelectorAll('.ptab').forEach(function(t){ t.classList.remove('active'); });
+      card.querySelectorAll('.ptab-body').forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      var body = card.querySelector('.ptab-body[data-period="' + period + '"][data-id="' + id + '"]');
+      if (body) body.classList.add('active');
+    });
+  });
+}
+
+// ── CHART ───────────────────────────────────────────────────
+function drawChart(emp) {
+  var canvas = document.getElementById('chart-' + emp.employeeId);
+  if (!canvas) return;
+  if (charts[emp.employeeId]) { charts[emp.employeeId].destroy(); }
+
+  var shiftHrs   = (emp.shiftLengthSec || 25200) / 3600;
+  var workedHrs  = (emp.todayWorkedSec || 0) / 3600;
+  var lunchHrs   = (emp.todayLunchSec  || 0) / 3600;
+  var remaining  = Math.max(0, shiftHrs - workedHrs - lunchHrs);
+
+  charts[emp.employeeId] = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['Today'],
+      datasets: [
+        { label:'Worked',    data:[workedHrs],  backgroundColor:emp.color,    borderRadius:6, borderSkipped:false },
+        { label:'Lunch',     data:[lunchHrs],   backgroundColor:'#F59E0B',    borderRadius:6, borderSkipped:false },
+        { label:'Remaining', data:[remaining],  backgroundColor:'#E2E8F0',    borderRadius:6, borderSkipped:false }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + ctx.parsed.x.toFixed(1) + 'h';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked:true,
+          display:true,
+          max: shiftHrs,
+          grid:{display:false},
+          ticks:{
+            font:{size:11, weight:'600'},
+            color:'#718096',
+            callback:function(v){ return v+'h'; }
+          }
+        },
+        y: { stacked:true, display:false }
+      }
+    }
+  });
+}
+
+// ── GOALS ───────────────────────────────────────────────────
+function renderGoals(fin) {
+  fin = fin || {};
+  var vault = fin.vaultBalance || 0;
+  var emer  = fin.emerBalance  || 0;
+  var weekProfit = fin.weekSales || 0;
+  var vaultGoal = 16000, emerGoal = 12000, floorGoal = 100;
+
+  function goalBar(name, val, goal, color) {
+    var pct = Math.min(100, val / goal * 100);
+    return '<div class="goal-item">' +
+      '<div class="goal-hdr"><div class="goal-name">' + name + '</div>' +
+      '<div class="goal-amt">$' + val.toLocaleString() + ' / $' + goal.toLocaleString() + '</div></div>' +
+      '<div class="goal-bar"><div class="goal-fill" style="width:' + pct.toFixed(1) + '%;background:' + color + '"></div></div>' +
+      '<div class="goal-pct">' + pct.toFixed(1) + '%</div></div>';
+  }
+
+  return '<div class="panel">' +
+    '<div class="section-hdr"><div class="section-title">🏦 Savings Goals</div></div>' +
+    goalBar('Growth Vault', vault, vaultGoal, '#EA580C') +
+    goalBar('Emergency Fund', emer, emerGoal, '#2563EB') +
+    goalBar('Week Profit Floor', weekProfit, floorGoal, '#10B981') +
+    '</div>';
+}
+
+// ── INVENTORY ───────────────────────────────────────────────
+function renderInventory(inv) {
+  inv = inv || {total:0, stages:{}};
+  var colors = {
+    'FLOOR_READY':'#10B981','READY_FOR_SALE':'#10B981',
+    'REPAIR':'#F59E0B','MAKE_READY':'#F59E0B',
+    'DIAGNOSTIC':'#3B82F6','SOLD':'#6B7280',
+    'SCRAP':'#EF4444','PARTS':'#8B5CF6'
+  };
+  var chips = Object.keys(inv.stages||{}).map(function(k) {
+    var c = colors[k] || '#9CA3AF';
+    return '<div class="chip" style="border-color:' + c + ';color:' + c + '">' + k.replace(/_/g,' ') + ': ' + inv.stages[k] + '</div>';
+  }).join('');
+
+  return '<div class="panel">' +
+    '<div class="section-hdr"><div class="section-title">📦 Inventory</div>' +
+    '<div class="section-sub">' + (inv.total||0) + ' total units</div></div>' +
+    '<div class="stage-chips">' + (chips || '<div style="color:var(--text3);font-size:13px">No inventory yet</div>') + '</div>' +
+    '</div>';
+}
+
+// ── PURCHASES ───────────────────────────────────────────────
+function renderPurchases(purchases) {
+  if (!purchases || !purchases.length) return '<div class="panel" style="margin-bottom:16px">' +
+    '<div class="section-hdr"><div class="section-title">🛒 Recent Purchases</div></div>' +
+    '<div style="color:var(--text3);font-size:13px;padding:8px 0">No purchases recorded yet</div></div>';
+
+  var rows = purchases.map(function(p) {
+    return '<tr>' +
+      '<td>' + (p.date||'-')     + '</td>' +
+      '<td>' + (p.vendor||'-')   + '</td>' +
+      '<td>' + (p.item||'-')     + '</td>' +
+      '<td>' + (p.category||'-') + '</td>' +
+      '<td style="font-weight:700;color:#10B981">$' + (p.cost||'0.00') + '</td>' +
+      '<td>' + (p.status||'-')   + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div class="panel" style="margin-bottom:16px;overflow-x:auto">' +
+    '<div class="section-hdr"><div class="section-title">🛒 Recent Purchases</div>' +
+    '<div class="section-sub">Last 8 entries</div></div>' +
+    '<table class="ptable">' +
+    '<thead><tr><th>Date</th><th>Vendor</th><th>Item</th><th>Category</th><th>Cost</th><th>Status</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>';
+}
+
+// ── SALES ANALYTICS ─────────────────────────────────────────
+function renderAnalytics(fin) {
+  fin = fin || {};
+  var todayCats  = fin.todayCategories  || {};
+  var weekCats   = fin.weekCategories   || {};
+
+  function buildRows(cats) {
+    var keys = Object.keys(cats);
+    if (!keys.length) return '<div style="color:var(--text3);font-size:13px;padding:8px 0">No sales recorded yet</div>';
+    // Sort by count descending
+    keys.sort(function(a,b){ return (cats[b].count||0) - (cats[a].count||0); });
+    return keys.map(function(k) {
+      var c = cats[k];
+      return '<div class="analytics-row">' +
+        '<div class="analytics-cat">' + k + '</div>' +
+        '<div class="analytics-right">' +
+        '<div class="analytics-cnt">' + (c.count||0) + ' sold</div>' +
+        '<div class="analytics-amt">$' + (c.total||0).toFixed(2) + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  return '<div class="analytics-grid">' +
+    '<div class="panel">' +
+    '<div class="section-hdr"><div class="section-title">📊 Today\'s Sales Breakdown</div></div>' +
+    buildRows(todayCats) + '</div>' +
+    '<div class="panel">' +
+    '<div class="section-hdr"><div class="section-title">📈 This Week\'s Breakdown</div></div>' +
+    buildRows(weekCats) + '</div>' +
+    '</div>';
+}
+
+// ── QUICK LINKS ─────────────────────────────────────────────
+function renderQuickLinks() {
+  return '<div class="panel" style="margin-bottom:16px">' +
+    '<div class="section-title" style="margin-bottom:12px">⚡ Quick Access</div>' +
+    '<div class="qlinks">' +
+    '<button class="qlink" style="background:#2563EB;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'kiosk\')">' +
+    '🖥️<br><span style="font-size:12px;margin-top:4px;display:block">Kiosk</span></button>' +
+    '<button class="qlink" style="background:#10B981;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'purchase\')">' +
+    '🛒<br><span style="font-size:12px;margin-top:4px;display:block">Purchase Form</span></button>' +
+    '<button class="qlink" style="background:#EA580C;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'admin\')">' +
+    '⚙️<br><span style="font-size:12px;margin-top:4px;display:block">Admin</span></button>' +
+    '</div></div>';
+}
+
+function openMode(mode) {
+  var base = window.location.href.split('?')[0];
+  window.open(base + '?mode=' + mode, '_blank');
+}
+
+// ── ERROR ───────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('mainContent').innerHTML =
+    '<div class="error-box"><div style="font-size:24px;margin-bottom:8px">⚠️</div>' +
+    '<div style="font-weight:700;margin-bottom:4px">Could not load dashboard</div>' +
+    '<div style="font-size:12px;margin-bottom:12px">' + msg + '</div>' +
+    '<button onclick="loadDashboard()" style="padding:8px 16px;background:#991B1B;color:#fff;' +
+    'border:none;border-radius:8px;cursor:pointer;font-weight:600">Try Again</button></div>';
+}
+
+// ── INIT ────────────────────────────────────────────────────
+// -- ADD SALE MODAL --------------------------------------------
+(function() {
+  var overlay   = document.getElementById('saleOverlay');
+  var openBtn   = document.getElementById('addSaleBtn');
+  var closeBtn  = document.getElementById('saleClose');
+  var form      = document.getElementById('saleForm');
+  var errBox    = document.getElementById('saleError');
+  var submitBtn = document.getElementById('saleSubmit');
+  var dateInput = document.getElementById('saleDate');
+
+  function showSaleError(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+  }
+  function clearSaleError() {
+    errBox.textContent = '';
+    errBox.style.display = 'none';
+  }
+  function todayStr() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1);
+    if (m.length < 2) m = '0' + m;
+    var day = String(d.getDate());
+    if (day.length < 2) day = '0' + day;
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+  function openForm() {
+    clearSaleError();
+    if (!dateInput.value) dateInput.value = todayStr();
+    overlay.style.display = 'flex';
+  }
+  function closeForm() {
+    overlay.style.display = 'none';
+  }
+
+  openBtn.addEventListener('click', openForm);
+  closeBtn.addEventListener('click', closeForm);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeForm();
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    clearSaleError();
+
+    var amount = parseFloat(document.getElementById('saleAmount').value);
+    if (isNaN(amount) || amount <= 0) {
+      showSaleError('Amount is required and must be greater than 0.');
+      return;
+    }
+
+    var payload = {
+      amount:       amount,
+      category:     document.getElementById('saleCategory').value,
+      payment_type: document.getElementById('salePayment').value,
+      sale_date:    document.getElementById('saleDate').value,
+      notes:        document.getElementById('saleNotes').value,
+      entered_by:   document.getElementById('saleEnteredBy').value
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Sale';
+        if (res && res.ok) {
+          form.reset();
+          closeForm();
+          loadDashboard();
+        } else {
+          showSaleError(res && res.error ? res.error : 'Save failed.');
+        }
+      })
+      .withFailureHandler(function(err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Sale';
+        showSaleError(err && err.message ? err.message : String(err));
+      })
+      .api_addSale(payload);
+  });
+})();
+
+// -- ADD PURCHASE MODAL ----------------------------------------
+(function() {
+  var overlay   = document.getElementById('purchaseOverlay');
+  var openBtn   = document.getElementById('addPurchaseBtn');
+  var closeBtn  = document.getElementById('purchaseClose');
+  var form      = document.getElementById('purchaseForm');
+  var errBox    = document.getElementById('purchaseError');
+  var submitBtn = document.getElementById('purchaseSubmit');
+  var dateInput = document.getElementById('purchaseDate');
+
+  function showPurchaseError(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+  }
+  function clearPurchaseError() {
+    errBox.textContent = '';
+    errBox.style.display = 'none';
+  }
+  function todayStr() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1);
+    if (m.length < 2) m = '0' + m;
+    var day = String(d.getDate());
+    if (day.length < 2) day = '0' + day;
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+  function openForm() {
+    clearPurchaseError();
+    if (!dateInput.value) dateInput.value = todayStr();
+    overlay.style.display = 'flex';
+  }
+  function closeForm() {
+    overlay.style.display = 'none';
+  }
+
+  openBtn.addEventListener('click', openForm);
+  closeBtn.addEventListener('click', closeForm);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeForm();
+  });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    clearPurchaseError();
+
+    var cost = parseFloat(document.getElementById('purchaseCost').value);
+    if (isNaN(cost) || cost <= 0) {
+      showPurchaseError('Cost is required and must be greater than 0.');
+      return;
+    }
+
+    var payload = {
+      purchase_date: document.getElementById('purchaseDate').value,
+      vendor:        document.getElementById('purchaseVendor').value,
+      item:          document.getElementById('purchaseItem').value,
+      category:      document.getElementById('purchaseCategory').value,
+      cost:          cost,
+      status:        document.getElementById('purchaseStatus').value,
+      entered_by:    document.getElementById('purchaseEnteredBy').value,
+      notes:         document.getElementById('purchaseNotes').value
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Purchase';
+        if (res && res.ok) {
+          form.reset();
+          closeForm();
+          loadDashboard();
+        } else {
+          showPurchaseError(res && res.error ? res.error : 'Save failed.');
+        }
+      })
+      .withFailureHandler(function(err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Purchase';
+        showPurchaseError(err && err.message ? err.message : String(err));
+      })
+      .api_addPurchase(payload);
+  });
+})();
+
+// -- FINANCIAL PROTECTOR (V1) --------------------------------
+function loadFinancialProtector() {
+  var host = document.getElementById('fpSection');
+  if (!host) return;
+  google.script.run
+    .withSuccessHandler(function (data) {
+      if (!data || !data.ok) {
+        fpShowError(data && data.error ? data.error : 'No response from server.');
+        return;
+      }
+      try { renderFinancialProtector(data); }
+      catch (e) { fpShowError(e && e.message ? e.message : String(e)); }
+    })
+    .withFailureHandler(function (err) {
+      fpShowError(err && err.message ? err.message : String(err));
+    })
+    .api_getFinancialProtector();
+}
+
+function fpShowError(detail) {
+  var host = document.getElementById('fpSection');
+  if (!host) return;
+  var msg = detail ? String(detail) : '';
+  // Escape so the detail renders safely and readably.
+  msg = msg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  host.innerHTML = '<div class="fp-err">Financial Protector unavailable. ' +
+    'The rest of the dashboard is still active.' +
+    (msg ? '<div style="margin-top:8px;font-weight:600;font-size:13px;color:#7f1d1d">Detail: ' +
+      msg + '</div>' : '') +
+    '</div>';
+}
+
+function fpMoney(n) {
+  n = parseFloat(n) || 0;
+  return '$' + Math.round(n).toLocaleString();
+}
+
+function fpChip(source) {
+  var s = String(source || 'config').toLowerCase();
+  var cls = (s === 'live') ? 'live' : (s === 'estimate' ? 'estimate' : 'config');
+  return '<span class="fp-chip ' + cls + '">' + s + '</span>';
+}
+
+function fpCard(title, source, bodyHtml, statusClass) {
+  return '<div class="fp-card ' + (statusClass || '') + '">' +
+    '<h3>' + title + fpChip(source) + '</h3>' + bodyHtml + '</div>';
+}
+
+function fpBar(pct, color) {
+  var p = Math.max(0, Math.min(100, pct || 0));
+  return '<div class="fp-bar"><div class="fp-fill" style="width:' + p +
+    '%;background:' + (color || '#2563EB') + '"></div></div>';
+}
+
+function fpPctColor(pct) {
+  if (pct > 100) return '#EF4444';   // red: over budget
+  if (pct >= 75) return '#F59E0B';   // yellow: 75-100%
+  return '#10B981';                  // green: 0-75%
+}
+
+function renderFinancialProtector(d) {
+  var ob = d.ownerBriefing || {};
+  var html = '';
+
+  html += '<div class="fp-head">';
+  html += '<div class="fp-title">Financial Protector</div>';
+  html += '<span class="fp-badge ' + (ob.status || 'YELLOW') + '">' + (ob.status || 'YELLOW') + '</span>';
+  html += '</div>';
+
+  html += '<div class="fp-grid">';
+
+  // Cash Position
+  var cp = d.cashPosition || {};
+  var availCls = (cp.availableCash <= 0 || cp.availableCash < cp.totalCash * 0.25) ? 'fp-avail-red' : 'fp-avail-green';
+  var cashBody = '';
+  cashBody += '<div class="fp-sub">Available Cash</div>';
+  cashBody += '<div class="fp-big ' + availCls + '">' + fpMoney(cp.availableCash) + '</div>';
+  cashBody += '<div class="fp-row"><span class="k">Total Cash</span><span class="v">' + fpMoney(cp.totalCash) + '</span></div>';
+  cashBody += '<div class="fp-row"><span class="k">Assigned Cash</span><span class="v">' + fpMoney(cp.assignedCash) + '</span></div>';
+  html += fpCard('Cash Position', cp.source, cashBody);
+
+  // Rent Command Center
+  var r = d.rentStatus || {};
+  var rentBody = '';
+  rentBody += '<div class="fp-big">' + fpMoney(r.monthly) + '<span style="font-size:14px;font-weight:600;color:var(--text3)"> /mo</span></div>';
+  rentBody += '<div class="fp-sub">Due ' + (r.idealDueRange || '') + ' - ' + (r.currentPattern || '') + '</div>';
+  rentBody += '<div class="fp-row"><span class="k">Rent Fund</span><span class="v">' + fpMoney(r.fundBalance) + ' / ' + fpMoney(r.fundGoal) + '</span></div>';
+  rentBody += fpBar(r.pctToGoal, '#EA580C');
+  rentBody += '<div class="fp-sub">Stretch ' + fpMoney(r.stretchGoal) + (r.dueDate ? ' - bill due ' + r.dueDate : '') + '</div>';
+  html += fpCard('Rent Command Center', r.source, rentBody);
+
+  // Rent Protection
+  var rp = d.rentProtection || {};
+  if (rp.mode) {
+    var rpModeCls = (rp.mode === 'COVERED') ? 'status-GREEN' :
+                    (rp.mode === 'SHORT') ? 'status-YELLOW' : 'status-RED';
+    var rpAlertLabels = {
+      rentNotCovered: 'Rent Not Covered',
+      urgentSales: 'Urgent Sales',
+      fundingBehind: 'Funding Behind'
+    };
+    var rpBody = '';
+
+    rpBody += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
+    rpBody += '<div>';
+    rpBody += '<div class="fp-sub">Rent Coverage</div>';
+    rpBody += '<div class="fp-row" style="border:none;padding:0;margin-top:4px"><span class="k">' +
+      (rp.isCovered ? 'Covered' : 'Shortfall: ' + fpMoney(rp.shortfall)) + '</span></div>';
+    rpBody += '</div>';
+    rpBody += '<span class="fp-badge ' + rpModeCls + '" style="font-size:13px;padding:6px 12px">' + rp.mode + '</span>';
+    rpBody += '</div>';
+
+    rpBody += '<div class="fp-row"><span class="k">Due</span><span class="v">' + (rp.rentDueDateText || 'Unknown') + '</span></div>';
+    if (rp.daysUntilDue !== null) {
+      rpBody += '<div class="fp-row"><span class="k">Days Until Due</span><span class="v">' + rp.daysUntilDue + '</span></div>';
+    }
+
+    rpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin:12px 0">';
+    rpBody += '<div class="fp-sub" style="font-size:11px">Daily Sales Rate</div>';
+    rpBody += '<div class="fp-row" style="border:none;padding-top:4px"><span class="k">Required</span><span class="v">' + fpMoney(rp.requiredDailySales) + '/day</span></div>';
+    rpBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Current</span><span class="v">' + fpMoney(rp.currentDailySalesRate) + '/day</span></div>';
+    if (rp.dailySalesGap > 0) {
+      rpBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Gap</span><span class="v" style="color:#EF4444">' + fpMoney(rp.dailySalesGap) + '/day</span></div>';
+    }
+    rpBody += '</div>';
+
+    rpBody += '<div class="fp-row"><span class="k">Buying Locked</span><span class="v" style="font-weight:700;color:' +
+      (rp.inventoryBuyingLocked ? '#EF4444' : '#10B981') + '">' +
+      (rp.inventoryBuyingLocked ? 'YES' : 'NO') + '</span></div>';
+
+    if (rp.alerts && rp.alerts.length > 0) {
+      rpBody += '<div style="margin-top:12px">';
+      for (var ri = 0; ri < rp.alerts.length; ri++) {
+        var rpa = rp.alerts[ri];
+        if (rpa.active) {
+          rpBody += '<div style="padding:8px;margin-bottom:6px;background:#EF444422;border-left:3px solid #EF4444;border-radius:3px">';
+          rpBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (rpAlertLabels[rpa.key] || rpa.key) + '</div>';
+          rpBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + rpa.message + '</div>';
+          rpBody += '</div>';
+        }
+      }
+      rpBody += '</div>';
+    }
+
+    var rpAction = '';
+    if (rp.mode === 'CRITICAL') rpAction = 'Make urgent sales today to cover rent';
+    else if (rp.mode === 'DANGER') rpAction = 'Focus on daily sales targets';
+    else if (rp.mode === 'SHORT') rpAction = 'Monitor daily sales progress';
+    else rpAction = 'Rent is secure';
+    rpBody += '<div class="fp-action" style="margin-top:12px">' + rpAction + '</div>';
+
+    html += fpCard('Rent Protection', rp.source, rpBody, rpModeCls);
+  }
+
+  // Tax Tracker
+  var t = d.taxStatus || {};
+  var irs = t.irsPlan || {};
+  var taxBody = '';
+  taxBody += '<div class="fp-row"><span class="k">Payroll Tax / wk</span><span class="v">' + fpMoney(t.payrollTaxWeekly) + '</span></div>';
+  taxBody += '<div class="fp-row"><span class="k">Sales Tax Reserve</span><span class="v">' + fpMoney(t.salesTaxReserve) + '</span></div>';
+  taxBody += '<div class="fp-row"><span class="k">Tax Reserve</span><span class="v">' + fpMoney(t.taxReserveBalance) + ' / ' + fpMoney(t.taxReserveGoal) + '</span></div>';
+  taxBody += '<div class="fp-sub" style="margin-top:8px"><strong>IRS Plan (separate):</strong> ' + fpMoney(irs.monthly) + '/mo, orig ' + fpMoney(irs.originalBalance) + ', started ' + (irs.started || '') + '</div>';
+  html += fpCard('Tax Tracker', t.source, taxBody);
+
+  // Payroll Tracker (Command Center)
+  var p = d.payrollStatus || {};
+  var people = p.people || [];
+  var payBody = '';
+  payBody += '<div class="fp-row"><span class="k">Payroll Budget</span><span class="v">' + fpMoney(p.totalBudget) + '</span></div>';
+  payBody += '<div class="fp-row"><span class="k">Payroll Earned</span><span class="v">' + fpMoney(p.totalEarned) + '</span></div>';
+  payBody += '<div class="fp-row"><span class="k">Payroll Remaining</span><span class="v">' + fpMoney(p.totalRemaining) + '</span></div>';
+
+  for (var pi = 0; pi < people.length; pi++) {
+    var per = people[pi];
+    if (per.role === 'Owner Pay') {
+      var emp0 = (p.employees && p.employees[0]) ? p.employees[0] : {};
+      var bands = fpMoney(emp0.slow) + ' / ' + fpMoney(emp0.normal) + ' / ' + fpMoney(emp0.strong);
+      payBody += '<div style="margin-top:12px">';
+      payBody += '<div class="fp-row" style="border-bottom:none;padding-bottom:2px">' +
+        '<span class="k" style="font-weight:800;color:var(--text)">' + per.name + '</span>' +
+        '<span class="v">Owner Pay</span></div>';
+      payBody += '<div class="fp-row" style="border-bottom:none;padding:2px 0">' +
+        '<span class="k">Budget (slow/normal/strong)</span><span class="v">' + bands + '</span></div>';
+      payBody += '<div class="fp-sub">This week band ' + fpMoney(per.weeklyBudget) +
+        ' - earned ' + fpMoney(per.earned) + ' (informational)</div>';
+      payBody += '</div>';
+    } else {
+      var pct = per.pctUsed || 0;
+      payBody += '<div style="margin-top:12px">';
+      payBody += '<div class="fp-row" style="border-bottom:none;padding-bottom:2px">' +
+        '<span class="k" style="font-weight:800;color:var(--text)">' + per.name + '</span>' +
+        '<span class="v">' + fpMoney(per.earned) + ' / ' + fpMoney(per.weeklyBudget) + '</span></div>';
+      payBody += '<div class="fp-sub" style="margin-top:0">' + (per.role || '') + '</div>';
+      payBody += fpBar(pct, fpPctColor(pct));
+      payBody += '<div class="fp-sub" style="margin-top:4px">' + pct + '% used - Remaining ' + fpMoney(per.remaining) + '</div>';
+      payBody += '</div>';
+    }
+  }
+
+  payBody += '<div class="fp-row" style="margin-top:12px"><span class="k">Payroll Tax Target</span><span class="v">' + fpMoney(p.payrollTaxTarget) + '</span></div>';
+  payBody += '<div class="fp-row"><span class="k">Payroll Tax Reserved</span><span class="v">' + fpMoney(p.payrollTaxReserved) + '</span></div>';
+  payBody += '<div class="fp-row"><span class="k">Payroll Tax Needed</span><span class="v">' + fpMoney(p.payrollTaxNeeded) + '</span></div>';
+
+  if (p.recommendation) {
+    payBody += '<div class="fp-action" style="margin-top:12px;font-size:15px">' + p.recommendation + '</div>';
+  }
+
+  // Payroll Efficiency
+  if (p.laborRisk || p.laborPercentOfSales != null || p.employeeLaborUsed != null) {
+    var lr = p.laborRisk || 'GREEN';
+    var pctTxt = (p.laborPercentOfSales == null) ? 'N/A' : (p.laborPercentOfSales + '%');
+    payBody += '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">';
+    payBody += '<div class="fp-row" style="border-bottom:none">' +
+      '<span class="k" style="font-weight:800;color:var(--text)">Payroll Efficiency</span>' +
+      '<span class="fp-badge ' + lr + '" style="font-size:13px;padding:4px 12px">' + lr +
+      (p.laborRiskLabel ? ' - ' + p.laborRiskLabel : '') + '</span></div>';
+    payBody += '<div class="fp-row"><span class="k">Labor % of Sales</span><span class="v">' + pctTxt + '</span></div>';
+    payBody += '<div class="fp-row"><span class="k">Employee Labor Used</span><span class="v">' + fpMoney(p.employeeLaborUsed) + '</span></div>';
+    payBody += '<div class="fp-row"><span class="k">Employee Labor Budget</span><span class="v">' + fpMoney(p.employeeLaborBudget) + '</span></div>';
+    payBody += '<div class="fp-row"><span class="k">Employee Labor Remaining</span><span class="v">' + fpMoney(p.employeeLaborRemaining) + '</span></div>';
+    if (p.laborRiskReason) payBody += '<div class="fp-sub" style="margin-top:4px">' + p.laborRiskReason + '</div>';
+    payBody += '</div>';
+  }
+
+  // Next Week Schedule Advisor
+  var sa = p.scheduleAdvisor;
+  if (sa) {
+    var modeLabel = (sa.mode === 'FINAL') ? 'NEXT WEEK ADVISOR - FINAL' : 'SCHEDULE ADVISOR - PRELIMINARY';
+    var modeColor = (sa.mode === 'FINAL') ? '#10B981' : '#6B7280';
+    payBody += '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">';
+    payBody += '<div class="fp-row" style="border-bottom:none">' +
+      '<span class="k" style="font-weight:800;color:var(--text)">' + modeLabel + '</span>' +
+      '<span class="fp-chip" style="background:' + modeColor + ';color:#fff">' + (sa.tier || '') + '</span></div>';
+    if (sa.headline) payBody += '<div class="fp-sub" style="margin-top:2px">' + sa.headline + '</div>';
+    var sp = sa.people || [];
+    for (var si = 0; si < sp.length; si++) {
+      var sper = sp[si];
+      payBody += '<div class="fp-row" style="border-bottom:none;padding-bottom:0">' +
+        '<span class="k" style="font-weight:800;color:var(--text)">' + sper.name + '</span>' +
+        '<span class="v">' + (sper.recommendedHours || '') + '</span></div>';
+      if (sper.note) payBody += '<div class="fp-sub" style="margin-top:0">' + sper.note + '</div>';
+    }
+    if (sa.taylorNote) payBody += '<div class="fp-sub" style="margin-top:8px">' + sa.taylorNote + '</div>';
+    payBody += '</div>';
+  }
+
+  html += fpCard('Payroll Tracker', p.source, payBody);
+
+  // Weekly Sales
+  var s = d.salesStatus || {};
+  var bands = s.bands || {};
+  var salesBody = '';
+  salesBody += '<div class="fp-sub">This week (' + (s.tier || '') + ')</div>';
+  salesBody += '<div class="fp-big">' + fpMoney(s.weekSales) + '</div>';
+  salesBody += '<div class="fp-row"><span class="k">Survival</span><span class="v">' + fpMoney(bands.survival) + '</span></div>';
+  salesBody += '<div class="fp-row"><span class="k">Growth</span><span class="v">' + fpMoney(bands.growth) + '</span></div>';
+  salesBody += '<div class="fp-sub">Slow ' + fpMoney(bands.slow) + ' / Avg ' + fpMoney(bands.average) + ' / Strong ' + fpMoney(bands.strong) + '</div>';
+  html += fpCard('Weekly Sales', s.source, salesBody);
+
+  // Inventory Snapshot
+  var inv = d.inventoryStatus || {};
+  var invBody = '';
+  invBody += '<div class="fp-big">' + fpMoney(inv.applianceValue) + '</div>';
+  invBody += '<div class="fp-sub">' + (inv.applianceUnits || 0) + ' units x ' + fpMoney(inv.applianceUnitCost) + ' cost</div>';
+  invBody += '<div class="fp-row"><span class="k">Parts Value</span><span class="v">' + fpMoney(inv.partsValue) + '</span></div>';
+  invBody += '<div class="fp-row"><span class="k">Buy Budget / wk</span><span class="v">' + fpMoney(inv.purchaseBudgetNormal) + '</span></div>';
+  invBody += '<div class="fp-sub">Range ' + fpMoney(inv.purchaseBudgetLow) + ' - ' + fpMoney(inv.purchaseBudgetHigh) + '</div>';
+  html += fpCard('Inventory Snapshot', inv.source, invBody);
+
+  // Fund Tracker
+  var fs = d.fundStatus || {};
+  var funds = fs.funds || [];
+  var fundBody = '<div class="fp-sub">Total ' + fpMoney(fs.totalBalance) + ' / ' + fpMoney(fs.totalGoal) + '</div>';
+  for (var fi = 0; fi < funds.length; fi++) {
+    var f = funds[fi];
+    fundBody += '<div class="fp-row"><span class="k">' + f.name + '</span><span class="v">' + fpMoney(f.balance) + ' / ' + fpMoney(f.goal) + '</span></div>';
+  }
+  html += fpCard('Fund Tracker', fs.source, fundBody);
+
+  // Bills Due
+  var bl = d.billsStatus || {};
+  var bills = bl.bills || [];
+  var lo = bl.monthlyTotalLow, hi = bl.monthlyTotalHigh;
+  var billBody = '<div class="fp-sub">Monthly total</div>';
+  billBody += '<div class="fp-big">' + fpMoney(lo) + (hi !== lo ? ' - ' + fpMoney(hi) : '') + '</div>';
+  for (var bi = 0; bi < bills.length; bi++) {
+    var bb = bills[bi];
+    var bamt;
+    if (typeof bb.amount === 'number') bamt = fpMoney(bb.amount);
+    else if (bb.variable && bb.low != null) bamt = fpMoney(bb.low) + '-' + fpMoney(bb.high);
+    else bamt = bb.variable ? 'variable' : '-';
+    billBody += '<div class="fp-row"><span class="k">' + bb.name + '</span><span class="v">' + bamt + '</span></div>';
+  }
+  html += fpCard('Bills Due', bl.source, billBody);
+
+  // Owner Briefing
+  var obBody = '<div class="fp-badge ' + (ob.status || 'YELLOW') + '" style="margin-bottom:10px">' + (ob.status || 'YELLOW') + '</div>';
+  var reasons = ob.reasons || [];
+  for (var ri = 0; ri < reasons.length; ri++) {
+    obBody += '<div class="fp-row"><span class="k">' + reasons[ri] + '</span></div>';
+  }
+  html += fpCard('Owner Briefing', ob.source, obBody, 'status-' + (ob.status || 'YELLOW'));
+
+  // Recommended Action
+  var ra = d.recommendedAction || {};
+  html += fpCard('Recommended Action', ra.source, '<div class="fp-action">' + (ra.text || '') + '</div>');
+
+  // Cash Protection
+  var cashProt = d.cashProtection;
+  if (cashProt) {
+    var cpMode = cashProt.mode || 'CAUTION';
+    var cpScore = cashProt.survivalScore || 0;
+    var cpScoreCls = (cpScore >= 70) ? 'status-GREEN' : (cpScore >= 40) ? 'status-YELLOW' : 'status-RED';
+    var sb = cashProt.scoreBreakdown || {};
+    var alerts = cashProt.alerts || [];
+    var runway = cashProt.cashRunway || {};
+    var pbr = cashProt.purchaseBudgetRecommendation || {};
+    var tueOpen = cashProt.tuesdayOpening || {};
+    var friStaff = cashProt.fridayStaffing || {};
+
+    var cpBody = '';
+    cpBody += '<div style="text-align:center;margin-bottom:16px">';
+    cpBody += '<div class="fp-sub">Survival Score</div>';
+    cpBody += '<div class="fp-big" style="font-size:48px;color:' +
+      (cpScore >= 70 ? '#10B981' : cpScore >= 40 ? '#F59E0B' : '#EF4444') + '">' + cpScore + '</div>';
+    cpBody += '<div class="fp-sub" style="margin-top:4px">' + cpMode + '</div>';
+    cpBody += '</div>';
+
+    // Score Breakdown - 5 items
+    cpBody += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Rent</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (sb.rent || 0) + '</div></div>';
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Payroll</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (sb.payroll || 0) + '</div></div>';
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Tax</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (sb.tax || 0) + '</div></div>';
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Sales</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (sb.sales || 0) + '</div></div>';
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Runway</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (sb.cashRunway || 0) + '</div></div>';
+    cpBody += '</div>';
+
+    // Alerts
+    if (alerts.length > 0) {
+      cpBody += '<div style="margin-bottom:16px">';
+      for (var ai = 0; ai < alerts.length; ai++) {
+        var alert = alerts[ai];
+        if (alert.active) {
+          var alertCls = (alert.level === 'safe') ? '#10B981' : '#EF4444';
+          cpBody += '<div style="padding:8px;margin-bottom:6px;background:' + alertCls + '22;border-left:3px solid ' + alertCls + ';border-radius:3px">';
+          cpBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + alert.label + '</div>';
+          cpBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + alert.message + '</div>';
+          cpBody += '</div>';
+        }
+      }
+      cpBody += '</div>';
+    }
+
+    // Cash Runway
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:16px">';
+    cpBody += '<div class="fp-row"><span class="k">Cash Runway</span><span class="v">' + (runway.weeks || 0) + 'w ' + (runway.days || 0) + 'd</span></div>';
+    if (runway.weeklyBurn !== undefined) {
+      cpBody += '<div class="fp-row"><span class="k">Weekly Burn</span><span class="v">' + fpMoney(runway.weeklyBurn) + '</span></div>';
+    }
+    cpBody += '</div>';
+
+    // Purchase Budget Recommendation
+    if (pbr.amount !== undefined) {
+      cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:8px">';
+      cpBody += '<div class="fp-sub" style="font-size:11px">Purchase Budget</div>';
+      cpBody += '<div style="font-weight:700;font-size:16px;color:var(--text);margin:4px 0">' + fpMoney(pbr.amount) + '</div>';
+      if (pbr.label) cpBody += '<div class="fp-sub" style="margin-top:4px;font-size:11px">' + pbr.label + '</div>';
+      cpBody += '</div>';
+    }
+
+    // Tuesday Opening
+    if (tueOpen.recommendation) {
+      cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:8px">';
+      cpBody += '<div class="fp-sub" style="font-size:11px">Tuesday Opening</div>';
+      cpBody += '<div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.4">' + tueOpen.recommendation + '</div>';
+      cpBody += '</div>';
+    }
+
+    // Friday Staffing
+    if (friStaff.headline) {
+      cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px">';
+      cpBody += '<div class="fp-sub" style="font-size:11px">Friday Staffing</div>';
+      cpBody += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-top:4px">' + friStaff.headline + '</div>';
+      var fpeople = friStaff.people || [];
+      for (var fi = 0; fi < fpeople.length; fi++) {
+        var fperson = fpeople[fi];
+        cpBody += '<div style="font-size:11px;margin-top:6px"><span style="font-weight:600;color:var(--text)">' + fperson.name + '</span> - ' + (fperson.recommendedHours !== undefined ? fperson.recommendedHours : '') + (fperson.note ? ' (' + fperson.note + ')' : '') + '</div>';
+      }
+      cpBody += '</div>';
+    }
+
+    html += fpCard('Cash Protection', cashProt.source, cpBody, cpScoreCls);
+  }
+
+  html += '</div>';
+
+  var host = document.getElementById('fpSection');
+  if (host) host.innerHTML = html;
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadFinancialProtector);
+
+loadDashboard();
+loadFinancialProtector();
+</script>
+</body>
+</html>
