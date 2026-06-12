@@ -1,11 +1,14 @@
 import 'dotenv/config';
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import Anthropic from '@anthropic-ai/sdk';
 import { getAgent, agents } from './agents.js';
 import { sendPush } from './pushover.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const PUBLIC_HOST = process.env.PUBLIC_HOST;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -24,7 +27,19 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+let dashboardState = {
+  cashProtection: null,
+};
+
 app.get('/', (_req, res) => res.send('EDP AI Receptionist running'));
+
+app.get('/dashboard', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'Dashboard.html'));
+});
+
+app.get('/api/dashboard', (_req, res) => {
+  res.json(dashboardState);
+});
 
 app.post('/twilio/voice', (req, res) => {
   const agentKey = req.query.agent || process.env.DEFAULT_AGENT || 'brian';
