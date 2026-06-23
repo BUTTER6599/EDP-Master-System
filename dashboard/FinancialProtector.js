@@ -186,19 +186,23 @@ function fp_readBills_(ss) {
     var h = fp_headers_(data);
     var nCol = h.indexOf('bill_name');
     var aCol = h.indexOf('amount_due');
+    var fbCol = h.indexOf('fund_balance');
     var dCol = h.indexOf('due_date');
     var sCol = h.indexOf('status');
     var pCol = h.indexOf('priority');
+    var notesCol = h.indexOf('notes');
     var out = [];
     for (var i = 1; i < data.length; i++) {
       var nm = nCol >= 0 ? String(data[i][nCol] || '').trim() : '';
       if (!nm) continue;
       out.push({
-        name:     nm,
-        amount:   aCol >= 0 ? (parseFloat(data[i][aCol]) || 0) : 0,
-        dueDate:  dCol >= 0 ? data[i][dCol] : '',
-        status:   sCol >= 0 ? String(data[i][sCol] || '') : '',
-        priority: pCol >= 0 ? data[i][pCol] : ''
+        name:        nm,
+        amount:      aCol >= 0 ? (parseFloat(data[i][aCol]) || 0) : 0,
+        fundBalance: fbCol >= 0 ? (parseFloat(data[i][fbCol]) || 0) : 0,
+        dueDate:     dCol >= 0 ? data[i][dCol] : '',
+        status:      sCol >= 0 ? String(data[i][sCol] || '') : '',
+        priority:    pCol >= 0 ? data[i][pCol] : '',
+        notes:       notesCol >= 0 ? String(data[i][notesCol] || '') : ''
       });
     }
     return out.length ? out : null;
@@ -337,7 +341,7 @@ function api_getFinancialProtector() {
       availableCash: locTotal - assignedTotal,
       locations:     FP_CONFIG.cash.locations,
       assigned:      FP_CONFIG.cash.assigned,
-      source: 'estimate'
+      source: liveCash ? 'live' : 'estimate'
     };
 
     // ---- Sales (live week sum if SALES has rows) ----
@@ -521,16 +525,18 @@ function api_getFinancialProtector() {
         }
       }
     }
+    var rentMonth = rentBill && typeof rentBill.amount === 'number' ? rentBill.amount : FP_CONFIG.rent.monthly;
+    var rentFundBal = rentBill && typeof rentBill.fundBalance === 'number' ? rentBill.fundBalance : FP_CONFIG.rent.fundBalance;
     var rentStatus = {
       priority:       FP_CONFIG.rent.priority,
-      monthly:        FP_CONFIG.rent.monthly,
+      monthly:        rentMonth,
       idealDueRange:  FP_CONFIG.rent.idealDueRange,
       currentPattern: FP_CONFIG.rent.currentPattern,
       fundGoal:       FP_CONFIG.rent.fundGoal,
       stretchGoal:    FP_CONFIG.rent.stretchGoal,
-      fundBalance:    FP_CONFIG.rent.fundBalance,
+      fundBalance:    rentFundBal,
       pctToGoal:      FP_CONFIG.rent.fundGoal ?
-                        Math.round((FP_CONFIG.rent.fundBalance / FP_CONFIG.rent.fundGoal) * 1000) / 10 : 0,
+                        Math.round((rentFundBal / FP_CONFIG.rent.fundGoal) * 1000) / 10 : 0,
       dueDate:        rentBill ? fp_dateToStr_(rentBill.dueDate) : '',
       billStatus:     rentBill ? rentBill.status : '',
       source: rentBill ? 'live' : 'config'
@@ -740,17 +746,27 @@ function api_getFinancialProtector() {
     // 0-100 survival score, sub-scores, alerts, cash runway, and buy/
     // opening/staffing recommendations. No writes, no new reads.
     // ============================================================
-    var cp_available   = cashPosition.availableCash;
-    var cp_rentMonthly = rentStatus.monthly || 0;
+    // Defensive fallbacks for missing upstream objects
+    cashPosition = cashPosition || {};
+    rentStatus = rentStatus || {};
+    payrollStatus = payrollStatus || {};
+    taxStatus = taxStatus || {};
+    billsStatus = billsStatus || {};
+    inventoryStatus = inventoryStatus || {};
+    salesStatus = salesStatus || {};
+
+    var cp_available   = (typeof cashPosition.availableCash === 'number') ? cashPosition.availableCash : 0;
+    var cp_rentMonthly = (typeof rentStatus.monthly === 'number') ? rentStatus.monthly : 0;
 
     // -- Weekly burn: payroll (incl. payroll tax) + weekly rent + other bills.
     // The bills list already includes Rent, so subtract it to avoid double count.
-    var cp_weeklyRent    = cp_rentMonthly / 4.33;
-    var cp_billsMonthly  = (billsStatus && typeof billsStatus.monthlyTotalHigh === 'number')
+    var cp_weeksPerMonth = 52 / 12;
+    var cp_weeklyRent    = cp_rentMonthly / cp_weeksPerMonth;
+    var cp_billsMonthly  = (typeof billsStatus.monthlyTotalHigh === 'number')
                              ? billsStatus.monthlyTotalHigh : 0;
     var cp_otherBills    = cp_billsMonthly - cp_rentMonthly;
     if (cp_otherBills < 0) cp_otherBills = 0;
-    var cp_weeklyOther   = cp_otherBills / 4.33;
+    var cp_weeklyOther   = cp_otherBills / cp_weeksPerMonth;
     var cp_weeklyPayroll = (typeof payrollStatus.estWeeklyPayroll === 'number')
                              ? payrollStatus.estWeeklyPayroll : 0;
     var cp_weeklyBurn    = Math.round((cp_weeklyPayroll + cp_weeklyRent + cp_weeklyOther) * 100) / 100;
@@ -777,14 +793,14 @@ function api_getFinancialProtector() {
     if (payrollStatus.laborRisk === 'GREEN') cp_payBase = 100;
     else if (payrollStatus.laborRisk === 'YELLOW') cp_payBase = 60;
     else if (payrollStatus.laborRisk === 'RED') cp_payBase = 25;
-    var cp_payTaxCov = (payrollStatus.payrollTaxTarget > 0)
-                         ? Math.min((payrollStatus.payrollTaxReserved || 0) / payrollStatus.payrollTaxTarget, 1) : 1;
+    var cp_payTaxCov = (typeof payrollStatus.payrollTaxTarget === 'number' && payrollStatus.payrollTaxTarget > 0)
+                         ? Math.min((typeof payrollStatus.payrollTaxReserved === 'number' ? payrollStatus.payrollTaxReserved : 0) / payrollStatus.payrollTaxTarget, 1) : 1;
     var cp_payrollScore = Math.round(cp_payBase * 0.6 + cp_payTaxCov * 40);
 
-    // Tax: tax-reserve goal progress (60) + payroll-tax reserve coverage (40).
-    var cp_taxReserveProg = (taxStatus.taxReserveGoal > 0)
-                              ? Math.min((taxStatus.taxReserveBalance || 0) / taxStatus.taxReserveGoal, 1) : 0;
-    var cp_taxScore = Math.round(cp_taxReserveProg * 60 + cp_payTaxCov * 40);
+    // Tax: tax-reserve goal progress (100). Do not double-count payroll tax here.
+    var cp_taxReserveProg = (typeof taxStatus.taxReserveGoal === 'number' && taxStatus.taxReserveGoal > 0)
+                              ? Math.min((typeof taxStatus.taxReserveBalance === 'number' ? taxStatus.taxReserveBalance : 0) / taxStatus.taxReserveGoal, 1) : 0;
+    var cp_taxScore = Math.round(cp_taxReserveProg * 100);
 
     // Sales: weekly-sales tier band.
     var cp_salesScore;
@@ -802,6 +818,13 @@ function api_getFinancialProtector() {
     if (cp_available <= 0) cp_runwayScore = 0;
     else if (cp_weeklyBurn <= 0) cp_runwayScore = 100;
     else cp_runwayScore = Math.round(Math.min(cp_runwayWeeks / 8, 1) * 100);
+
+    // NaN guards: prevent propagation of invalid scores
+    if (isNaN(cp_rentScore)) cp_rentScore = 0;
+    if (isNaN(cp_payrollScore)) cp_payrollScore = 0;
+    if (isNaN(cp_taxScore)) cp_taxScore = 0;
+    if (isNaN(cp_salesScore)) cp_salesScore = 0;
+    if (isNaN(cp_runwayScore)) cp_runwayScore = 0;
 
     // Clamp every sub-score to 0..100.
     cp_rentScore    = Math.max(0, Math.min(100, cp_rentScore));
@@ -856,21 +879,25 @@ function api_getFinancialProtector() {
     ];
 
     // -- Purchase budget recommendation (gated by mode) --
+    var cp_invLow = (typeof inventoryStatus.purchaseBudgetLow === 'number') ? inventoryStatus.purchaseBudgetLow : 0;
+    var cp_invNormal = (typeof inventoryStatus.purchaseBudgetNormal === 'number') ? inventoryStatus.purchaseBudgetNormal : 0;
+    var cp_invHigh = (typeof inventoryStatus.purchaseBudgetHigh === 'number') ? inventoryStatus.purchaseBudgetHigh : 0;
+
     var cp_buyAmount, cp_buyLabel;
     if (cp_buyingLockdown) {
       cp_buyAmount = 0;
       cp_buyLabel = 'Locked - cover rent and lift the survival score first.';
     } else if (cp_mode === 'HEALTHY') {
-      cp_buyAmount = inventoryStatus.purchaseBudgetHigh;
+      cp_buyAmount = cp_invHigh;
       cp_buyLabel = 'Healthy - full weekly buying budget.';
     } else {
-      cp_buyAmount = inventoryStatus.purchaseBudgetNormal;
+      cp_buyAmount = cp_invNormal;
       cp_buyLabel = 'Caution - normal weekly buying budget only.';
     }
     var cp_purchaseBudgetRecommendation = {
       amount:     cp_buyAmount,
-      weeklyLow:  inventoryStatus.purchaseBudgetLow,
-      weeklyHigh: inventoryStatus.purchaseBudgetHigh,
+      weeklyLow:  cp_invLow,
+      weeklyHigh: cp_invHigh,
       label:      cp_buyLabel
     };
 
@@ -916,6 +943,426 @@ function api_getFinancialProtector() {
       source: 'estimate'
     };
 
+    // ============================================================
+    // EMERGENCY FUND PROTECTION (Financial Protector V3 - Engine)
+    // Read-only analysis of emergency fund adequacy, coverage, and
+    // contribution targets. Recommends owner actions.
+    // ============================================================
+    var ef_balance = 0;
+    var ef_goal = 16000;
+    var ef_fund = null;
+    for (var i = 0; i < (fundStatus.funds || []).length; i++) {
+      if (fundStatus.funds[i].name === 'Emergency Fund') {
+        ef_fund = fundStatus.funds[i];
+        ef_balance = ef_fund.balance || 0;
+        ef_goal = ef_fund.goal || 16000;
+        break;
+      }
+    }
+
+    var ef_weeklyBurn = (typeof cp_weeklyBurn === 'number') ? cp_weeklyBurn : 0;
+    var ef_coverageWeeks = (ef_weeklyBurn > 0) ? Math.round((ef_balance / ef_weeklyBurn) * 10) / 10 : 0;
+    var ef_pctToGoal = ef_goal ? Math.round((ef_balance / ef_goal) * 1000) / 10 : 0;
+    var ef_gap = Math.max(0, ef_goal - ef_balance);
+
+    // -- Mode determination (STRONG | HEALTHY | CAUTION | DANGER) --
+    var ef_mode;
+    if (ef_coverageWeeks >= 8 || ef_pctToGoal >= 100) {
+      ef_mode = 'STRONG';
+    } else if (ef_coverageWeeks >= 4 && ef_pctToGoal >= 75) {
+      ef_mode = 'HEALTHY';
+    } else if (ef_coverageWeeks >= 2 || ef_pctToGoal >= 50) {
+      ef_mode = 'CAUTION';
+    } else {
+      ef_mode = 'DANGER';
+    }
+
+    var ef_isSufficient = (ef_coverageWeeks >= 4 && ef_pctToGoal >= 75);
+
+    // -- Contribution calculation (26-week target) --
+    var ef_weeksToTarget = 26;
+    var ef_weeklyContribution = (ef_gap > 0) ? Math.round((ef_gap / ef_weeksToTarget) * 100) / 100 : 0;
+    var ef_targetDate = new Date(now);
+    ef_targetDate.setDate(ef_targetDate.getDate() + (ef_weeksToTarget * 7));
+    var ef_targetDateStr = fp_dateToStr_(ef_targetDate);
+
+    // -- Alerts --
+    var ef_alerts = [
+      { key: 'fundingGap', active: ef_gap > 0,
+        message: ef_gap > 0 ? 'Emergency Fund is $' + Math.round(ef_gap) + ' below $' + ef_goal + ' goal.'
+          : 'Emergency Fund is fully funded.' },
+      { key: 'insufficientCoverage', active: (ef_coverageWeeks < 4),
+        message: ef_coverageWeeks < 4 ? 'Only ' + ef_coverageWeeks + ' weeks of operating costs covered.'
+          : ef_coverageWeeks + ' weeks of coverage (adequate).' },
+      { key: 'fundExhausted', active: (ef_coverageWeeks < 1),
+        message: 'Emergency Fund covers less than 1 week of operations.' }
+    ];
+
+    // -- Owner action recommendation --
+    var ef_ownerAction = '';
+    if (ef_mode === 'DANGER') {
+      ef_ownerAction = 'Prioritize building emergency fund to 1+ weeks coverage';
+    } else if (ef_mode === 'CAUTION') {
+      ef_ownerAction = 'Build emergency fund toward ' + ef_goal + ' goal';
+    } else if (ef_mode === 'HEALTHY') {
+      ef_ownerAction = 'Maintain emergency fund; consider phase 2 savings goals';
+    } else {
+      ef_ownerAction = 'Emergency fund is strong; focus on expansion goals';
+    }
+
+    var emergencyFundProtection = {
+      balance: ef_balance,
+      goal: ef_goal,
+      pctToGoal: ef_pctToGoal,
+      coverageWeeks: ef_coverageWeeks,
+      mode: ef_mode,
+      isSufficient: ef_isSufficient,
+      gap: ef_gap,
+      weeklyBurn: ef_weeklyBurn,
+      recommendedWeeklyContribution: ef_weeklyContribution,
+      targetCompletionDate: ef_targetDateStr,
+      alerts: ef_alerts,
+      ownerActionToday: ef_ownerAction,
+      source: 'estimate'
+    };
+
+    // ============================================================
+    // INVENTORY BUYING PROTECTION (Financial Protector V3 - Engine)
+    // Read-only analysis of inventory buying conditions, budget safety,
+    // and lock status across rent, cash, and emergency fund constraints.
+    // ============================================================
+    var ib_rentLocked = (typeof rentProtection !== 'undefined' && rentProtection.inventoryBuyingLocked);
+    var ib_survivalScore = (typeof cashProtection !== 'undefined' && typeof cashProtection.survivalScore === 'number') ? cashProtection.survivalScore : 0;
+    var ib_emergencyStrong = (typeof emergencyFundProtection !== 'undefined' && emergencyFundProtection.isSufficient) ? true : false;
+    var ib_availableCash = (typeof cashPosition !== 'undefined' && typeof cashPosition.availableCash === 'number') ? cashPosition.availableCash : 0;
+    var ib_budgetLow = (typeof inventoryStatus !== 'undefined') ? inventoryStatus.purchaseBudgetLow : 0;
+    var ib_budgetNormal = (typeof inventoryStatus !== 'undefined') ? inventoryStatus.purchaseBudgetNormal : 0;
+    var ib_budgetHigh = (typeof inventoryStatus !== 'undefined') ? inventoryStatus.purchaseBudgetHigh : 0;
+
+    // -- Mode determination (OPEN | CAUTION | LOCKED) --
+    var ib_mode;
+    var ib_lockReasons = [];
+    if (ib_rentLocked) {
+      ib_mode = 'LOCKED';
+      ib_lockReasons.push({ reason: 'Rent not covered', condition: 'Defer buying until rent is secured' });
+    } else if (ib_survivalScore < 40) {
+      ib_mode = 'LOCKED';
+      ib_lockReasons.push({ reason: 'Survival score low (' + ib_survivalScore + ')', condition: 'Focus on cash recovery first' });
+    } else if (ib_availableCash < ib_budgetLow) {
+      ib_mode = 'LOCKED';
+      ib_lockReasons.push({ reason: 'Insufficient available cash', condition: 'Available $' + Math.round(ib_availableCash) + ' < minimum budget $' + ib_budgetLow });
+    } else if (ib_survivalScore < 70 || !ib_emergencyStrong || ib_availableCash < ib_budgetNormal) {
+      ib_mode = 'CAUTION';
+    } else {
+      ib_mode = 'OPEN';
+    }
+
+    var ib_isSafeToBuy = (ib_mode !== 'LOCKED');
+
+    // -- Budget recommendation based on mode --
+    var ib_recommendedBudget;
+    if (ib_mode === 'LOCKED') {
+      ib_recommendedBudget = 0;
+    } else if (ib_mode === 'CAUTION') {
+      ib_recommendedBudget = ib_budgetLow;
+    } else {
+      ib_recommendedBudget = ib_budgetHigh;
+    }
+
+    // -- Alerts --
+    var ib_alerts = [
+      { key: 'rentStatus', active: ib_rentLocked,
+        message: ib_rentLocked
+          ? 'Rent not covered - inventory buying is locked.'
+          : 'Rent is covered - inventory buying is permitted.' },
+      { key: 'cashHealth', active: (ib_survivalScore < 70),
+        message: ib_survivalScore < 70
+          ? 'Survival score ' + ib_survivalScore + ' (< 70) - conservative buying only.'
+          : 'Survival score ' + ib_survivalScore + ' - healthy cash position.' },
+      { key: 'emergencyFund', active: !ib_emergencyStrong,
+        message: !ib_emergencyStrong
+          ? 'Emergency fund not fully adequate - limit buying.'
+          : 'Emergency fund is strong - full buying approved.' }
+    ];
+
+    // -- Owner action recommendation --
+    var ib_ownerAction = '';
+    if (ib_mode === 'LOCKED') {
+      ib_ownerAction = 'Buying is locked. ' + (ib_lockReasons.length > 0 ? ib_lockReasons[0].condition : 'Address constraints before buying.');
+    } else if (ib_mode === 'CAUTION') {
+      ib_ownerAction = 'Buy only essential items - budget limited to $' + ib_budgetLow + ' this week.';
+    } else {
+      ib_ownerAction = 'Clear to buy - budget approved up to $' + ib_budgetHigh + ' this week.';
+    }
+
+    var inventoryBuyingProtection = {
+      mode: ib_mode,
+      isSafeToBuy: ib_isSafeToBuy,
+      recommendedBudget: ib_recommendedBudget,
+      budgetRange: {
+        low: ib_budgetLow,
+        normal: ib_budgetNormal,
+        high: ib_budgetHigh
+      },
+      currentAvailableCash: ib_availableCash,
+      survivalScore: ib_survivalScore,
+      rentLocked: ib_rentLocked,
+      emergencyFundStrong: ib_emergencyStrong,
+      lockReasons: ib_lockReasons,
+      alerts: ib_alerts,
+      ownerActionToday: ib_ownerAction,
+      source: 'estimate'
+    };
+
+    // ============================================================
+    // COMMAND CENTER DAILY RECOMMENDATIONS (Financial Protector V3)
+    // Synthesizes all protection objects and status objects into a
+    // single clear decision list for the owner: what to protect, stop,
+    // sell, buy, and specific action items for today.
+    // ============================================================
+    var dr_overallMode;
+    if (typeof cashProtection !== 'undefined' && cashProtection.mode === 'LOCKDOWN') {
+      dr_overallMode = 'LOCKDOWN';
+    } else if ((typeof cashProtection !== 'undefined' && cashProtection.mode === 'CAUTION') ||
+               (typeof rentProtection !== 'undefined' && !rentProtection.isCovered)) {
+      dr_overallMode = 'CAUTION';
+    } else {
+      dr_overallMode = 'HEALTHY';
+    }
+
+    var dr_executivePriority = '';
+    if (typeof rentProtection !== 'undefined' && rentProtection.mode === 'CRITICAL') {
+      dr_executivePriority = 'Secure Rent Immediately';
+    } else if (typeof rentProtection !== 'undefined' && rentProtection.mode === 'DANGER') {
+      dr_executivePriority = 'Prioritize Rent Coverage';
+    } else if (typeof cashProtection !== 'undefined' && cashProtection.survivalScore < 40) {
+      dr_executivePriority = 'Stabilize Cash Position';
+    } else if (typeof emergencyFundProtection !== 'undefined' && emergencyFundProtection.gap > 0) {
+      dr_executivePriority = 'Build Emergency Fund';
+    } else if (typeof salesStatus !== 'undefined' && (salesStatus.tier === 'SLOW' || salesStatus.tier === 'BELOW_SLOW')) {
+      dr_executivePriority = 'Increase Sales';
+    } else {
+      dr_executivePriority = 'Maintain Momentum';
+    }
+
+    // -- What to protect (priorities) --
+    var dr_whatToProtect = [];
+    if (typeof rentProtection !== 'undefined' && !rentProtection.isCovered) {
+      dr_whatToProtect.push({ priority: 1, item: 'Rent', status: 'at_risk', action: 'Close $' + Math.round(rentProtection.shortfall) + ' gap before due date' });
+    }
+    if (typeof payrollStatus !== 'undefined' && payrollStatus.laborRisk === 'RED') {
+      dr_whatToProtect.push({ priority: 2, item: 'Payroll', status: 'tight', action: payrollStatus.laborRiskReason || 'Review staffing levels' });
+    } else if (typeof payrollStatus !== 'undefined') {
+      dr_whatToProtect.push({ priority: 2, item: 'Payroll', status: 'healthy', action: 'Maintain current staffing' });
+    }
+    if (typeof emergencyFundProtection !== 'undefined' && emergencyFundProtection.gap > 0) {
+      dr_whatToProtect.push({ priority: 3, item: 'Emergency Fund', status: 'underfunded', action: 'Contribute $' + Math.round(emergencyFundProtection.recommendedWeeklyContribution) + ' this week' });
+    }
+
+    // -- What to stop --
+    var dr_whatToStop = [];
+    if (typeof inventoryBuyingProtection !== 'undefined' && !inventoryBuyingProtection.isSafeToBuy) {
+      dr_whatToStop.push({ item: 'Inventory Buying', reason: (inventoryBuyingProtection.lockReasons && inventoryBuyingProtection.lockReasons.length > 0) ? inventoryBuyingProtection.lockReasons[0].condition : 'Safety constraints active' });
+    }
+    if (dr_overallMode === 'LOCKDOWN' || dr_overallMode === 'CAUTION') {
+      dr_whatToStop.push({ item: 'Non-Essential Spending', reason: 'Preserve cash for priorities' });
+    }
+
+    // -- Sell recommendation --
+    var dr_sellNeeded = (typeof rentProtection !== 'undefined' && rentProtection.shortfall > 0) ||
+                        (typeof cashProtection !== 'undefined' && cashProtection.survivalScore < 40);
+    var dr_sellRecommendation = {
+      needed: dr_sellNeeded,
+      action: dr_sellNeeded ? 'Sell floor-ready units today' : 'No urgent selling needed',
+      reason: (typeof rentProtection !== 'undefined' && rentProtection.shortfall > 0) ? 'Close rent gap $' + Math.round(rentProtection.shortfall) : 'Stabilize cash position'
+    };
+
+    // -- Inventory buying --
+    var dr_inventoryBuying = {
+      approved: (typeof inventoryBuyingProtection !== 'undefined') ? inventoryBuyingProtection.isSafeToBuy : false,
+      recommendedBudget: (typeof inventoryBuyingProtection !== 'undefined') ? inventoryBuyingProtection.recommendedBudget : 0,
+      reason: (typeof inventoryBuyingProtection !== 'undefined') ? inventoryBuyingProtection.ownerActionToday : 'Buying not available'
+    };
+
+    // -- Staffing alert --
+    var dr_staffingAlert = '';
+    if (typeof payrollStatus !== 'undefined' && payrollStatus.laborRisk === 'RED') {
+      dr_staffingAlert = payrollStatus.laborRiskReason || 'Labor cost is high - review staffing.';
+    } else if (typeof payrollStatus !== 'undefined' && payrollStatus.recommendation) {
+      dr_staffingAlert = payrollStatus.recommendation;
+    }
+
+    // -- Bills urgency (due within 7 days) --
+    var dr_billsUrgency = [];
+    if (typeof billsStatus !== 'undefined' && billsStatus.bills) {
+      var bills = billsStatus.bills || [];
+      for (var bi = 0; bi < bills.length; bi++) {
+        var bill = bills[bi];
+        if (bill.dueDate) {
+          var billDue = new Date(bill.dueDate);
+          var daysUntilBill = Math.ceil((billDue - now) / (1000 * 60 * 60 * 24));
+          if (daysUntilBill >= 0 && daysUntilBill <= 7) {
+            var billAmt = (typeof bill.amount === 'number') ? bill.amount : (bill.low || 0);
+            dr_billsUrgency.push({ name: bill.name || 'Bill', amount: billAmt, daysUntil: daysUntilBill });
+          }
+        }
+      }
+    }
+
+    // -- Action items for today --
+    var dr_actionItems = [];
+    if (typeof rentProtection !== 'undefined' && rentProtection.mode === 'CRITICAL') {
+      dr_actionItems.push({ action: 'Urgent: Hit $' + Math.round(rentProtection.requiredDailySales) + ' sales today to cover rent', priority: 1, why: 'Rent due in ' + rentProtection.daysUntilDue + ' days' });
+    } else if (typeof rentProtection !== 'undefined' && rentProtection.mode === 'DANGER') {
+      dr_actionItems.push({ action: 'Priority: Make daily sales of $' + Math.round(rentProtection.requiredDailySales), priority: 1, why: 'Close rent gap before due date' });
+    }
+    if (typeof salesStatus !== 'undefined' && (salesStatus.tier === 'SLOW' || salesStatus.tier === 'BELOW_SLOW')) {
+      var dr_survivalTarget = (typeof salesStatus !== 'undefined' && salesStatus.bands && typeof salesStatus.bands.survival === 'number') ? salesStatus.bands.survival : 3500;
+      dr_actionItems.push({ action: 'Drive sales - target $' + dr_survivalTarget + ' to hit survival level', priority: 2, why: 'Current tier is ' + (salesStatus.tier || 'unknown') + ' - need growth' });
+    }
+    if (typeof inventoryBuyingProtection !== 'undefined' && !inventoryBuyingProtection.isSafeToBuy && dr_whatToStop.length === 1) {
+      dr_actionItems.push({ action: 'Hold all inventory purchases', priority: 2, why: inventoryBuyingProtection.ownerActionToday });
+    }
+    if (dr_billsUrgency.length > 0) {
+      dr_actionItems.push({ action: 'Review bills due in next 7 days (total $' + Math.round(dr_billsUrgency.reduce(function(s, b) { return s + b.amount; }, 0)) + ')', priority: 3, why: 'Ensure cash reserved for bills' });
+    }
+    if (dr_actionItems.length === 0) {
+      dr_actionItems.push({ action: 'Continue normal operations and monitor sales', priority: 1, why: 'Position is stable' });
+    }
+
+    // -- Daily summary --
+    var dr_summary = dr_executivePriority + '. ' +
+      (dr_overallMode === 'HEALTHY' ? 'All systems healthy.' :
+       dr_overallMode === 'CAUTION' ? 'Caution mode active - focus on priorities.' :
+       'Lockdown mode - protect rent and payroll.');
+
+    var dailyRecommendations = {
+      overallMode: dr_overallMode,
+      executivePriority: dr_executivePriority,
+      dailySummary: dr_summary,
+      whatToProtect: dr_whatToProtect,
+      whatToStop: dr_whatToStop,
+      sellRecommendation: dr_sellRecommendation,
+      inventoryBuying: dr_inventoryBuying,
+      staffingAlert: dr_staffingAlert,
+      billsUrgency: dr_billsUrgency,
+      actionItemsToday: dr_actionItems,
+      source: 'estimate'
+    };
+
+    // Executive Scorecard Engine (synthesizes all protections into executive summary)
+    var executiveScorecard = {};
+    if (typeof cashProtection === 'object' && cashProtection !== null &&
+        typeof rentProtection === 'object' && rentProtection !== null &&
+        typeof emergencyFundProtection === 'object' && emergencyFundProtection !== null &&
+        typeof inventoryBuyingProtection === 'object' && inventoryBuyingProtection !== null) {
+
+      // Extract component scores
+      var cashScore = typeof cashProtection.survivalScore === 'number' ? cashProtection.survivalScore : 70;
+
+      var rentScore = 70;
+      if (rentProtection.mode === 'COVERED') { rentScore = 90; }
+      else if (rentProtection.mode === 'SHORT') { rentScore = 70; }
+      else if (rentProtection.mode === 'DANGER') { rentScore = 40; }
+      else if (rentProtection.mode === 'CRITICAL') { rentScore = 10; }
+
+      var emergencyScore = 70;
+      if (emergencyFundProtection.mode === 'STRONG') { emergencyScore = 90; }
+      else if (emergencyFundProtection.mode === 'HEALTHY') { emergencyScore = 75; }
+      else if (emergencyFundProtection.mode === 'CAUTION') { emergencyScore = 50; }
+      else if (emergencyFundProtection.mode === 'DANGER') { emergencyScore = 20; }
+
+      var inventoryScore = 70;
+      if (inventoryBuyingProtection.mode === 'OPEN') { inventoryScore = 90; }
+      else if (inventoryBuyingProtection.mode === 'CAUTION') { inventoryScore = 60; }
+      else if (inventoryBuyingProtection.mode === 'LOCKED') { inventoryScore = 20; }
+
+      var salesScore = 70;
+      if (typeof salesStatus === 'object' && salesStatus !== null) {
+        var tier = salesStatus.tier || 'AVERAGE';
+        if (tier === 'STRONG' || tier === 'GROWTH') { salesScore = 90; }
+        else if (tier === 'AVERAGE') { salesScore = 70; }
+        else if (tier === 'SLOW') { salesScore = 30; }
+        else if (tier === 'BELOW_SLOW' || tier === 'SURVIVAL') { salesScore = 10; }
+      }
+
+      // Weighted executive score: 40% cash, 20% rent, 15% emergency, 10% inventory, 15% sales
+      var rawScore = (cashScore * 0.40) + (rentScore * 0.20) + (emergencyScore * 0.15) + (inventoryScore * 0.10) + (salesScore * 0.15);
+      executiveScorecard.executiveScore = Math.round(rawScore);
+
+      // Overall status: HEALTHY (>=70), CAUTION (40-69), LOCKDOWN (<40)
+      if (executiveScorecard.executiveScore >= 70) {
+        executiveScorecard.overallStatus = 'HEALTHY';
+      } else if (executiveScorecard.executiveScore >= 40) {
+        executiveScorecard.overallStatus = 'CAUTION';
+      } else {
+        executiveScorecard.overallStatus = 'LOCKDOWN';
+      }
+
+      // Component status summary
+      executiveScorecard.cashScore = cashScore;
+      executiveScorecard.rentStatus = rentProtection.mode || 'COVERED';
+      executiveScorecard.emergencyFund = emergencyFundProtection.mode || 'HEALTHY';
+      executiveScorecard.inventoryBuying = inventoryBuyingProtection.mode || 'OPEN';
+
+      // Sales metric from actual fields
+      var salesCurrent = typeof salesStatus === 'object' && typeof salesStatus.weekSales === 'number' ? salesStatus.weekSales : 0;
+      var salesTarget = 0;
+      if (typeof salesStatus === 'object' && typeof salesStatus.bands === 'object' && typeof salesStatus.bands.survival === 'number') {
+        salesTarget = salesStatus.bands.survival;
+      }
+      var salesPct = salesTarget > 0 ? Math.round((salesCurrent / salesTarget) * 100) : 100;
+
+      executiveScorecard.salesMetric = {
+        current: salesCurrent,
+        target: salesTarget,
+        percentOfTarget: salesPct,
+        status: typeof salesStatus === 'object' ? (salesStatus.tier || 'AVERAGE') : 'AVERAGE'
+      };
+
+      // Available cash
+      executiveScorecard.availableCash = typeof cashPosition === 'object' && typeof cashPosition.availableCash === 'number' ? cashPosition.availableCash : 0;
+
+      // Bills due in next 7 days (calculate from dailyRecommendations.billsUrgency array)
+      var drBills = typeof dailyRecommendations === 'object' && typeof dailyRecommendations.billsUrgency === 'object' ? dailyRecommendations.billsUrgency : [];
+      var billsTotal = 0;
+      for (var i = 0; i < drBills.length; i++) {
+        if (typeof drBills[i] === 'object' && typeof drBills[i].amount === 'number') {
+          billsTotal += drBills[i].amount;
+        }
+      }
+
+      executiveScorecard.billsDueNext7Days = {
+        totalAmount: Math.round(billsTotal),
+        count: drBills.length,
+        bills: drBills
+      };
+
+      // Top priority and actions
+      executiveScorecard.topPriority = '';
+      executiveScorecard.topActionsToday = [];
+
+      if (typeof dailyRecommendations === 'object' && dailyRecommendations !== null) {
+        executiveScorecard.topPriority = dailyRecommendations.executivePriority || '';
+
+        if (typeof dailyRecommendations.actionItemsToday === 'object' && dailyRecommendations.actionItemsToday !== null) {
+          for (var j = 0; j < Math.min(3, dailyRecommendations.actionItemsToday.length); j++) {
+            var item = dailyRecommendations.actionItemsToday[j];
+            if (typeof item === 'object' && item !== null && typeof item.action === 'string') {
+              executiveScorecard.topActionsToday.push({
+                action: item.action,
+                priority: typeof item.priority === 'number' ? item.priority : 2,
+                why: typeof item.why === 'string' ? item.why : ''
+              });
+            }
+          }
+        }
+      }
+
+      // Source
+      executiveScorecard.source = 'estimate';
+    }
+
     return {
       ok: true,
       version: 'fp-v1',
@@ -936,10 +1383,69 @@ function api_getFinancialProtector() {
       ownerBriefing:     ownerBriefing,
       recommendedAction: recommendedAction,
       cashProtection:    cashProtection,
-      rentProtection:    rentProtection
+      rentProtection:    rentProtection,
+      emergencyFundProtection: emergencyFundProtection,
+      inventoryBuyingProtection: inventoryBuyingProtection,
+      dailyRecommendations: dailyRecommendations,
+      executiveScorecard: executiveScorecard
     };
 
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : String(e) };
   }
+}
+
+// ============================================================
+// CASH POSITION SETUP (run once to create tab)
+// ============================================================
+
+function setupCashPosition() {
+  var ss = fp_openSheet_();
+  if (!ss) {
+    Logger.log('Error: Could not open spreadsheet.');
+    return { ok: false, error: 'Could not open spreadsheet.' };
+  }
+
+  var sheet = ss.getSheetByName('CASH_POSITION');
+  if (sheet) {
+    Logger.log('CASH_POSITION sheet already exists.');
+    return { ok: true, message: 'CASH_POSITION sheet already exists.' };
+  }
+
+  // Create sheet
+  sheet = ss.insertSheet('CASH_POSITION');
+  var headers = ['timestamp', 'cash_available', 'total_cash', 'assigned_cash',
+                 'drawer_cash', 'bank_cash', 'emergency_fund_balance', 'war_chest_balance', 'notes', 'updated_by'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  Logger.log('CASH_POSITION sheet created with headers only. Use api_addCashSnapshot() to add real data.');
+  return { ok: true, message: 'CASH_POSITION sheet created successfully. Headers only - no data rows.' };
+}
+
+// ============================================================
+// BILLS SETUP (run once to create/repair tab)
+// ============================================================
+
+function setupBills() {
+  var ss = fp_openSheet_();
+  if (!ss) {
+    Logger.log('Error: Could not open spreadsheet.');
+    return { ok: false, error: 'Could not open spreadsheet.' };
+  }
+
+  var sheet = ss.getSheetByName('BILLS');
+  if (!sheet) {
+    sheet = ss.insertSheet('BILLS');
+    Logger.log('BILLS sheet created.');
+  } else {
+    Logger.log('BILLS sheet already exists. Repairing headers.');
+  }
+
+  // Ensure headers are correct (always repair if needed)
+  var headers = ['bill_id', 'timestamp', 'due_date', 'week_id', 'bill_name',
+                 'amount_due', 'fund_balance', 'status', 'priority', 'notes', 'updated_by'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  Logger.log('BILLS sheet headers created/repaired. No data rows added.');
+  return { ok: true, message: 'BILLS sheet created/repaired with headers only. Use api_addBill() to add real data.' };
 }
