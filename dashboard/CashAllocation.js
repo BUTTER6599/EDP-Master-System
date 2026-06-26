@@ -654,39 +654,49 @@ function api_previewSaleAllocation(sale_id, contextOverride) {
     if (!sale) { return { ok: false, error: 'sale_id not found: ' + want }; }
 
     var balances = fp_readBucketStatus_(ss);
+    var saleDate = (sale.sale_date instanceof Date) ? sale.sale_date : new Date();
 
-    // Rent protected from BILLS (transition source of truth).
-    var rentProtected = 0;
-    var liveBills = fp_readBills_(ss);
-    if (liveBills) {
-      for (var b = 0; b < liveBills.length; b++) {
-        if (String(liveBills[b].name).toLowerCase().indexOf('rent') >= 0) {
-          rentProtected = parseFloat(liveBills[b].fundBalance) || 0; break;
+    // LIVE context from the SAME single source the dashboard renders from.
+    var fp;
+    try { fp = api_getFinancialProtector(); } catch (e2) { fp = { ok: false }; }
+    var live = cae_buildLiveContext_(fp, saleDate);
+
+    // Fallback only if Financial Protector is unavailable: read rent protected
+    // straight from BILLS so rent gap is never silently lost.
+    if (!live.financialProtectorOk) {
+      var liveBills = fp_readBills_(ss);
+      if (liveBills) {
+        for (var b = 0; b < liveBills.length; b++) {
+          if (String(liveBills[b].name).toLowerCase().indexOf('rent') >= 0) {
+            live.context.rentProtected = parseFloat(liveBills[b].fundBalance) || 0; break;
+          }
         }
       }
     }
 
-    var co = contextOverride || {};
-    var saleDate = (sale.sale_date instanceof Date) ? sale.sale_date : new Date();
-    var context = {
-      rentProtected:    rentProtected,
-      rentMonthly:      CAE_CONST.rentMonthly,
-      weeklyPayrollNeed: (typeof co.weeklyPayrollNeed === 'number') ? co.weeklyPayrollNeed : 0,
-      billsDue:         (typeof co.billsDue === 'number') ? co.billsDue : 0,
-      holidayTarget:    (typeof co.holidayTarget === 'number') ? co.holidayTarget : 0,
-      isLockdown:       (typeof co.isLockdown === 'boolean') ? co.isLockdown : false,
-      isSlowSeason:     (typeof co.isSlowSeason === 'boolean') ? co.isSlowSeason : fp_isSlowSeason_(saleDate)
-    };
+    // contextOverride (optional) overrides individual fields - used by tests only.
+    var context = cae_mergeContext_(live.context, contextOverride);
 
     var preview = cae_buildSaleAllocation_(sale, balances, context);
     var alreadyAllocated = cae_isSaleAllocated_(ss, want);
+
+    // Rent gap cross-check: builder's rent need vs dashboard rentProtection.shortfall.
+    var builderRentGap = Math.max(0, (context.rentMonthly || 0) - (context.rentProtected || 0));
+    builderRentGap = cae_round2_(builderRentGap);
+    var rentGapCrossCheck = {
+      builderRentGap: builderRentGap,
+      rentProtectionShortfall: live.rentGapFromFp,
+      match: (live.rentGapFromFp === null) ? null : (Math.abs(builderRentGap - live.rentGapFromFp) < 0.01)
+    };
 
     return {
       ok: true,
       dryRun: true,
       wroteRows: false,
+      financialProtectorOk: live.financialProtectorOk,
       alreadyAllocated: alreadyAllocated,
       contextUsed: context,
+      rentGapCrossCheck: rentGapCrossCheck,
       preview: preview
     };
   } catch (e) {
@@ -766,5 +776,159 @@ function runPatchCPhase2Test() {
   for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
   var summary = passed + '/' + results.length + ' tests passed';
   Logger.log('=== PATCH C PHASE 2A TEST: ' + summary + ' ===');
+  return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
+}
+
+// ============================================================
+// PATCH C PHASE 2B-1 - LIVE CONTEXT BUILDER (READ-ONLY)
+//
+// SCOPE (2B-1):
+//   - Build the allocation context from api_getFinancialProtector(),
+//     the SAME single source the dashboard renders from.
+//   - Used by api_previewSaleAllocation (revised above).
+//   - Still dry-run only. Writes nothing.
+//
+// EXPLICITLY OUT OF SCOPE (2B-1):
+//   - NO live writer (api_recordSaleAllocation deferred to 2B-2).
+//   - NO real CASH_MOVEMENTS rows, NO seeding, NO deploy.
+//   - api_getFinancialProtector() is READ, never modified.
+//
+// Confirmed decisions:
+//   - Payroll need = payrollStatus.employeeLaborRemaining (crew only:
+//     Joe/Kenneth/Clarence). Taylor owner pay is separate and deferrable.
+//   - Critical Bills need EXCLUDES rent (rent has its own Rent Reserve).
+// ============================================================
+
+// Map a Financial Protector result -> allocation context.
+// Returns { financialProtectorOk, rentGapFromFp, context:{...} }.
+// PURE: no sheet reads/writes; operates only on the passed-in fp object.
+function cae_buildLiveContext_(fp, saleDate) {
+  var okFp = !!(fp && fp.ok);
+  var cp = (fp && fp.cashProtection)       ? fp.cashProtection       : {};
+  var rs = (fp && fp.rentStatus)           ? fp.rentStatus           : {};
+  var rp = (fp && fp.rentProtection)       ? fp.rentProtection       : {};
+  var ps = (fp && fp.payrollStatus)        ? fp.payrollStatus        : {};
+  var dr = (fp && fp.dailyRecommendations) ? fp.dailyRecommendations : {};
+
+  // Lockdown comes straight from cashProtection.mode (RED/LOCKDOWN).
+  var isLockdown    = (String(cp.mode) === 'LOCKDOWN');
+  var survivalScore = (typeof cp.survivalScore === 'number') ? cp.survivalScore : null;
+
+  // Rent: protected from BILLS (Patch B), monthly, and shortfall for cross-check.
+  var rentProtected = (typeof rs.fundBalance === 'number') ? rs.fundBalance : 0;
+  var rentMonthly   = (typeof rs.monthly === 'number')     ? rs.monthly     : CAE_CONST.rentMonthly;
+  var rentGapFromFp = (typeof rp.shortfall === 'number')   ? rp.shortfall   : null;
+
+  // Payroll need = crew labor remaining only (excludes deferrable Taylor pay).
+  var weeklyPayrollNeed = (typeof ps.employeeLaborRemaining === 'number')
+                            ? Math.max(0, ps.employeeLaborRemaining) : 0;
+  var laborRisk = ps.laborRisk || '';
+
+  // Bills due in next 7 days EXCLUDING rent (rent handled by Rent Reserve).
+  var billsDue = 0;
+  var urgency = (dr && dr.billsUrgency) ? dr.billsUrgency : [];
+  for (var i = 0; i < urgency.length; i++) {
+    var nm = String(urgency[i].name || '').toLowerCase();
+    if (nm.indexOf('rent') >= 0) { continue; }
+    billsDue += parseFloat(urgency[i].amount) || 0;
+  }
+  billsDue = cae_round2_(billsDue);
+
+  var sd = (saleDate instanceof Date) ? saleDate : new Date();
+
+  return {
+    financialProtectorOk: okFp,
+    rentGapFromFp: rentGapFromFp,
+    context: {
+      rentProtected:     rentProtected,
+      rentMonthly:       rentMonthly,
+      weeklyPayrollNeed: weeklyPayrollNeed,
+      billsDue:          billsDue,
+      holidayTarget:     0,
+      isLockdown:        isLockdown,
+      isSlowSeason:      fp_isSlowSeason_(sd),
+      survivalScore:     survivalScore,
+      laborRisk:         laborRisk
+    }
+  };
+}
+
+// Shallow merge: override's defined keys win. Used so tests can pin fields.
+function cae_mergeContext_(base, override) {
+  var out = {};
+  var k;
+  for (k in base) { if (base.hasOwnProperty(k)) { out[k] = base[k]; } }
+  if (override) {
+    for (k in override) { if (override.hasOwnProperty(k)) { out[k] = override[k]; } }
+  }
+  return out;
+}
+
+// ============================================================
+// PHASE 2B-1 TEST RUNNER - IN-MEMORY ONLY. NO LIVE WRITES.
+// Run in Apps Script editor: runPatchCPhase2bTest()
+// ============================================================
+function runPatchCPhase2bTest() {
+  var results = [];
+  function check(name, pass, detail) {
+    results.push({ test: name, pass: !!pass, detail: detail || '' });
+    Logger.log((pass ? 'PASS ' : 'FAIL ') + name + (detail ? (' -- ' + detail) : ''));
+  }
+
+  // Mock Financial Protector result reflecting current RED/LOCKDOWN reality.
+  var mockFp = {
+    ok: true,
+    cashProtection: { mode: 'LOCKDOWN', survivalScore: 30 },
+    rentStatus:     { fundBalance: 1500, monthly: 3600 },
+    rentProtection: { shortfall: 2100 },
+    payrollStatus:  { employeeLaborRemaining: 600, totalRemaining: 900, laborRisk: 'RED' },
+    dailyRecommendations: { billsUrgency: [
+      { name: 'Rent',      amount: 3600, daysUntil: 5 },   // must be EXCLUDED
+      { name: 'Insurance', amount: 180,  daysUntil: 3 },
+      { name: 'Utilities', amount: 120,  daysUntil: 6 }
+    ] }
+  };
+
+  var live = cae_buildLiveContext_(mockFp, new Date(2026, 5, 26)); // June -> not slow season
+  var c = live.context;
+
+  check('fpOk passthrough', live.financialProtectorOk === true, '');
+  check('isLockdown=true (mode LOCKDOWN)', c.isLockdown === true, 'got ' + c.isLockdown);
+  check('rentProtected=1500 (rentStatus.fundBalance)', c.rentProtected === 1500, 'got ' + c.rentProtected);
+  check('rentMonthly=3600', c.rentMonthly === 3600, 'got ' + c.rentMonthly);
+  check('payrollNeed=600 (employeeLaborRemaining, not 900 total)', c.weeklyPayrollNeed === 600, 'got ' + c.weeklyPayrollNeed);
+  check('billsDue=300 (180+120, rent EXCLUDED)', c.billsDue === 300, 'got ' + c.billsDue);
+  check('isSlowSeason=false (June)', c.isSlowSeason === false, 'got ' + c.isSlowSeason);
+  check('rentGapFromFp=2100 (shortfall)', live.rentGapFromFp === 2100, 'got ' + live.rentGapFromFp);
+
+  // Builder rent gap must equal dashboard shortfall.
+  var builderRentGap = Math.max(0, c.rentMonthly - c.rentProtected);
+  check('builderRentGap==shortfall (2100)', builderRentGap === live.rentGapFromFp, 'got ' + builderRentGap);
+
+  // Allocate the tested $200 Appliance Sale under LIVE lockdown context.
+  var emptyBal = cae_computeBalances_([]);
+  var a = cae_buildSaleAllocation_({ sale_id: 'S-LIVE-200', amount: 200, category: 'Appliance Sale' }, emptyBal, c);
+  check('live $200: ok & sum==200', a.ok === true && a.sumCredits === 200, 'sum ' + a.sumCredits);
+  check('live $200: taxReserve==17.77', a.taxReserve === 17.77, 'got ' + a.taxReserve);
+  // In LOCKDOWN, emergency/inventory/holiday needs are 0 -> remainder lands in
+  // payroll tax (225) then crew payroll (600) then rent gap.
+  function needOf(arr, name) { for (var i = 0; i < arr.length; i++) { if (arr[i].bucket === name) { return arr[i].amount_credit; } } return 0; }
+  check('live $200: Emergency=0 (lockdown)', needOf(a.rows, 'Emergency Fund') === 0, 'got ' + needOf(a.rows, 'Emergency Fund'));
+  check('live $200: Inventory=0 (lockdown)', needOf(a.rows, 'Inventory Buying') === 0, 'got ' + needOf(a.rows, 'Inventory Buying'));
+
+  // Degraded path: fp not ok -> safe defaults, no throw.
+  var dead = cae_buildLiveContext_({ ok: false }, new Date(2026, 5, 26));
+  check('fp not ok -> financialProtectorOk false', dead.financialProtectorOk === false, '');
+  check('fp not ok -> context still built', !!dead.context && typeof dead.context.isLockdown === 'boolean', '');
+
+  // Merge override pins a field (tests can force values).
+  var merged = cae_mergeContext_(c, { isLockdown: false, weeklyPayrollNeed: 0 });
+  check('merge override applied', merged.isLockdown === false && merged.weeklyPayrollNeed === 0, '');
+  check('merge keeps base fields', merged.rentProtected === 1500, '');
+
+  var passed = 0;
+  for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
+  var summary = passed + '/' + results.length + ' tests passed';
+  Logger.log('=== PATCH C PHASE 2B-1 TEST: ' + summary + ' ===');
   return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
 }
