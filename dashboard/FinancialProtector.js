@@ -80,6 +80,7 @@ var FP_CONFIG = {
   },
 
   funds: [
+    // Emergency Fund goals: Phase 1 survival cushion $3,600 | Phase 2 goal $12,000 | Long-term $16,000
     { name: 'Emergency Fund',        balance: 0, goal: 16000 },
     { name: 'Tax Reserve',           balance: 0, goal: 20000 },
     { name: 'Rent Protection',       balance: 0, goal: 10800, stretch: 14400 },
@@ -547,10 +548,10 @@ function api_getFinancialProtector() {
     // Read-only analysis of rent coverage, shortfall, and urgency.
     // Recommends buying locks and owner actions.
     // ============================================================
-    var rp_available   = cashPosition.availableCash;
-    var rp_monthly     = rentStatus.monthly || 0;
-    var rp_isCovered   = rp_available >= rp_monthly;
-    var rp_shortfall   = Math.max(0, rp_monthly - rp_available);
+    var rp_rentProtected = rentStatus.fundBalance || 0;
+    var rp_monthly       = rentStatus.monthly || 0;
+    var rp_isCovered     = rp_rentProtected >= rp_monthly;
+    var rp_shortfall     = Math.max(0, rp_monthly - rp_rentProtected);
     var rp_daysUntilDue = null;
     if (rentBill && rentBill.dueDate && rentBill.dueDate instanceof Date) {
       var rp_today = new Date(now);
@@ -583,8 +584,8 @@ function api_getFinancialProtector() {
     var rp_alerts = [
       { key: 'rentNotCovered', active: rp_shortfall > 0,
         message: rp_shortfall > 0
-          ? 'Available cash $' + Math.round(rp_available) + ' is $' + Math.round(rp_shortfall) + ' short of monthly rent.'
-          : 'Rent is fully covered by available cash.' },
+          ? 'Rent protected $' + Math.round(rp_rentProtected) + ' vs monthly rent $' + Math.round(rp_monthly) + ' (gap $' + Math.round(rp_shortfall) + ').'
+          : 'Rent is fully covered by protected funds.' },
       { key: 'urgentSales', active: (rp_mode === 'DANGER' || rp_mode === 'CRITICAL'),
         message: rp_daysUntilDue ? ('Need $' + Math.round(rp_requiredDailySales) + '/day to cover rent in ' + rp_daysUntilDue + ' days.')
           : 'Rent due date unknown; sales priority urgent.' },
@@ -607,7 +608,7 @@ function api_getFinancialProtector() {
       mode: rp_mode,
       rentDueDateText: rp_rentDueDateText,
       alerts: rp_alerts,
-      source: 'estimate'
+      source: rentBill ? 'live' : 'estimate'
     };
 
     // ---- Taxes (IRS plan kept separate) ----
@@ -644,6 +645,9 @@ function api_getFinancialProtector() {
       var bal = f.balance;
       if (f.name === 'Emergency Fund' && liveCash && liveCash.emergency !== null) {
         bal = liveCash.emergency;
+      }
+      if (f.name === 'Rent Protection' && rentStatus && typeof rentStatus.fundBalance === 'number') {
+        bal = rentStatus.fundBalance;
       }
       var goal = f.goal || 0;
       funds.push({
@@ -699,7 +703,7 @@ function api_getFinancialProtector() {
 
     // ---- Owner Briefing (Red / Yellow / Green) ----
     var available = cashPosition.availableCash;
-    var rentMonthly = FP_CONFIG.rent.monthly;
+    var rentMonthly = rentStatus.monthly || FP_CONFIG.rent.monthly;
     var s = FP_CONFIG.sales;
     var status = 'YELLOW';
     var reasons = [];
@@ -723,12 +727,12 @@ function api_getFinancialProtector() {
     var ownerBriefing = { status: status, reasons: reasons, source: 'estimate' };
 
     // ---- Recommended Action ----
-    var gap = rentMonthly - available;
+    var rentGap = Math.max(0, rentMonthly - (rentStatus.fundBalance || 0));
     var actionText;
     if (status === 'RED') {
-      actionText = 'Rent is priority #1. Available $' + Math.round(available) +
-        ' vs rent $' + rentMonthly + ' (gap $' + Math.round(Math.max(0, gap)) +
-        '). Sell floor-ready units and hold all non-essential spending until rent is secured.';
+      actionText = 'Rent is priority #1. Protected $' + Math.round(rentStatus.fundBalance || 0) +
+        ' vs rent $' + rentMonthly + ' (gap $' + Math.round(rentGap) +
+        '). Free available cash: $' + Math.round(available) + '. Sell floor-ready units and hold all non-essential spending until rent is secured.';
     } else if (status === 'YELLOW') {
       actionText = 'Stabilizing. Hit the survival target $' + s.survival +
         '/week, then begin funding Emergency and Rent Protection per the priority order.';
@@ -858,7 +862,7 @@ function api_getFinancialProtector() {
     var cp_alerts = [
       { key: 'rentDanger',     label: 'Rent Danger',     level: 'danger', active: cp_rentDanger,
         message: cp_rentDanger
-          ? 'Available cash $' + Math.round(cp_available) + ' vs monthly rent $' + cp_rentMonthly + '.'
+          ? 'Free available cash $' + Math.round(cp_available) + '. Rent protected $' + Math.round((rentStatus.fundBalance || 0)) + ' vs monthly rent $' + cp_rentMonthly + '. Rent gap $' + Math.round((rentProtection.shortfall || 0)) + '.'
           : 'Rent position healthy.' },
       { key: 'payrollDanger',  label: 'Payroll Danger',  level: 'danger', active: cp_payrollDanger,
         message: cp_payrollDanger

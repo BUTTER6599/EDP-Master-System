@@ -394,6 +394,80 @@ footer{text-align:center;padding:20px;font-size:11px;color:var(--text3);border-t
   </div>
 </div>
 
+<!-- EXPENSE MODAL -->
+<div id="expenseOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000">
+  <div style="background:var(--surface);border-radius:12px;padding:20px;width:90%;max-width:500px;box-shadow:0 20px 25px rgba(0,0,0,0.15)">
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px">Add Expense Entry</div>
+    <form id="expenseForm" style="display:flex;flex-direction:column;gap:12px">
+      <div id="expenseError" style="display:none;padding:12px;background:#EF444422;border-left:3px solid #EF4444;border-radius:6px;color:#991B1B;font-size:13px"></div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Expense Date *</label>
+        <input id="expenseDate" type="date" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box" required>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Category *</label>
+        <select id="expenseCategory" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box" required>
+          <option value="">Select category</option>
+          <option value="Gas">Gas</option>
+          <option value="Parts">Parts</option>
+          <option value="Supplies">Supplies</option>
+          <option value="Tools">Tools</option>
+          <option value="Repairs">Repairs</option>
+          <option value="Office">Office</option>
+          <option value="Software">Software</option>
+          <option value="Phone/Internet">Phone/Internet</option>
+          <option value="Insurance">Insurance</option>
+          <option value="Payroll Tax">Payroll Tax</option>
+          <option value="Sales Tax">Sales Tax</option>
+          <option value="Rent">Rent</option>
+          <option value="Inventory Purchase">Inventory Purchase</option>
+          <option value="Misc">Misc</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Vendor *</label>
+        <input id="expenseVendor" type="text" placeholder="e.g., Home Depot" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box" required>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Receipt Number</label>
+        <input id="expenseReceiptNumber" type="text" placeholder="Optional" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box">
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Amount *</label>
+        <input id="expenseAmount" type="number" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box" required>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Payment Method *</label>
+        <select id="expensePaymentMethod" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box" required>
+          <option value="">Select method</option>
+          <option value="Cash">Cash</option>
+          <option value="Regions">Regions</option>
+          <option value="Whitney Hancock">Whitney Hancock</option>
+          <option value="Relay">Relay</option>
+          <option value="Card">Card</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Notes</label>
+        <textarea id="expenseNotes" placeholder="Optional notes" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box;font-family:inherit;resize:vertical;min-height:60px"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button type="submit" id="expenseSubmit" style="flex:1;padding:12px;background:#2563EB;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px">Save Expense</button>
+        <button type="button" id="expenseClose" style="flex:1;padding:12px;background:var(--border);color:var(--text);border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 // ── THEME ───────────────────────────────────────────────────
 (function() {
@@ -933,11 +1007,13 @@ function renderQuickLinks() {
   return '<div class="panel" style="margin-bottom:16px">' +
     '<div class="section-title" style="margin-bottom:12px">⚡ Quick Access</div>' +
     '<div class="qlinks">' +
-    '<button class="qlink" style="background:#2563EB;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'kiosk\')">' +
+    '<button class="qlink" style="background:#2563EB;flex:1;padding:14px 10px;font-size:15px" id="kioskoBtn">' +
     '🖥️<br><span style="font-size:12px;margin-top:4px;display:block">Kiosk</span></button>' +
-    '<button class="qlink" style="background:#10B981;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'purchase\')">' +
+    '<button class="qlink" style="background:#10B981;flex:1;padding:14px 10px;font-size:15px" id="purchaseBtn">' +
     '🛒<br><span style="font-size:12px;margin-top:4px;display:block">Purchase Form</span></button>' +
-    '<button class="qlink" style="background:#EA580C;flex:1;padding:14px 10px;font-size:15px" onclick="openMode(\'admin\')">' +
+    '<button class="qlink" style="background:#EA580C;flex:1;padding:14px 10px;font-size:15px" id="expenseBtn">' +
+    '💰<br><span style="font-size:12px;margin-top:4px;display:block">Add Expense</span></button>' +
+    '<button class="qlink" style="background:#8B5CF6;flex:1;padding:14px 10px;font-size:15px" id="adminBtn">' +
     '⚙️<br><span style="font-size:12px;margin-top:4px;display:block">Admin</span></button>' +
     '</div></div>';
 }
@@ -1128,6 +1204,154 @@ function showError(msg) {
   });
 })();
 
+// -- ADD EXPENSE MODAL ----------------------------------------
+(function() {
+  var overlay   = document.getElementById('expenseOverlay');
+  var form      = document.getElementById('expenseForm');
+  var closeBtn  = document.getElementById('expenseClose');
+  var submitBtn = document.getElementById('expenseSubmit');
+  var errBox    = document.getElementById('expenseError');
+  var dateInput = document.getElementById('expenseDate');
+  var openBtn   = document.getElementById('expenseBtn');
+
+  if (!overlay || !form || !closeBtn || !submitBtn || !errBox || !dateInput || !openBtn) {
+    return;
+  }
+
+  function showExpenseError(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+  }
+  function clearExpenseError() {
+    errBox.textContent = '';
+    errBox.style.display = 'none';
+  }
+  function todayStr() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1);
+    if (m.length < 2) m = '0' + m;
+    var day = String(d.getDate());
+    if (day.length < 2) day = '0' + day;
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+  function openForm() {
+    clearExpenseError();
+    if (!dateInput.value) dateInput.value = todayStr();
+    overlay.style.display = 'flex';
+  }
+  function closeForm() {
+    overlay.style.display = 'none';
+  }
+
+  if (openBtn) {
+    openBtn.addEventListener('click', openForm);
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeForm);
+  }
+  if (overlay) {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeForm();
+    });
+  }
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      clearExpenseError();
+
+      var expenseDate = document.getElementById('expenseDate').value;
+      var category = document.getElementById('expenseCategory').value;
+      var vendor = document.getElementById('expenseVendor').value;
+      var amount = parseFloat(document.getElementById('expenseAmount').value);
+      var paymentMethod = document.getElementById('expensePaymentMethod').value;
+
+      if (!expenseDate || expenseDate === '') {
+        showExpenseError('Expense date is required.');
+        return;
+      }
+
+      if (!category || category === '') {
+        showExpenseError('Category is required.');
+        return;
+      }
+
+      if (!vendor || vendor === '') {
+        showExpenseError('Vendor is required.');
+        return;
+      }
+
+      if (isNaN(amount) || amount <= 0) {
+        showExpenseError('Amount is required and must be greater than 0.');
+        return;
+      }
+
+      if (!paymentMethod || paymentMethod === '') {
+        showExpenseError('Payment method is required.');
+        return;
+      }
+
+      var payload = {
+        expense_date:    expenseDate,
+        category:        category,
+        vendor:          vendor,
+        receipt_number:  document.getElementById('expenseReceiptNumber').value,
+        amount:          amount,
+        payment_method:  paymentMethod,
+        notes:           document.getElementById('expenseNotes').value
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Expense';
+          if (res && res.ok) {
+            form.reset();
+            closeForm();
+            loadDashboard();
+          } else {
+            showExpenseError(res && res.error ? res.error : 'Save failed.');
+          }
+        })
+        .withFailureHandler(function(err) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Expense';
+          showExpenseError(err && err.message ? err.message : String(err));
+        })
+        .api_addExpense(payload);
+    });
+  }
+})();
+
+
+// -- QUICK LINKS EVENT HANDLERS ------
+(function() {
+  var kioskoBtn = document.getElementById('kioskoBtn');
+  var purchaseBtn = document.getElementById('purchaseBtn');
+  var adminBtn = document.getElementById('adminBtn');
+
+  if (!kioskoBtn || !purchaseBtn || !adminBtn) {
+    return;
+  }
+
+  function openMode(mode) {
+    var base = window.location.href.split('?')[0];
+    window.open(base + '?mode=' + mode, '_blank');
+  }
+
+  if (kioskoBtn) {
+    kioskoBtn.addEventListener('click', function() { openMode('kiosk'); });
+  }
+  if (purchaseBtn) {
+    purchaseBtn.addEventListener('click', function() { openMode('purchase'); });
+  }
+  if (adminBtn) {
+    adminBtn.addEventListener('click', function() { openMode('admin'); });
+  }
+})();
+
 // -- FINANCIAL PROTECTOR (V1) --------------------------------
 function loadFinancialProtector() {
   var host = document.getElementById('fpSection');
@@ -1198,6 +1422,197 @@ function renderFinancialProtector(d) {
   html += '</div>';
 
   html += '<div class="fp-grid">';
+
+  // Executive Scorecard
+  var es = d.executiveScorecard || {};
+  if (es.executiveScore !== undefined) {
+    var esScore = es.executiveScore || 0;
+    var esStatus = es.overallStatus || 'CAUTION';
+    var esScoreCls = (esScore >= 70) ? 'status-GREEN' : (esScore >= 40) ? 'status-YELLOW' : 'status-RED';
+    var esSales = es.salesMetric || {};
+    var esBills = es.billsDueNext7Days || {};
+    var esBody = '';
+
+    // Large centered score
+    esBody += '<div style="text-align:center;margin-bottom:20px">';
+    esBody += '<div class="fp-sub">Executive Score</div>';
+    esBody += '<div class="fp-big" style="font-size:48px;color:' +
+      (esScore >= 70 ? '#10B981' : esScore >= 40 ? '#F59E0B' : '#EF4444') + '">' + esScore + '</div>';
+    esBody += '<div class="fp-sub" style="margin-top:4px">' + esStatus + '</div>';
+    esBody += '</div>';
+
+    // Status badges (3 columns)
+    esBody += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">';
+
+    // Rent Status
+    var rentBg = (es.rentStatus === 'COVERED') ? '#10B981' : (es.rentStatus === 'SHORT') ? '#F59E0B' : '#EF4444';
+    esBody += '<div style="padding:10px;background:' + rentBg + '22;border-left:3px solid ' + rentBg + ';border-radius:4px;text-align:center">';
+    esBody += '<div class="fp-sub" style="font-size:11px">Rent</div>';
+    esBody += '<div style="font-weight:700;font-size:13px;color:var(--text);margin-top:4px">' + (es.rentStatus || 'COVERED') + '</div>';
+    esBody += '</div>';
+
+    // Emergency Fund Status
+    var efBg = (es.emergencyFund === 'STRONG') ? '#10B981' : (es.emergencyFund === 'HEALTHY') ? '#10B981' : (es.emergencyFund === 'CAUTION') ? '#F59E0B' : '#EF4444';
+    esBody += '<div style="padding:10px;background:' + efBg + '22;border-left:3px solid ' + efBg + ';border-radius:4px;text-align:center">';
+    esBody += '<div class="fp-sub" style="font-size:11px">Emergency</div>';
+    esBody += '<div style="font-weight:700;font-size:13px;color:var(--text);margin-top:4px">' + (es.emergencyFund || 'HEALTHY') + '</div>';
+    esBody += '</div>';
+
+    // Inventory Buying Status
+    var ibBg = (es.inventoryBuying === 'OPEN') ? '#10B981' : (es.inventoryBuying === 'CAUTION') ? '#F59E0B' : '#EF4444';
+    esBody += '<div style="padding:10px;background:' + ibBg + '22;border-left:3px solid ' + ibBg + ';border-radius:4px;text-align:center">';
+    esBody += '<div class="fp-sub" style="font-size:11px">Inventory</div>';
+    esBody += '<div style="font-weight:700;font-size:13px;color:var(--text);margin-top:4px">' + (es.inventoryBuying || 'OPEN') + '</div>';
+    esBody += '</div>';
+
+    esBody += '</div>';
+
+    // Component metrics (4 columns)
+    esBody += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">';
+    esBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Cash</div><div style="font-weight:700;font-size:16px;color:var(--text)">' + (es.cashScore || 0) + '</div></div>';
+
+    var salesPct = typeof esSales.percentOfTarget === 'number' ? esSales.percentOfTarget : 100;
+    var salesColor = (salesPct >= 100) ? '#10B981' : (salesPct >= 75) ? '#F59E0B' : '#EF4444';
+    esBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Sales %</div><div style="font-weight:700;font-size:16px;color:' + salesColor + '">' + salesPct + '%</div></div>';
+
+    var availCash = typeof es.availableCash === 'number' ? es.availableCash : 0;
+    var availColor = availCash <= 0 ? '#EF4444' : '#10B981';
+    esBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Available</div><div style="font-weight:700;font-size:14px;color:' + availColor + '">' + fpMoney(availCash) + '</div></div>';
+
+    var billsCount = typeof esBills.count === 'number' ? esBills.count : 0;
+    var billsColor = billsCount > 0 ? '#EF4444' : '#10B981';
+    esBody += '<div style="padding:8px;background:var(--border);border-radius:4px;text-align:center"><div class="fp-sub" style="font-size:11px">Bills (7 Days)</div><div style="font-weight:700;font-size:16px;color:' + billsColor + '">' + billsCount + '</div></div>';
+
+    esBody += '</div>';
+
+    // Top Priority (highlighted)
+    if (es.topPriority) {
+      esBody += '<div style="padding:12px;background:' + (esScore >= 70 ? '#10B98122' : esScore >= 40 ? '#F59E0B22' : '#EF444422') + ';border-left:4px solid ' + (esScore >= 70 ? '#10B981' : esScore >= 40 ? '#F59E0B' : '#EF4444') + ';border-radius:6px;margin-bottom:16px">';
+      esBody += '<div style="font-size:13px;font-weight:700;color:var(--text)">Top Priority</div>';
+      esBody += '<div style="font-size:12px;color:var(--text);margin-top:6px;line-height:1.4">' + es.topPriority + '</div>';
+      esBody += '</div>';
+    }
+
+    // Top Actions (max 3)
+    if (typeof es.topActionsToday === 'object' && es.topActionsToday !== null && es.topActionsToday.length > 0) {
+      esBody += '<div>';
+      esBody += '<div style="font-weight:700;color:var(--text);margin-bottom:8px;font-size:12px">Action Items</div>';
+      for (var tai = 0; tai < Math.min(3, es.topActionsToday.length); tai++) {
+        var action = es.topActionsToday[tai];
+        if (typeof action === 'object' && action !== null && typeof action.action === 'string') {
+          esBody += '<div style="padding:10px;background:var(--surface2);border-radius:4px;margin-bottom:6px">';
+          esBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + action.priority + '. ' + action.action + '</div>';
+          if (typeof action.why === 'string' && action.why) {
+            esBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + action.why + '</div>';
+          }
+          esBody += '</div>';
+        }
+      }
+      esBody += '</div>';
+    }
+
+    html += fpCard('Executive Scorecard', es.source, esBody, esScoreCls);
+  }
+
+  // Command Center Daily Recommendations
+  var dr = d.dailyRecommendations || {};
+  if (dr.executivePriority) {
+    var drModeCls = (dr.overallMode === 'HEALTHY') ? 'status-GREEN' :
+                    (dr.overallMode === 'CAUTION') ? 'status-YELLOW' : 'status-RED';
+    var drBody = '';
+
+    // Executive priority header
+    drBody += '<div style="padding:12px;background:' + (dr.overallMode === 'HEALTHY' ? '#10B98122' : dr.overallMode === 'CAUTION' ? '#F59E0B22' : '#EF444422') + ';border-radius:6px;margin-bottom:16px;border-left:4px solid ' + (dr.overallMode === 'HEALTHY' ? '#10B981' : dr.overallMode === 'CAUTION' ? '#F59E0B' : '#EF4444') + '">';
+    drBody += '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">' + dr.executivePriority + '</div>';
+    drBody += '<div style="font-size:13px;color:var(--text3)">' + (dr.dailySummary || '') + '</div>';
+    drBody += '</div>';
+
+    // What to protect
+    if (dr.whatToProtect && dr.whatToProtect.length > 0) {
+      drBody += '<div style="margin-bottom:16px">';
+      drBody += '<div style="font-weight:700;color:var(--text);margin-bottom:8px">Protect (Priority Order)</div>';
+      for (var pi = 0; pi < dr.whatToProtect.length; pi++) {
+        var prot = dr.whatToProtect[pi];
+        drBody += '<div style="padding:8px;background:var(--surface2);border-radius:4px;margin-bottom:6px">';
+        drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + prot.priority + '. ' + prot.item + ' (' + prot.status + ')</div>';
+        drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + prot.action + '</div>';
+        drBody += '</div>';
+      }
+      drBody += '</div>';
+    }
+
+    // What to stop
+    if (dr.whatToStop && dr.whatToStop.length > 0) {
+      drBody += '<div style="margin-bottom:16px">';
+      drBody += '<div style="font-weight:700;color:#EF4444;margin-bottom:8px">Stop / Limit</div>';
+      for (var si = 0; si < dr.whatToStop.length; si++) {
+        var stop = dr.whatToStop[si];
+        drBody += '<div style="padding:8px;background:#EF444422;border-left:3px solid #EF4444;border-radius:3px;margin-bottom:6px">';
+        drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + stop.item + '</div>';
+        drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + stop.reason + '</div>';
+        drBody += '</div>';
+      }
+      drBody += '</div>';
+    }
+
+    // Sell recommendation
+    if (dr.sellRecommendation) {
+      var sellColor = dr.sellRecommendation.needed ? '#EF4444' : '#10B981';
+      drBody += '<div style="padding:10px;background:' + sellColor + '22;border-left:3px solid ' + sellColor + ';border-radius:4px;margin-bottom:16px">';
+      drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">Selling: ' + (dr.sellRecommendation.needed ? 'NEEDED' : 'Not Needed') + '</div>';
+      drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + dr.sellRecommendation.action + '</div>';
+      drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + dr.sellRecommendation.reason + '</div>';
+      drBody += '</div>';
+    }
+
+    // Inventory buying
+    if (dr.inventoryBuying) {
+      var buyColor = dr.inventoryBuying.approved ? '#10B981' : '#F59E0B';
+      drBody += '<div style="padding:10px;background:' + buyColor + '22;border-left:3px solid ' + buyColor + ';border-radius:4px;margin-bottom:16px">';
+      drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">Inventory Buying: ' + (dr.inventoryBuying.approved ? 'APPROVED' : 'NOT APPROVED') + '</div>';
+      drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">Budget: ' + fpMoney(dr.inventoryBuying.recommendedBudget) + '</div>';
+      drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + dr.inventoryBuying.reason + '</div>';
+      drBody += '</div>';
+    }
+
+    // Staffing alert
+    if (dr.staffingAlert) {
+      drBody += '<div style="padding:10px;background:#F59E0B22;border-left:3px solid #F59E0B;border-radius:4px;margin-bottom:16px">';
+      drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">Staffing Alert</div>';
+      drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + dr.staffingAlert + '</div>';
+      drBody += '</div>';
+    }
+
+    // Bills urgency
+    if (dr.billsUrgency && dr.billsUrgency.length > 0) {
+      drBody += '<div style="margin-bottom:16px">';
+      drBody += '<div style="font-weight:700;color:#EF4444;margin-bottom:8px">Bills Due (Next 7 Days)</div>';
+      for (var bi = 0; bi < dr.billsUrgency.length; bi++) {
+        var bill = dr.billsUrgency[bi];
+        drBody += '<div style="padding:8px;background:#EF444422;border-left:3px solid #EF4444;border-radius:3px;margin-bottom:6px">';
+        drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + bill.name + ' - ' + fpMoney(bill.amount) + '</div>';
+        drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">Due in ' + bill.daysUntil + ' days</div>';
+        drBody += '</div>';
+      }
+      drBody += '</div>';
+    }
+
+    // Action items
+    if (dr.actionItemsToday && dr.actionItemsToday.length > 0) {
+      drBody += '<div style="margin-bottom:16px">';
+      drBody += '<div style="font-weight:700;color:var(--text);margin-bottom:8px">Action Items Today</div>';
+      for (var ai = 0; ai < dr.actionItemsToday.length; ai++) {
+        var action = dr.actionItemsToday[ai];
+        drBody += '<div style="padding:10px;background:var(--surface2);border-radius:4px;margin-bottom:6px">';
+        drBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + action.priority + '. ' + action.action + '</div>';
+        drBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + action.why + '</div>';
+        drBody += '</div>';
+      }
+      drBody += '</div>';
+    }
+
+    html += fpCard('Command Center: Daily Recommendations', dr.source, drBody, drModeCls);
+  }
 
   // Cash Position
   var cp = d.cashPosition || {};
@@ -1291,6 +1706,88 @@ function renderFinancialProtector(d) {
   taxBody += '<div class="fp-row"><span class="k">Tax Reserve</span><span class="v">' + fpMoney(t.taxReserveBalance) + ' / ' + fpMoney(t.taxReserveGoal) + '</span></div>';
   taxBody += '<div class="fp-sub" style="margin-top:8px"><strong>IRS Plan (separate):</strong> ' + fpMoney(irs.monthly) + '/mo, orig ' + fpMoney(irs.originalBalance) + ', started ' + (irs.started || '') + '</div>';
   html += fpCard('Tax Tracker', t.source, taxBody);
+
+  // Cash Protection
+  var cp = d.cashProtection || {};
+  if (typeof cp.survivalScore === 'number') {
+    var cpModeCls = (cp.mode === 'HEALTHY') ? 'status-GREEN' :
+                    (cp.mode === 'LOCKDOWN') ? 'status-RED' : 'status-YELLOW';
+    var cpBody = '';
+
+    // Survival Score - large and centered
+    cpBody += '<div style="text-align:center;margin-bottom:16px">';
+    cpBody += '<div class="fp-sub">Survival Score</div>';
+    cpBody += '<div class="fp-big" style="font-size:48px;color:' +
+      (cp.survivalScore >= 70 ? '#10B981' : cp.survivalScore >= 40 ? '#F59E0B' : '#EF4444') + '">' +
+      cp.survivalScore + '</div>';
+    cpBody += '<div class="fp-sub" style="margin-top:4px">' + (cp.mode || 'CAUTION') + '</div>';
+    cpBody += '</div>';
+
+    // Cash Runway
+    cpBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin:12px 0">';
+    cpBody += '<div class="fp-sub" style="font-size:11px">Cash Runway</div>';
+    cpBody += '<div class="fp-row" style="border:none;padding-top:4px"><span class="k">Weeks</span><span class="v">' +
+      (typeof cp.cashRunway !== 'undefined' ? (cp.cashRunway.weeks || 0) : 0) + ' weeks</span></div>';
+    cpBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Days</span><span class="v">' +
+      (typeof cp.cashRunway !== 'undefined' ? (cp.cashRunway.days || 0) : 0) + ' days</span></div>';
+    cpBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Weekly Burn</span><span class="v">' +
+      fpMoney(typeof cp.cashRunway !== 'undefined' ? cp.cashRunway.weeklyBurn : 0) + '</span></div>';
+    cpBody += '</div>';
+
+    // Score Breakdown
+    cpBody += '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">';
+    cpBody += '<div class="fp-sub" style="margin-bottom:8px">Score Breakdown</div>';
+    var sb = cp.scoreBreakdown || {};
+    cpBody += '<div class="fp-row"><span class="k">Rent</span><span class="v">' + (sb.rent || 0) + '</span></div>';
+    cpBody += '<div class="fp-row"><span class="k">Payroll</span><span class="v">' + (sb.payroll || 0) + '</span></div>';
+    cpBody += '<div class="fp-row"><span class="k">Tax</span><span class="v">' + (sb.tax || 0) + '</span></div>';
+    cpBody += '<div class="fp-row"><span class="k">Sales</span><span class="v">' + (sb.sales || 0) + '</span></div>';
+    cpBody += '<div class="fp-row"><span class="k">Cash Runway</span><span class="v">' + (sb.cashRunway || 0) + '</span></div>';
+    cpBody += '</div>';
+
+    // Purchase Budget Recommendation
+    var pbr = cp.purchaseBudgetRecommendation || {};
+    cpBody += '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">';
+    cpBody += '<div class="fp-row" style="border-bottom:none"><span class="k">Purchase Budget</span><span class="v">' + fpMoney(pbr.amount || 0) + '</span></div>';
+    cpBody += '<div class="fp-sub" style="margin-top:4px">' + (pbr.label || '') + '</div>';
+    cpBody += '</div>';
+
+    // Tuesday Opening Recommendation
+    var tor = cp.tuesdayOpening || {};
+    if (tor.recommendation) {
+      cpBody += '<div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:4px;border-left:3px solid #2563EB">';
+      cpBody += '<div class="fp-sub" style="font-weight:700;margin-bottom:4px">Tuesday Opening</div>';
+      cpBody += '<div style="font-size:13px;color:var(--text);line-height:1.4">' + tor.recommendation + '</div>';
+      cpBody += '</div>';
+    }
+
+    // Friday Staffing
+    var fs = cp.fridayStaffing || {};
+    if (fs.headline) {
+      cpBody += '<div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:4px;border-left:3px solid #F59E0B">';
+      cpBody += '<div class="fp-sub" style="font-weight:700;margin-bottom:4px">Friday Staffing</div>';
+      cpBody += '<div style="font-size:13px;color:var(--text);line-height:1.4">' + fs.headline + '</div>';
+      cpBody += '</div>';
+    }
+
+    // Alerts
+    if (cp.alerts && cp.alerts.length > 0) {
+      cpBody += '<div style="margin-top:12px">';
+      for (var ci = 0; ci < cp.alerts.length; ci++) {
+        var cpa = cp.alerts[ci];
+        if (cpa.active) {
+          var alertColor = (cpa.level === 'danger') ? '#EF4444' : '#10B981';
+          cpBody += '<div style="padding:8px;margin-bottom:6px;background:' + alertColor + '22;border-left:3px solid ' + alertColor + ';border-radius:3px">';
+          cpBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (cpa.label || cpa.key) + '</div>';
+          cpBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + cpa.message + '</div>';
+          cpBody += '</div>';
+        }
+      }
+      cpBody += '</div>';
+    }
+
+    html += fpCard('Cash Protection', cp.source, cpBody, cpModeCls);
+  }
 
   // Payroll Tracker (Command Center)
   var p = d.payrollStatus || {};
@@ -1397,6 +1894,76 @@ function renderFinancialProtector(d) {
   invBody += '<div class="fp-sub">Range ' + fpMoney(inv.purchaseBudgetLow) + ' - ' + fpMoney(inv.purchaseBudgetHigh) + '</div>';
   html += fpCard('Inventory Snapshot', inv.source, invBody);
 
+  // Inventory Buying Protection
+  var ibp = d.inventoryBuyingProtection || {};
+  if (ibp.mode) {
+    var ibModeCls = (ibp.mode === 'OPEN') ? 'status-GREEN' :
+                    (ibp.mode === 'CAUTION') ? 'status-YELLOW' : 'status-RED';
+    var ibRange = ibp.budgetRange || {};
+    var ibAlertLabels = {
+      rentStatus: 'Rent Status',
+      cashHealth: 'Cash Health',
+      emergencyFund: 'Emergency Fund'
+    };
+    var ibBody = '';
+
+    ibBody += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
+    ibBody += '<div>';
+    ibBody += '<div class="fp-sub">Buying Status</div>';
+    ibBody += '<div class="fp-row" style="border:none;padding:0;margin-top:4px"><span class="k">' + (ibp.isSafeToBuy ? 'Approved' : 'Not Approved') + '</span></div>';
+    ibBody += '</div>';
+    ibBody += '<span class="fp-badge ' + ibModeCls + '" style="font-size:13px;padding:6px 12px">' + ibp.mode + '</span>';
+    ibBody += '</div>';
+
+    ibBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:12px">';
+    ibBody += '<div class="fp-sub" style="font-size:11px">Budget Recommendation</div>';
+    ibBody += '<div class="fp-big" style="font-size:28px;color:' + (ibp.mode === 'OPEN' ? '#10B981' : ibp.mode === 'CAUTION' ? '#F59E0B' : '#EF4444') + ';margin:8px 0">' + fpMoney(ibp.recommendedBudget) + '</div>';
+    ibBody += '<div class="fp-sub">Range ' + fpMoney(ibRange.low || 0) + ' - ' + fpMoney(ibRange.high || 0) + '</div>';
+    ibBody += '</div>';
+
+    ibBody += '<div class="fp-row"><span class="k">Available Cash</span><span class="v">' + fpMoney(ibp.currentAvailableCash) + '</span></div>';
+    ibBody += '<div class="fp-row"><span class="k">Survival Score</span><span class="v">' + (ibp.survivalScore || 0) + ' / 100</span></div>';
+
+    ibBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin:12px 0">';
+    ibBody += '<div class="fp-sub" style="font-size:11px">Constraints</div>';
+    ibBody += '<div class="fp-row" style="border:none;padding-top:4px"><span class="k">Rent Locked</span><span class="v" style="font-weight:700;color:' + (ibp.rentLocked ? '#EF4444' : '#10B981') + '">' + (ibp.rentLocked ? 'YES' : 'NO') + '</span></div>';
+    ibBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Emergency Fund Strong</span><span class="v" style="font-weight:700;color:' + (ibp.emergencyFundStrong ? '#10B981' : '#F59E0B') + '">' + (ibp.emergencyFundStrong ? 'YES' : 'NO') + '</span></div>';
+    ibBody += '</div>';
+
+    if (ibp.lockReasons && ibp.lockReasons.length > 0) {
+      ibBody += '<div style="margin-bottom:12px">';
+      for (var ri = 0; ri < ibp.lockReasons.length; ri++) {
+        var reason = ibp.lockReasons[ri];
+        ibBody += '<div style="padding:8px;background:#EF444422;border-left:3px solid #EF4444;border-radius:3px;margin-bottom:6px">';
+        ibBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + reason.reason + '</div>';
+        ibBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + reason.condition + '</div>';
+        ibBody += '</div>';
+      }
+      ibBody += '</div>';
+    }
+
+    if (ibp.alerts && ibp.alerts.length > 0) {
+      ibBody += '<div style="margin-bottom:12px">';
+      for (var ai = 0; ai < ibp.alerts.length; ai++) {
+        var iba = ibp.alerts[ai];
+        if (iba.active) {
+          var alertColor = (iba.key === 'rentStatus' || iba.key === 'cashHealth') && iba.active ? '#EF4444' : '#F59E0B';
+          ibBody += '<div style="padding:8px;margin-bottom:6px;background:' + alertColor + '22;border-left:3px solid ' + alertColor + ';border-radius:3px">';
+          ibBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (ibAlertLabels[iba.key] || iba.key) + '</div>';
+          ibBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + iba.message + '</div>';
+          ibBody += '</div>';
+        }
+      }
+      ibBody += '</div>';
+    }
+
+    if (ibp.ownerActionToday) {
+      ibBody += '<div class="fp-action" style="margin-top:12px">' + ibp.ownerActionToday + '</div>';
+    }
+
+    html += fpCard('Inventory Buying Protection', ibp.source, ibBody, ibModeCls);
+  }
+
   // Fund Tracker
   var fs = d.fundStatus || {};
   var funds = fs.funds || [];
@@ -1406,6 +1973,68 @@ function renderFinancialProtector(d) {
     fundBody += '<div class="fp-row"><span class="k">' + f.name + '</span><span class="v">' + fpMoney(f.balance) + ' / ' + fpMoney(f.goal) + '</span></div>';
   }
   html += fpCard('Fund Tracker', fs.source, fundBody);
+
+  // Emergency Fund Protection
+  var efp = d.emergencyFundProtection || {};
+  if (efp.mode) {
+    var efModeCls = (efp.mode === 'STRONG') ? 'status-GREEN' :
+                    (efp.mode === 'HEALTHY') ? 'status-GREEN' :
+                    (efp.mode === 'CAUTION') ? 'status-YELLOW' : 'status-RED';
+    var efAlertLabels = {
+      fundingGap: 'Funding Gap',
+      insufficientCoverage: 'Insufficient Coverage',
+      fundExhausted: 'Fund Exhausted'
+    };
+    var efBody = '';
+
+    efBody += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
+    efBody += '<div>';
+    efBody += '<div class="fp-sub">Fund Status</div>';
+    efBody += '<div class="fp-row" style="border:none;padding:0;margin-top:4px"><span class="k">' + fpMoney(efp.balance) + ' / ' + fpMoney(efp.goal) + '</span></div>';
+    efBody += '</div>';
+    efBody += '<span class="fp-badge ' + efModeCls + '" style="font-size:13px;padding:6px 12px">' + efp.mode + '</span>';
+    efBody += '</div>';
+
+    efBody += '<div class="fp-row"><span class="k">Progress to Goal</span><span class="v">' + (efp.pctToGoal || 0) + '%</span></div>';
+    efBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin:12px 0">';
+    efBody += fpBar(efp.pctToGoal, (efp.pctToGoal >= 75) ? '#10B981' : (efp.pctToGoal >= 50) ? '#F59E0B' : '#EF4444');
+    efBody += '</div>';
+
+    efBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:12px">';
+    efBody += '<div class="fp-sub" style="font-size:11px">Coverage & Burn</div>';
+    efBody += '<div class="fp-row" style="border:none;padding-top:4px"><span class="k">Coverage</span><span class="v">' + (efp.coverageWeeks || 0) + ' weeks</span></div>';
+    efBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Weekly Burn</span><span class="v">' + fpMoney(efp.weeklyBurn) + '</span></div>';
+    if (efp.gap > 0) {
+      efBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Gap to Goal</span><span class="v" style="color:#EF4444">' + fpMoney(efp.gap) + '</span></div>';
+    }
+    efBody += '</div>';
+
+    efBody += '<div style="padding:8px;background:var(--border);border-radius:4px;margin-bottom:12px">';
+    efBody += '<div class="fp-sub" style="font-size:11px">Contribution Target</div>';
+    efBody += '<div class="fp-row" style="border:none;padding-top:4px"><span class="k">Weekly</span><span class="v">' + fpMoney(efp.recommendedWeeklyContribution) + '</span></div>';
+    efBody += '<div class="fp-row" style="border:none;padding-top:2px"><span class="k">Target Date</span><span class="v">' + (efp.targetCompletionDate || 'TBD') + '</span></div>';
+    efBody += '</div>';
+
+    if (efp.alerts && efp.alerts.length > 0) {
+      efBody += '<div style="margin-bottom:12px">';
+      for (var ei = 0; ei < efp.alerts.length; ei++) {
+        var efa = efp.alerts[ei];
+        if (efa.active) {
+          efBody += '<div style="padding:8px;margin-bottom:6px;background:#EF444422;border-left:3px solid #EF4444;border-radius:3px">';
+          efBody += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (efAlertLabels[efa.key] || efa.key) + '</div>';
+          efBody += '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + efa.message + '</div>';
+          efBody += '</div>';
+        }
+      }
+      efBody += '</div>';
+    }
+
+    if (efp.ownerActionToday) {
+      efBody += '<div class="fp-action" style="margin-top:12px">' + efp.ownerActionToday + '</div>';
+    }
+
+    html += fpCard('Emergency Fund Protection', efp.source, efBody, efModeCls);
+  }
 
   // Bills Due
   var bl = d.billsStatus || {};
