@@ -400,3 +400,371 @@ function runPatchCPhase1LiveCheck() {
   Logger.log(JSON.stringify(out, null, 2));
   return out;
 }
+
+// ============================================================
+// PATCH C PHASE 2A - DRY-RUN / READ-ONLY (NO LIVE WRITES)
+//
+// SCOPE (2A):
+//   - Category tax mapping + taxable-portion helper.
+//   - Pure sale allocation builder (tax off-the-top, then waterfall).
+//   - Duplicate-check helpers (pure core + sheet-reading wrapper).
+//   - Reconciliation report (read-only).
+//   - Read-only single-sale preview from the live SALES tab.
+//   - Dry-run test runner (no writes).
+//
+// EXPLICITLY OUT OF SCOPE (2A):
+//   - NO real CASH_MOVEMENTS rows written.
+//   - NO Rent Reserve seeding.
+//   - NO historical backfill.
+//   - NO api_addSale hook.
+//   - api_getFinancialProtector() NOT modified.
+//   - No dashboard change. No deploy.
+// ============================================================
+
+// Category -> taxable? (approved mapping). Other/blank = taxable + flag.
+function cae_categoryTaxInfo_(category) {
+  var c = String(category || '').toLowerCase().trim();
+  if (c === 'appliance sale') { return { taxable: true,  flagged: false }; }
+  if (c === 'parts')          { return { taxable: true,  flagged: false }; }
+  if (c === 'repair')         { return { taxable: false, flagged: false }; }
+  if (c === 'delivery')       { return { taxable: false, flagged: false }; }
+  if (c === 'warranty')       { return { taxable: false, flagged: false }; }
+  // 'other', blank, or anything unrecognized -> taxable + flagged for review.
+  return { taxable: true, flagged: true };
+}
+
+// Taxable portion of a sale (whole-sale, single category in Phase 2A).
+function cae_taxablePortion_(category, amount) {
+  var amt = parseFloat(amount) || 0;
+  var info = cae_categoryTaxInfo_(category);
+  return info.taxable ? amt : 0;
+}
+
+function cae_round2_(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }
+
+// Pure builder: compute the allocation rows for one sale.
+//   sale           : { sale_id, amount, category, sale_date }
+//   bucketBalances : current ledger balances (object keyed by bucket name)
+//   context        : planning inputs (rentProtected, rentMonthly, weeklyPayrollNeed,
+//                    billsDue, holidayTarget, isLockdown, isSlowSeason)
+// Returns: { ok, sale_id, amount, taxablePortion, taxReserve, flaggedForReview,
+//            rows:[{bucket, amount_credit, old_balance, new_balance, priority}],
+//            sumCredits, balances, error }
+// PURE: reads/writes no sheets, moves no money.
+function cae_buildSaleAllocation_(sale, bucketBalances, context) {
+  sale = sale || {};
+  context = context || {};
+  bucketBalances = bucketBalances || {};
+
+  var amount = parseFloat(sale.amount) || 0;
+  if (amount <= 0) {
+    return { ok: false, error: 'Sale amount must be greater than 0.', sale_id: sale.sale_id || null };
+  }
+
+  function bal(name) { return parseFloat(bucketBalances[name]) || 0; }
+
+  var taxInfo = cae_categoryTaxInfo_(sale.category);
+  var taxablePortion = taxInfo.taxable ? amount : 0;
+  var taxReserve = cae_round2_(taxablePortion * CAE_CONST.salesTaxRate / (1 + CAE_CONST.salesTaxRate));
+
+  var lockdown = !!context.isLockdown;
+  var slow     = !!context.isSlowSeason;
+
+  // Current needs for buckets 2..8 (priority order), using current balances/targets.
+  var rentMonthly   = (typeof context.rentMonthly === 'number') ? context.rentMonthly : CAE_CONST.rentMonthly;
+  var rentProtected = parseFloat(context.rentProtected) || 0;   // BILLS during transition
+
+  var emergencyBalance = bal('Emergency Fund');
+  var emergencyPhase   = fp_checkEmergencyFundPhase_(emergencyBalance);
+  var emergencyTarget  = (!lockdown && emergencyPhase === '1')
+                           ? Math.max(0, CAE_CONST.emergencyPhase1 - emergencyBalance) : 0;
+
+  // Ordered fill list (priority 2..8). need = remaining target for that bucket.
+  var fillOrder = [
+    { priority: 2, bucket: 'Payroll Tax Reserve', need: Math.max(0, CAE_CONST.payrollTaxWeekly - bal('Payroll Tax Reserve')) },
+    { priority: 3, bucket: 'Rent Reserve',        need: Math.max(0, rentMonthly - rentProtected) },
+    { priority: 4, bucket: 'Payroll Reserve',     need: Math.max(0, (parseFloat(context.weeklyPayrollNeed) || 0) - bal('Payroll Reserve')) },
+    { priority: 5, bucket: 'Critical Bills',      need: Math.max(0, (parseFloat(context.billsDue) || 0) - bal('Critical Bills')) },
+    { priority: 6, bucket: 'Emergency Fund',      need: emergencyTarget },
+    { priority: 7, bucket: 'Inventory Buying',    need: lockdown ? 0 : Math.max(0, CAE_CONST.inventoryWeeklyCap - bal('Inventory Buying')) },
+    { priority: 8, bucket: 'Holiday/Future Savings', need: (lockdown || slow) ? 0 : Math.max(0, parseFloat(context.holidayTarget) || 0) }
+  ];
+
+  var rows = [];
+  var working = {};   // track running balances for old/new stamping
+  var i, name;
+  for (i = 0; i < CAE_BUCKETS.length; i++) { working[CAE_BUCKETS[i]] = bal(CAE_BUCKETS[i]); }
+
+  function addRow(priority, bucket, credit) {
+    credit = cae_round2_(credit);
+    if (credit <= 0) { return; }
+    var old = working[bucket];
+    var nw  = cae_round2_(old + credit);
+    working[bucket] = nw;
+    rows.push({ priority: priority, bucket: bucket, amount_credit: credit, old_balance: cae_round2_(old), new_balance: nw });
+  }
+
+  // 1) Sales tax off the top.
+  if (taxReserve > 0) { addRow(1, 'Sales Tax Reserve', taxReserve); }
+
+  // 2) Waterfall the remainder through priority 2..8.
+  var remaining = cae_round2_(amount - taxReserve);
+  for (i = 0; i < fillOrder.length && remaining > 0; i++) {
+    var give = Math.min(remaining, fillOrder[i].need);
+    give = cae_round2_(give);
+    if (give > 0) {
+      addRow(fillOrder[i].priority, fillOrder[i].bucket, give);
+      remaining = cae_round2_(remaining - give);
+    }
+  }
+
+  // 3) Anything left -> Free Operating Cash.
+  if (remaining > 0) { addRow(9, 'Free Operating Cash', remaining); }
+
+  // Assert conservation: sum of credits must equal the sale amount.
+  var sumCredits = 0;
+  for (i = 0; i < rows.length; i++) { sumCredits = cae_round2_(sumCredits + rows[i].amount_credit); }
+  if (Math.abs(sumCredits - amount) > 0.01) {
+    return { ok: false, error: 'Allocation does not balance: sum ' + sumCredits + ' != amount ' + amount,
+             sale_id: sale.sale_id || null, rows: rows, sumCredits: sumCredits };
+  }
+
+  return {
+    ok: true,
+    sale_id: sale.sale_id || null,
+    amount: amount,
+    category: sale.category || '',
+    taxablePortion: cae_round2_(taxablePortion),
+    taxReserve: taxReserve,
+    flaggedForReview: taxInfo.flagged,
+    rows: rows,
+    sumCredits: sumCredits,
+    balances: working
+  };
+}
+
+// Pure core: is this sale_id already allocated within an array of ledger rows?
+function cae_saleAllocatedIn_(rows, sale_id) {
+  if (!rows || !rows.length) { return false; }
+  var want = String(sale_id || '');
+  if (!want) { return false; }
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r) { continue; }
+    if (String(r.movement_type) === 'SALE_ALLOCATION' &&
+        String(r.source_type) === 'SALE' &&
+        String(r.source_id) === want &&
+        String(r.allocation_status) === 'ALLOCATED') {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Read-only wrapper: duplicate check against the live CASH_MOVEMENTS tab.
+function cae_isSaleAllocated_(ss, sale_id) {
+  try {
+    if (!ss) { ss = fp_openSheet_(); }
+    if (!ss) { return false; }
+    var sh = ss.getSheetByName('CASH_MOVEMENTS');
+    if (!sh) { return false; }
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) { return false; }
+    var h = fp_headers_(data);
+    var rows = [];
+    for (var i = 1; i < data.length; i++) {
+      var row = {};
+      for (var c = 0; c < h.length; c++) { row[h[c]] = data[i][c]; }
+      rows.push(row);
+    }
+    return cae_saleAllocatedIn_(rows, sale_id);
+  } catch (e) { return false; }
+}
+
+// Read-only reconciliation report. Compares ledger bucket totals vs physical
+// cash (CASH_POSITION) and flags over-allocation. Writes nothing.
+function fp_reconcileBuckets_(ss) {
+  try {
+    if (!ss) { ss = fp_openSheet_(); }
+    var balances = fp_readBucketStatus_(ss);
+    var ledgerTotal = 0;
+    for (var k in balances) { if (balances.hasOwnProperty(k)) { ledgerTotal += balances[k]; } }
+    ledgerTotal = cae_round2_(ledgerTotal);
+
+    var phys = ss ? fp_readLatestCash_(ss) : null;
+    var physAvailable = (phys && typeof phys.cashAvailable === 'number') ? phys.cashAvailable : null;
+
+    // BILLS rent protected (transition mirror).
+    var billsRent = null;
+    var liveBills = ss ? fp_readBills_(ss) : null;
+    if (liveBills) {
+      for (var i = 0; i < liveBills.length; i++) {
+        if (String(liveBills[i].name).toLowerCase().indexOf('rent') >= 0) {
+          billsRent = liveBills[i].fundBalance; break;
+        }
+      }
+    }
+
+    var overAllocated = (physAvailable !== null) && (ledgerTotal > physAvailable + 0.01);
+
+    return {
+      ok: true,
+      ledgerBucketTotal: ledgerTotal,
+      buckets: balances,
+      physicalCashAvailable: physAvailable,
+      billsRentProtected: billsRent,
+      overAllocated: overAllocated,
+      note: 'Phase 2A: ledger expected to be $0 (nothing seeded). BILLS remains rent source of truth.'
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// Read-only preview for one real sale from the SALES tab. Writes nothing.
+// contextOverride may supply weeklyPayrollNeed, billsDue, isLockdown, etc.
+function api_previewSaleAllocation(sale_id, contextOverride) {
+  try {
+    var ss = fp_openSheet_();
+    if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+    var sh = ss.getSheetByName('SALES');
+    if (!sh) { return { ok: false, error: 'SALES tab not found.' }; }
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) { return { ok: false, error: 'SALES is empty.' }; }
+    var h = fp_headers_(data);
+    var idCol = h.indexOf('sale_id');
+    var amtCol = h.indexOf('amount');
+    var catCol = h.indexOf('category');
+    var dCol = h.indexOf('sale_date');
+    if (idCol < 0 || amtCol < 0) { return { ok: false, error: 'SALES missing sale_id/amount columns.' }; }
+
+    var want = String(sale_id || '');
+    var sale = null;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) === want) {
+        sale = {
+          sale_id:  data[i][idCol],
+          amount:   data[i][amtCol],
+          category: catCol >= 0 ? data[i][catCol] : '',
+          sale_date: dCol >= 0 ? data[i][dCol] : ''
+        };
+        break;
+      }
+    }
+    if (!sale) { return { ok: false, error: 'sale_id not found: ' + want }; }
+
+    var balances = fp_readBucketStatus_(ss);
+
+    // Rent protected from BILLS (transition source of truth).
+    var rentProtected = 0;
+    var liveBills = fp_readBills_(ss);
+    if (liveBills) {
+      for (var b = 0; b < liveBills.length; b++) {
+        if (String(liveBills[b].name).toLowerCase().indexOf('rent') >= 0) {
+          rentProtected = parseFloat(liveBills[b].fundBalance) || 0; break;
+        }
+      }
+    }
+
+    var co = contextOverride || {};
+    var saleDate = (sale.sale_date instanceof Date) ? sale.sale_date : new Date();
+    var context = {
+      rentProtected:    rentProtected,
+      rentMonthly:      CAE_CONST.rentMonthly,
+      weeklyPayrollNeed: (typeof co.weeklyPayrollNeed === 'number') ? co.weeklyPayrollNeed : 0,
+      billsDue:         (typeof co.billsDue === 'number') ? co.billsDue : 0,
+      holidayTarget:    (typeof co.holidayTarget === 'number') ? co.holidayTarget : 0,
+      isLockdown:       (typeof co.isLockdown === 'boolean') ? co.isLockdown : false,
+      isSlowSeason:     (typeof co.isSlowSeason === 'boolean') ? co.isSlowSeason : fp_isSlowSeason_(saleDate)
+    };
+
+    var preview = cae_buildSaleAllocation_(sale, balances, context);
+    var alreadyAllocated = cae_isSaleAllocated_(ss, want);
+
+    return {
+      ok: true,
+      dryRun: true,
+      wroteRows: false,
+      alreadyAllocated: alreadyAllocated,
+      contextUsed: context,
+      preview: preview
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// ============================================================
+// PHASE 2A DRY-RUN TEST RUNNER - NO LIVE WRITES.
+// Run in Apps Script editor: runPatchCPhase2Test()
+// ============================================================
+function runPatchCPhase2Test() {
+  var results = [];
+  function check(name, pass, detail) {
+    results.push({ test: name, pass: !!pass, detail: detail || '' });
+    Logger.log((pass ? 'PASS ' : 'FAIL ') + name + (detail ? (' -- ' + detail) : ''));
+  }
+  function needOf(arr, name) {
+    for (var i = 0; i < arr.length; i++) { if (arr[i].bucket === name) { return arr[i].amount_credit; } }
+    return 0;
+  }
+
+  // Category tax mapping.
+  check('tax: Appliance Sale = taxable', cae_categoryTaxInfo_('Appliance Sale').taxable === true, '');
+  check('tax: Parts = taxable', cae_categoryTaxInfo_('Parts').taxable === true, '');
+  check('tax: Repair = non-taxable', cae_categoryTaxInfo_('Repair').taxable === false, '');
+  check('tax: Delivery = non-taxable', cae_categoryTaxInfo_('Delivery').taxable === false, '');
+  check('tax: Warranty = non-taxable', cae_categoryTaxInfo_('Warranty').taxable === false, '');
+  check('tax: Other = taxable+flagged', cae_categoryTaxInfo_('Other').taxable === true && cae_categoryTaxInfo_('Other').flagged === true, '');
+  check('tax: blank = taxable+flagged', cae_categoryTaxInfo_('').taxable === true && cae_categoryTaxInfo_('').flagged === true, '');
+
+  // Empty ledger + lockdown context (matches current dashboard reality).
+  var emptyBal = cae_computeBalances_([]);
+  var ctx = { rentProtected: 1500, rentMonthly: 3600, weeklyPayrollNeed: 800, billsDue: 0,
+              isLockdown: true, isSlowSeason: false };
+
+  // Example 1: $395 Appliance Sale (taxable).
+  var a = cae_buildSaleAllocation_({ sale_id: 'S-TEST-APP', amount: 395, category: 'Appliance Sale' }, emptyBal, ctx);
+  check('app: ok', a.ok === true, a.error || '');
+  check('app: sum==395', a.sumCredits === 395, 'got ' + a.sumCredits);
+  check('app: taxReserve==35.09', a.taxReserve === 35.09, 'got ' + a.taxReserve);
+  check('app: not flagged', a.flaggedForReview === false, '');
+
+  // Example 2: $25 Parts (taxable).
+  var p = cae_buildSaleAllocation_({ sale_id: 'S-TEST-PARTS', amount: 25, category: 'Parts' }, emptyBal, ctx);
+  check('parts: ok', p.ok === true, p.error || '');
+  check('parts: sum==25', p.sumCredits === 25, 'got ' + p.sumCredits);
+  check('parts: taxReserve==2.22', p.taxReserve === 2.22, 'got ' + p.taxReserve);
+
+  // Example 3: $120 Delivery (non-taxable).
+  var d = cae_buildSaleAllocation_({ sale_id: 'S-TEST-DEL', amount: 120, category: 'Delivery' }, emptyBal, ctx);
+  check('del: ok', d.ok === true, d.error || '');
+  check('del: sum==120', d.sumCredits === 120, 'got ' + d.sumCredits);
+  check('del: taxReserve==0', d.taxReserve === 0, 'got ' + d.taxReserve);
+  check('del: SalesTax row absent', needOf(d.rows, 'Sales Tax Reserve') === 0, '');
+
+  // Duplicate detection (pure core, in-memory).
+  var ledger = [
+    { movement_type: 'SALE_ALLOCATION', source_type: 'SALE', source_id: 'S-DUP-1', allocation_status: 'ALLOCATED' }
+  ];
+  check('dup: existing sale detected', cae_saleAllocatedIn_(ledger, 'S-DUP-1') === true, '');
+  check('dup: new sale not detected', cae_saleAllocatedIn_(ledger, 'S-NEW-9') === false, '');
+  check('dup: reallocated not counted', cae_saleAllocatedIn_(
+    [{ movement_type: 'SALE_ALLOCATION', source_type: 'SALE', source_id: 'S-R', allocation_status: 'REALLOCATED' }], 'S-R') === false, '');
+
+  // Conservation across a spread of amounts/categories.
+  var cats = ['Appliance Sale', 'Parts', 'Repair', 'Delivery', 'Warranty', 'Other', ''];
+  var amts = [395, 25, 120, 1, 9999.99, 47.53, 250];
+  var allBalance = true;
+  for (var i = 0; i < cats.length; i++) {
+    var r = cae_buildSaleAllocation_({ sale_id: 'S-' + i, amount: amts[i], category: cats[i] }, emptyBal, ctx);
+    if (!r.ok || Math.abs(r.sumCredits - amts[i]) > 0.01) { allBalance = false; }
+  }
+  check('conservation: all sums balance', allBalance, '');
+
+  var passed = 0;
+  for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
+  var summary = passed + '/' + results.length + ' tests passed';
+  Logger.log('=== PATCH C PHASE 2A TEST: ' + summary + ' ===');
+  return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
+}
