@@ -932,3 +932,394 @@ function runPatchCPhase2bTest() {
   Logger.log('=== PATCH C PHASE 2B-1 TEST: ' + summary + ' ===');
   return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
 }
+
+// ============================================================
+// PATCH C PHASE 2B-2 - GUARDED LIVE WRITER
+//
+// SCOPE (2B-2):
+//   - api_recordSaleAllocation: write ONE sale's allocation, guarded.
+//   - api_reverseSaleAllocation: append CORRECTION rows to undo a sale.
+//   - Pure helpers for approval guard, row composition, correction build.
+//   - Dry-run + guard-negative test runner. Read-only verify helper.
+//
+// THREE-KEY WRITE GUARD (all required to write an allocation):
+//   opts.dryRun === false
+//   opts.confirmSaleId === sale_id
+//   opts.confirmAction === 'ALLOCATE_ONE_SALE'
+// Default behavior is dryRun:true -> writes nothing.
+//
+// EXPLICITLY OUT OF SCOPE (2B-2):
+//   - No batch write path. No api_addSale hook. No backfill.
+//   - No dashboard integration. No deploy. No Rent Reserve seed.
+//   - api_getFinancialProtector() READ only, never modified.
+//   - Reversed sales stay BLOCKED from re-allocation (by design).
+// ============================================================
+
+function cae_newMovementId_(seq) {
+  var base = 'M-' + (new Date().getTime()) + '-' + Math.floor(Math.random() * 1000);
+  return (seq === null || typeof seq === 'undefined') ? base : (base + '-' + seq);
+}
+
+function cae_newGroupId_() {
+  return 'MG-' + (new Date().getTime()) + '-' + Math.floor(Math.random() * 1000);
+}
+
+// Pure approval decision. expectedAction lets allocate vs reverse differ.
+function cae_writeApproved_(opts, sale_id, expectedAction) {
+  opts = opts || {};
+  if (opts.dryRun !== false) {
+    return { approved: false, reason: 'dryRun is not false (default safe).' };
+  }
+  if (String(opts.confirmSaleId || '') !== String(sale_id || '')) {
+    return { approved: false, reason: 'confirmSaleId does not match sale_id.' };
+  }
+  if (String(opts.confirmAction || '') !== String(expectedAction || '')) {
+    return { approved: false, reason: 'confirmAction must equal ' + expectedAction + '.' };
+  }
+  return { approved: true, reason: 'approved' };
+}
+
+// Pure: compose one CASH_MOVEMENTS row (array in header order).
+function cae_composeMovementRow_(row, meta, now, movementId) {
+  return [
+    now,                                       // timestamp
+    movementId,                                // movement_id
+    meta.group_id || '',                       // movement_group_id
+    meta.movement_type || '',                  // movement_type
+    meta.source_type || '',                    // source_type
+    meta.source_id || '',                      // source_id
+    row.bucket || '',                          // bucket
+    cae_round2_(row.amount_debit || 0),        // amount_debit
+    cae_round2_(row.amount_credit || 0),       // amount_credit
+    cae_round2_(row.old_balance || 0),         // old_balance
+    cae_round2_(row.new_balance || 0),         // new_balance
+    meta.allocation_status || '',              // allocation_status
+    row.reversed_by_movement_id || '',         // reversed_by_movement_id
+    meta.owner_name || 'system',               // owner_name
+    meta.owner_pin_verified === true,          // owner_pin_verified
+    meta.warning_level || '',                  // warning_level
+    meta.emergency_fund_phase || '',           // emergency_fund_phase
+    meta.is_slow_season === true,              // is_slow_season
+    row.reason || meta.reason || '',           // reason
+    row.notes || meta.notes || ''              // notes
+  ];
+}
+
+// The ONLY low-level writer. Composes full rows and appends them in one batch.
+// Returns the written rows as objects (with their movement_id).
+function cae_appendMovementRows_(ss, rows, meta) {
+  if (!ss) { ss = fp_openSheet_(); }
+  if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+  var sh = ss.getSheetByName('CASH_MOVEMENTS');
+  if (!sh) { return { ok: false, error: 'CASH_MOVEMENTS tab not found.' }; }
+  if (!rows || !rows.length) { return { ok: false, error: 'No rows to write.' }; }
+
+  var now = new Date();
+  var arr2d = [];
+  var written = [];
+  for (var i = 0; i < rows.length; i++) {
+    var mid = cae_newMovementId_(i);
+    arr2d.push(cae_composeMovementRow_(rows[i], meta, now, mid));
+    written.push({
+      movement_id: mid, movement_group_id: meta.group_id, bucket: rows[i].bucket,
+      amount_debit: cae_round2_(rows[i].amount_debit || 0),
+      amount_credit: cae_round2_(rows[i].amount_credit || 0),
+      old_balance: cae_round2_(rows[i].old_balance || 0),
+      new_balance: cae_round2_(rows[i].new_balance || 0)
+    });
+  }
+  var startRow = sh.getLastRow() + 1;
+  sh.getRange(startRow, 1, arr2d.length, CAE_MOVEMENT_HEADERS.length).setValues(arr2d);
+  return { ok: true, written: written, count: written.length };
+}
+
+// Shared SALES lookup (read-only). Returns sale object or null.
+function cae_lookupSale_(ss, sale_id) {
+  var sh = ss.getSheetByName('SALES');
+  if (!sh) { return null; }
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) { return null; }
+  var h = fp_headers_(data);
+  var idCol = h.indexOf('sale_id');
+  var amtCol = h.indexOf('amount');
+  var catCol = h.indexOf('category');
+  var dCol = h.indexOf('sale_date');
+  var ebCol = h.indexOf('entered_by');
+  if (idCol < 0 || amtCol < 0) { return null; }
+  var want = String(sale_id || '');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === want) {
+      return {
+        sale_id:   data[i][idCol],
+        amount:    data[i][amtCol],
+        category:  catCol >= 0 ? data[i][catCol] : '',
+        sale_date: dCol >= 0 ? data[i][dCol] : '',
+        entered_by: ebCol >= 0 ? String(data[i][ebCol] || '') : ''
+      };
+    }
+  }
+  return null;
+}
+
+// Read existing SALE_ALLOCATION rows for a sale (status ALLOCATED), with movement_id.
+function cae_readAllocatedRows_(ss, sale_id) {
+  var sh = ss.getSheetByName('CASH_MOVEMENTS');
+  if (!sh) { return []; }
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) { return []; }
+  var h = fp_headers_(data);
+  var want = String(sale_id || '');
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = {};
+    for (var c = 0; c < h.length; c++) { row[h[c]] = data[i][c]; }
+    if (String(row.movement_type) === 'SALE_ALLOCATION' &&
+        String(row.source_type) === 'SALE' &&
+        String(row.source_id) === want &&
+        String(row.allocation_status) === 'ALLOCATED') {
+      out.push({ movement_id: row.movement_id, bucket: row.bucket, amount_credit: parseFloat(row.amount_credit) || 0 });
+    }
+  }
+  return out;
+}
+
+// Has this sale already been reversed (a CORRECTION group references it)?
+function cae_saleReversed_(ss, sale_id) {
+  var sh = ss.getSheetByName('CASH_MOVEMENTS');
+  if (!sh) { return false; }
+  var data = sh.getDataRange().getValues();
+  if (data.length < 2) { return false; }
+  var h = fp_headers_(data);
+  var mtCol = h.indexOf('movement_type');
+  var siCol = h.indexOf('source_id');
+  var want = String(sale_id || '');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][mtCol]) === 'CORRECTION' && String(data[i][siCol]) === want) { return true; }
+  }
+  return false;
+}
+
+// Pure: build CORRECTION debit rows that reverse a set of allocated rows.
+// currentBalances stamps old/new; multiple debits to one bucket chain correctly.
+function cae_buildCorrectionRows_(allocatedRows, currentBalances) {
+  var working = {};
+  var i;
+  for (i = 0; i < CAE_BUCKETS.length; i++) { working[CAE_BUCKETS[i]] = parseFloat((currentBalances || {})[CAE_BUCKETS[i]]) || 0; }
+  var rows = [];
+  for (i = 0; i < (allocatedRows || []).length; i++) {
+    var a = allocatedRows[i];
+    var debit = cae_round2_(a.amount_credit || 0);
+    if (debit <= 0) { continue; }
+    var old = working[a.bucket];
+    var nw = cae_round2_(old - debit);
+    working[a.bucket] = nw;
+    rows.push({
+      bucket: a.bucket, amount_debit: debit, amount_credit: 0,
+      old_balance: cae_round2_(old), new_balance: nw,
+      reversed_by_movement_id: a.movement_id
+    });
+  }
+  return rows;
+}
+
+// ---- Orchestrator: write ONE sale allocation (guarded) ----
+function api_recordSaleAllocation(sale_id, opts) {
+  opts = opts || {};
+  var lock = LockService.getScriptLock();
+  try {
+    try { lock.waitLock(20000); } catch (eLock) { return { ok: false, error: 'Busy; could not acquire lock.' }; }
+
+    var ss = fp_openSheet_();
+    if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+
+    var sale = cae_lookupSale_(ss, sale_id);
+    if (!sale) { return { ok: false, error: 'sale_id not found: ' + sale_id }; }
+
+    // Duplicate guard.
+    if (cae_isSaleAllocated_(ss, sale_id)) {
+      return { ok: false, error: 'Sale already allocated: ' + sale_id, wroteRows: false };
+    }
+
+    // Live context (same single source as dashboard).
+    var fp;
+    try { fp = api_getFinancialProtector(); } catch (eFp) { fp = { ok: false }; }
+    if (!fp || !fp.ok) { return { ok: false, error: 'Financial Protector unavailable; refusing to allocate.', wroteRows: false }; }
+    var saleDate = (sale.sale_date instanceof Date) ? sale.sale_date : new Date();
+    var live = cae_buildLiveContext_(fp, saleDate);
+    var context = live.context;
+
+    // Balances re-read INSIDE the lock; build allocation.
+    var balances = fp_readBucketStatus_(ss);
+    var result = cae_buildSaleAllocation_(sale, balances, context);
+    if (!result.ok) { return { ok: false, error: result.error || 'Allocation build failed.', wroteRows: false }; }
+
+    // Assert engine == dashboard on rent gap.
+    var builderRentGap = cae_round2_(Math.max(0, (context.rentMonthly || 0) - (context.rentProtected || 0)));
+    if (live.rentGapFromFp !== null && Math.abs(builderRentGap - live.rentGapFromFp) > 0.01) {
+      return { ok: false, error: 'Rent gap mismatch (builder ' + builderRentGap + ' vs shortfall ' + live.rentGapFromFp + ').', wroteRows: false };
+    }
+
+    var approval = cae_writeApproved_(opts, sale_id, 'ALLOCATE_ONE_SALE');
+
+    // Dry-run (default) or unapproved -> return preview, write nothing.
+    if (!approval.approved) {
+      return {
+        ok: true, dryRun: true, wroteRows: false,
+        writeApproved: false, approvalReason: approval.reason,
+        financialProtectorOk: live.financialProtectorOk,
+        contextUsed: context,
+        rentGapCrossCheck: { builderRentGap: builderRentGap, rentProtectionShortfall: live.rentGapFromFp,
+          match: (live.rentGapFromFp === null) ? null : (Math.abs(builderRentGap - live.rentGapFromFp) < 0.01) },
+        preview: result
+      };
+    }
+
+    // ---- Approved single write ----
+    var emergencyPhase = fp_checkEmergencyFundPhase_(balances['Emergency Fund']);
+    var ownerName = sale.entered_by ? sale.entered_by : 'system';
+    var meta = {
+      group_id: cae_newGroupId_(),
+      movement_type: 'SALE_ALLOCATION',
+      source_type: 'SALE',
+      source_id: sale_id,
+      owner_name: ownerName,
+      owner_pin_verified: false,
+      warning_level: '',
+      emergency_fund_phase: emergencyPhase,
+      is_slow_season: context.isSlowSeason,
+      allocation_status: 'ALLOCATED',
+      reason: 'Sale allocation ' + sale_id + ' ($' + result.amount + ' ' + (sale.category || '') + ')',
+      notes: 'survival=' + context.survivalScore + '; lockdown=' + context.isLockdown + '; flaggedForReview=' + result.flaggedForReview
+    };
+    var w = cae_appendMovementRows_(ss, result.rows, meta);
+    if (!w.ok) { return { ok: false, error: w.error, wroteRows: false }; }
+
+    return { ok: true, dryRun: false, wroteRows: true, writeApproved: true,
+             groupId: meta.group_id, written: w.written, count: w.count };
+  } finally {
+    try { lock.releaseLock(); } catch (eRel) {}
+  }
+}
+
+// ---- Reverse ONE sale allocation (guarded; append-only CORRECTION) ----
+function api_reverseSaleAllocation(sale_id, reason, opts) {
+  opts = opts || {};
+  var lock = LockService.getScriptLock();
+  try {
+    try { lock.waitLock(20000); } catch (eLock) { return { ok: false, error: 'Busy; could not acquire lock.' }; }
+
+    var ss = fp_openSheet_();
+    if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+
+    var allocated = cae_readAllocatedRows_(ss, sale_id);
+    if (!allocated.length) { return { ok: false, error: 'No ALLOCATED rows for ' + sale_id, wroteRows: false }; }
+    if (cae_saleReversed_(ss, sale_id)) { return { ok: false, error: 'Sale already reversed: ' + sale_id, wroteRows: false }; }
+
+    var balances = fp_readBucketStatus_(ss);
+    var corrections = cae_buildCorrectionRows_(allocated, balances);
+
+    var approval = cae_writeApproved_(opts, sale_id, 'REVERSE_ONE_SALE');
+    if (!approval.approved) {
+      return { ok: true, dryRun: true, wroteRows: false, writeApproved: false,
+               approvalReason: approval.reason, preview: { corrections: corrections } };
+    }
+
+    var emergencyPhase = fp_checkEmergencyFundPhase_(balances['Emergency Fund']);
+    var meta = {
+      group_id: cae_newGroupId_(),
+      movement_type: 'CORRECTION',
+      source_type: 'SALE',
+      source_id: sale_id,
+      owner_name: opts.owner ? opts.owner : 'system',
+      owner_pin_verified: false,
+      warning_level: '',
+      emergency_fund_phase: emergencyPhase,
+      is_slow_season: fp_isSlowSeason_(new Date()),
+      allocation_status: 'CANCELLED',
+      reason: reason ? reason : ('Reversal of ' + sale_id),
+      notes: 'Reverses SALE_ALLOCATION ' + sale_id
+    };
+    var w = cae_appendMovementRows_(ss, corrections, meta);
+    if (!w.ok) { return { ok: false, error: w.error, wroteRows: false }; }
+
+    return { ok: true, dryRun: false, wroteRows: true, writeApproved: true,
+             groupId: meta.group_id, written: w.written, count: w.count };
+  } finally {
+    try { lock.releaseLock(); } catch (eRel) {}
+  }
+}
+
+// Read-only before/after FP snapshot helper (no writes).
+function runPatchCPhase2bWriteVerify() {
+  var out = {};
+  try {
+    var fp = api_getFinancialProtector();
+    out.financialProtectorOk = !!(fp && fp.ok);
+    out.rentFundBalance = fp && fp.rentStatus ? fp.rentStatus.fundBalance : null;
+    out.rentShortfall = fp && fp.rentProtection ? fp.rentProtection.shortfall : null;
+    out.cashMode = fp && fp.cashProtection ? fp.cashProtection.mode : null;
+    out.executiveScore = fp && fp.executiveScorecard ? fp.executiveScorecard.executiveScore : null;
+    out.bucketTotal = 0;
+    var bal = fp_readBucketStatus_();
+    for (var k in bal) { if (bal.hasOwnProperty(k)) { out.bucketTotal += bal[k]; } }
+    out.bucketTotal = cae_round2_(out.bucketTotal);
+  } catch (e) { out.error = String(e); }
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+// ============================================================
+// PHASE 2B-2 DRY-RUN + GUARD-NEGATIVE TESTS - NO LIVE WRITES.
+// Run in Apps Script editor: runPatchCPhase2bWriteDryRunTest()
+// ============================================================
+function runPatchCPhase2bWriteDryRunTest() {
+  var results = [];
+  function check(name, pass, detail) {
+    results.push({ test: name, pass: !!pass, detail: detail || '' });
+    Logger.log((pass ? 'PASS ' : 'FAIL ') + name + (detail ? (' -- ' + detail) : ''));
+  }
+
+  var SID = 'S-1782594988779-427';
+
+  // --- Approval guard (pure cae_writeApproved_) ---
+  check('guard: no opts -> reject', cae_writeApproved_({}, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+  check('guard: dryRun:false only -> reject', cae_writeApproved_({ dryRun: false }, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+  check('guard: missing confirmAction -> reject', cae_writeApproved_({ dryRun: false, confirmSaleId: SID }, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+  check('guard: wrong confirmSaleId -> reject', cae_writeApproved_({ dryRun: false, confirmSaleId: 'WRONG', confirmAction: 'ALLOCATE_ONE_SALE' }, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+  check('guard: wrong action string -> reject', cae_writeApproved_({ dryRun: false, confirmSaleId: SID, confirmAction: 'NOPE' }, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+  check('guard: all three correct -> APPROVE', cae_writeApproved_({ dryRun: false, confirmSaleId: SID, confirmAction: 'ALLOCATE_ONE_SALE' }, SID, 'ALLOCATE_ONE_SALE').approved === true, '');
+  check('guard: dryRun:true even w/ keys -> reject', cae_writeApproved_({ dryRun: true, confirmSaleId: SID, confirmAction: 'ALLOCATE_ONE_SALE' }, SID, 'ALLOCATE_ONE_SALE').approved === false, '');
+
+  // --- Row composition (pure) ---
+  var meta = { group_id: 'MG-X', movement_type: 'SALE_ALLOCATION', source_type: 'SALE', source_id: SID,
+               owner_name: 'Taylor', owner_pin_verified: false, allocation_status: 'ALLOCATED',
+               emergency_fund_phase: '1', is_slow_season: false, reason: 'r', notes: 'n' };
+  var arr = cae_composeMovementRow_({ bucket: 'Payroll Tax Reserve', amount_debit: 0, amount_credit: 30, old_balance: 0, new_balance: 30 }, meta, new Date(), 'M-1');
+  check('compose: 20 columns', arr.length === 20, 'got ' + arr.length);
+  check('compose: bucket at idx6', arr[6] === 'Payroll Tax Reserve', '');
+  check('compose: credit at idx8 = 30', arr[8] === 30, 'got ' + arr[8]);
+  check('compose: status at idx11 = ALLOCATED', arr[11] === 'ALLOCATED', '');
+  check('compose: owner at idx13 = Taylor', arr[13] === 'Taylor', '');
+
+  // --- Correction rows (pure) net buckets to zero ---
+  var allocated = [{ movement_id: 'M-A', bucket: 'Payroll Tax Reserve', amount_credit: 30 }];
+  var corr = cae_buildCorrectionRows_(allocated, { 'Payroll Tax Reserve': 30 });
+  check('correction: 1 row', corr.length === 1, '');
+  check('correction: debit 30', corr[0].amount_debit === 30, 'got ' + corr[0].amount_debit);
+  check('correction: new_balance 0', corr[0].new_balance === 0, 'got ' + corr[0].new_balance);
+  check('correction: reversed_by set', corr[0].reversed_by_movement_id === 'M-A', '');
+
+  // --- Multi-row correction chains on same bucket ---
+  var alloc2 = [
+    { movement_id: 'M-1', bucket: 'Rent Reserve', amount_credit: 100 },
+    { movement_id: 'M-2', bucket: 'Rent Reserve', amount_credit: 50 }
+  ];
+  var corr2 = cae_buildCorrectionRows_(alloc2, { 'Rent Reserve': 150 });
+  check('correction chain: 150 -> 50 -> 0', corr2[0].new_balance === 50 && corr2[1].new_balance === 0, corr2[0].new_balance + '/' + corr2[1].new_balance);
+
+  var passed = 0;
+  for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
+  var summary = passed + '/' + results.length + ' tests passed';
+  Logger.log('=== PATCH C PHASE 2B-2 DRY-RUN TEST: ' + summary + ' ===');
+  return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
+}
