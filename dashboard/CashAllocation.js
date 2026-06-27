@@ -581,8 +581,20 @@ function cae_isSaleAllocated_(ss, sale_id) {
   } catch (e) { return false; }
 }
 
-// Read-only reconciliation report. Compares ledger bucket totals vs physical
-// cash (CASH_POSITION) and flags over-allocation. Writes nothing.
+// Pure reconciliation math. Ledger is compared to PHYSICAL TOTAL cash
+// (not available): buckets allocate total cash into reserved purposes, so
+// over-allocation means ledger exceeds total cash on hand.
+function cae_reconMath_(ledgerTotal, physicalCashTotal) {
+  var hasTotal = (typeof physicalCashTotal === 'number');
+  return {
+    unallocatedCash:   hasTotal ? cae_round2_(physicalCashTotal - ledgerTotal) : null,
+    ledgerVsTotalDrift: hasTotal ? cae_round2_(ledgerTotal - physicalCashTotal) : null,
+    overAllocated:     hasTotal ? (ledgerTotal > physicalCashTotal + 0.01) : false
+  };
+}
+
+// Read-only reconciliation report. Compares ledger bucket total to physical
+// TOTAL cash (cashPosition.totalCash). Writes nothing.
 function fp_reconcileBuckets_(ss) {
   try {
     if (!ss) { ss = fp_openSheet_(); }
@@ -591,10 +603,20 @@ function fp_reconcileBuckets_(ss) {
     for (var k in balances) { if (balances.hasOwnProperty(k)) { ledgerTotal += balances[k]; } }
     ledgerTotal = cae_round2_(ledgerTotal);
 
-    var phys = ss ? fp_readLatestCash_(ss) : null;
-    var physAvailable = (phys && typeof phys.cashAvailable === 'number') ? phys.cashAvailable : null;
+    // Authoritative cash figures from the dashboard's single source.
+    var physicalCashTotal = null, physicalCashAvailable = null;
+    var fp;
+    try { fp = api_getFinancialProtector(); } catch (eFp) { fp = null; }
+    if (fp && fp.ok && fp.cashPosition) {
+      if (typeof fp.cashPosition.totalCash === 'number')     { physicalCashTotal = fp.cashPosition.totalCash; }
+      if (typeof fp.cashPosition.availableCash === 'number') { physicalCashAvailable = fp.cashPosition.availableCash; }
+    } else {
+      // Fallback: CASH_POSITION snapshot (available only) if FP is unavailable.
+      var phys = ss ? fp_readLatestCash_(ss) : null;
+      if (phys && typeof phys.cashAvailable === 'number') { physicalCashAvailable = phys.cashAvailable; }
+    }
 
-    // BILLS rent protected (transition mirror).
+    // BILLS rent protected (transition mirror; dashboard still reads BILLS).
     var billsRent = null;
     var liveBills = ss ? fp_readBills_(ss) : null;
     if (liveBills) {
@@ -605,16 +627,19 @@ function fp_reconcileBuckets_(ss) {
       }
     }
 
-    var overAllocated = (physAvailable !== null) && (ledgerTotal > physAvailable + 0.01);
+    var m = cae_reconMath_(ledgerTotal, physicalCashTotal);
 
     return {
       ok: true,
       ledgerBucketTotal: ledgerTotal,
       buckets: balances,
-      physicalCashAvailable: physAvailable,
+      physicalCashTotal: physicalCashTotal,
+      physicalCashAvailable: physicalCashAvailable,
+      unallocatedCash: m.unallocatedCash,
+      ledgerVsTotalDrift: m.ledgerVsTotalDrift,
+      overAllocated: m.overAllocated,
       billsRentProtected: billsRent,
-      overAllocated: overAllocated,
-      note: 'Phase 2A: ledger expected to be $0 (nothing seeded). BILLS remains rent source of truth.'
+      note: 'Ledger = openings + allocations - payments - reversals. Compared to physical total cash; overAllocated only if ledger exceeds total cash. BILLS remains rent source of truth until Phase 5 cutover.'
     };
   } catch (e) {
     return { ok: false, error: String(e) };
@@ -1321,5 +1346,181 @@ function runPatchCPhase2bWriteDryRunTest() {
   for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
   var summary = passed + '/' + results.length + ' tests passed';
   Logger.log('=== PATCH C PHASE 2B-2 DRY-RUN TEST: ' + summary + ' ===');
+  return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
+}
+
+// ============================================================
+// PATCH C PHASE 2C - OPENING BALANCE SEED (GUARDED) + RECON TESTS
+//
+// SCOPE (2C):
+//   - api_seedOpeningBalance: guarded/idempotent OPENING_BALANCE writer.
+//   - cae_isOpeningSeeded_: idempotency check.
+//   - Reversal dry-run + reconciliation tests.
+//
+// FOUR-KEY SEED GUARD (all required to write a real opening balance):
+//   opts.dryRun === false
+//   opts.confirmBucket === bucket
+//   Number(opts.confirmAmount) === Number(amount)
+//   opts.confirmAction === 'SEED_OPENING_BALANCE'
+// Default behavior is dryRun:true -> writes nothing.
+//
+// EXPLICITLY OUT OF SCOPE (2C):
+//   - No real seed run here. No deploy. No dashboard change.
+//   - api_getFinancialProtector() READ only, never modified.
+// ============================================================
+
+// Has an OPENING_BALANCE already been recorded for this bucket?
+function cae_isOpeningSeeded_(ss, bucket) {
+  try {
+    if (!ss) { ss = fp_openSheet_(); }
+    if (!ss) { return false; }
+    var sh = ss.getSheetByName('CASH_MOVEMENTS');
+    if (!sh) { return false; }
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) { return false; }
+    var h = fp_headers_(data);
+    var mtCol = h.indexOf('movement_type');
+    var bCol = h.indexOf('bucket');
+    var want = String(bucket || '');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][mtCol]) === 'OPENING_BALANCE' && String(data[i][bCol]) === want) { return true; }
+    }
+    return false;
+  } catch (e) { return false; }
+}
+
+// Pure four-key approval decision for opening-balance seeding.
+function cae_seedApproved_(opts, bucket, amount) {
+  opts = opts || {};
+  if (opts.dryRun !== false) {
+    return { approved: false, reason: 'dryRun is not false (default safe).' };
+  }
+  if (String(opts.confirmBucket || '') !== String(bucket || '')) {
+    return { approved: false, reason: 'confirmBucket does not match bucket.' };
+  }
+  if (Number(opts.confirmAmount) !== Number(amount)) {
+    return { approved: false, reason: 'confirmAmount does not match amount.' };
+  }
+  if (String(opts.confirmAction || '') !== 'SEED_OPENING_BALANCE') {
+    return { approved: false, reason: 'confirmAction must equal SEED_OPENING_BALANCE.' };
+  }
+  return { approved: true, reason: 'approved' };
+}
+
+// ---- Seed ONE opening balance (guarded, idempotent) ----
+function api_seedOpeningBalance(bucket, amount, reason, opts) {
+  opts = opts || {};
+  var lock = LockService.getScriptLock();
+  try {
+    try { lock.waitLock(20000); } catch (eLock) { return { ok: false, error: 'Busy; could not acquire lock.' }; }
+
+    // Validate bucket + amount.
+    var known = false;
+    for (var i = 0; i < CAE_BUCKETS.length; i++) { if (CAE_BUCKETS[i] === bucket) { known = true; break; } }
+    if (!known) { return { ok: false, error: 'Unknown bucket: ' + bucket, wroteRows: false }; }
+    var amt = parseFloat(amount);
+    if (isNaN(amt) || amt <= 0) { return { ok: false, error: 'Amount must be greater than 0.', wroteRows: false }; }
+
+    var ss = fp_openSheet_();
+    if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+
+    // Idempotency: one opening balance per bucket.
+    if (cae_isOpeningSeeded_(ss, bucket)) {
+      return { ok: false, error: 'Opening balance already seeded for ' + bucket, wroteRows: false };
+    }
+
+    var balances = fp_readBucketStatus_(ss);
+    var oldBal = parseFloat(balances[bucket]) || 0;
+    var newBal = cae_round2_(oldBal + amt);
+    var row = { bucket: bucket, amount_debit: 0, amount_credit: amt, old_balance: cae_round2_(oldBal), new_balance: newBal };
+
+    var approval = cae_seedApproved_(opts, bucket, amt);
+    if (!approval.approved) {
+      return {
+        ok: true, dryRun: true, wroteRows: false, writeApproved: false,
+        approvalReason: approval.reason,
+        preview: { bucket: bucket, amount: amt, oldBalance: cae_round2_(oldBal), newBalance: newBal,
+                   movement_type: 'OPENING_BALANCE' }
+      };
+    }
+
+    // ---- Approved single seed ----
+    var meta = {
+      group_id: cae_newGroupId_(),
+      movement_type: 'OPENING_BALANCE',
+      source_type: 'MANUAL',
+      source_id: opts.sourceId ? opts.sourceId : ('opening_' + String(bucket).replace(/\s+/g, '_').toLowerCase()),
+      owner_name: opts.owner ? opts.owner : 'system',
+      owner_pin_verified: false,
+      warning_level: '',
+      emergency_fund_phase: fp_checkEmergencyFundPhase_(balances['Emergency Fund']),
+      is_slow_season: fp_isSlowSeason_(new Date()),
+      allocation_status: 'OPENING',
+      reason: reason ? reason : ('Opening balance for ' + bucket),
+      notes: 'Phase 2C seed. Labels existing cash; does not add new cash.'
+    };
+    var w = cae_appendMovementRows_(ss, [row], meta);
+    if (!w.ok) { return { ok: false, error: w.error, wroteRows: false }; }
+
+    return { ok: true, dryRun: false, wroteRows: true, writeApproved: true,
+             groupId: meta.group_id, written: w.written, count: w.count };
+  } finally {
+    try { lock.releaseLock(); } catch (eRel) {}
+  }
+}
+
+// ---- Reversal dry-run for the $30 test allocation (proves undo path) ----
+function runPatchCPhase2cReversalDryRun() {
+  var r = api_reverseSaleAllocation('S-1782594988779-427', 'Phase 2C reversal dry-run (proof only)', { dryRun: true });
+  Logger.log('=== PATCH C 2C REVERSAL DRY-RUN ===');
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+// ============================================================
+// PHASE 2C RECONCILIATION TESTS - NO LIVE WRITES.
+// Run in Apps Script editor: runPatchCPhase2cReconTest()
+// ============================================================
+function runPatchCPhase2cReconTest() {
+  var results = [];
+  function check(name, pass, detail) {
+    results.push({ test: name, pass: !!pass, detail: detail || '' });
+    Logger.log((pass ? 'PASS ' : 'FAIL ') + name + (detail ? (' -- ' + detail) : ''));
+  }
+
+  // Recon math: ledger 30 vs total 1655 -> unallocated 1625, not over.
+  var m1 = cae_reconMath_(30, 1655);
+  check('recon: unallocated=1625', m1.unallocatedCash === 1625, 'got ' + m1.unallocatedCash);
+  check('recon: drift=-1625', m1.ledgerVsTotalDrift === -1625, 'got ' + m1.ledgerVsTotalDrift);
+  check('recon: overAllocated=false', m1.overAllocated === false, '');
+
+  // After a $1,500 Rent seed: ledger 1530 vs 1655 -> unallocated 125, not over.
+  var m2 = cae_reconMath_(1530, 1655);
+  check('recon(seed): unallocated=125', m2.unallocatedCash === 125, 'got ' + m2.unallocatedCash);
+  check('recon(seed): overAllocated=false', m2.overAllocated === false, '');
+
+  // Over-allocation: ledger 1700 vs 1655 -> over true, drift +45.
+  var m3 = cae_reconMath_(1700, 1655);
+  check('recon(over): overAllocated=true', m3.overAllocated === true, '');
+  check('recon(over): drift=45', m3.ledgerVsTotalDrift === 45, 'got ' + m3.ledgerVsTotalDrift);
+
+  // Null total cash -> safe (no false alarm).
+  var m4 = cae_reconMath_(30, null);
+  check('recon(no total): overAllocated=false', m4.overAllocated === false, '');
+  check('recon(no total): unallocated=null', m4.unallocatedCash === null, '');
+
+  // Seed four-key guard (pure).
+  var B = 'Rent Reserve', A = 1500;
+  check('seed: no opts -> reject', cae_seedApproved_({}, B, A).approved === false, '');
+  check('seed: missing action -> reject', cae_seedApproved_({ dryRun: false, confirmBucket: B, confirmAmount: A }, B, A).approved === false, '');
+  check('seed: wrong bucket -> reject', cae_seedApproved_({ dryRun: false, confirmBucket: 'Emergency Fund', confirmAmount: A, confirmAction: 'SEED_OPENING_BALANCE' }, B, A).approved === false, '');
+  check('seed: wrong amount -> reject', cae_seedApproved_({ dryRun: false, confirmBucket: B, confirmAmount: 1499, confirmAction: 'SEED_OPENING_BALANCE' }, B, A).approved === false, '');
+  check('seed: dryRun:true w/ keys -> reject', cae_seedApproved_({ dryRun: true, confirmBucket: B, confirmAmount: A, confirmAction: 'SEED_OPENING_BALANCE' }, B, A).approved === false, '');
+  check('seed: all four correct -> APPROVE', cae_seedApproved_({ dryRun: false, confirmBucket: B, confirmAmount: A, confirmAction: 'SEED_OPENING_BALANCE' }, B, A).approved === true, '');
+
+  var passed = 0;
+  for (var j = 0; j < results.length; j++) { if (results[j].pass) { passed++; } }
+  var summary = passed + '/' + results.length + ' tests passed';
+  Logger.log('=== PATCH C PHASE 2C RECON TEST: ' + summary + ' ===');
   return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
 }
