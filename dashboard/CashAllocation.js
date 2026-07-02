@@ -603,15 +603,24 @@ function fp_reconcileBuckets_(ss) {
     for (var k in balances) { if (balances.hasOwnProperty(k)) { ledgerTotal += balances[k]; } }
     ledgerTotal = cae_round2_(ledgerTotal);
 
-    // Authoritative cash figures from the dashboard's single source.
-    var physicalCashTotal = null, physicalCashAvailable = null;
+    // Physical cash total: PREFER the live CASH_POSITION snapshot (total_cash);
+    // fall back to the FP_CONFIG-derived total only if no snapshot value exists.
+    var physicalCashTotal = null, physicalCashTotalSource = null, physicalCashAvailable = null;
+    var snapTotal = cae_readPhysicalTotalCash_(ss);
+    if (snapTotal !== null) {
+      physicalCashTotal = snapTotal;
+      physicalCashTotalSource = 'CASH_POSITION.total_cash';
+    }
     var fp;
     try { fp = api_getFinancialProtector(); } catch (eFp) { fp = null; }
     if (fp && fp.ok && fp.cashPosition) {
-      if (typeof fp.cashPosition.totalCash === 'number')     { physicalCashTotal = fp.cashPosition.totalCash; }
+      if (physicalCashTotal === null && typeof fp.cashPosition.totalCash === 'number') {
+        physicalCashTotal = fp.cashPosition.totalCash;
+        physicalCashTotalSource = 'FP_CONFIG (fallback)';
+      }
       if (typeof fp.cashPosition.availableCash === 'number') { physicalCashAvailable = fp.cashPosition.availableCash; }
     } else {
-      // Fallback: CASH_POSITION snapshot (available only) if FP is unavailable.
+      // FP unavailable: read available from the CASH_POSITION snapshot.
       var phys = ss ? fp_readLatestCash_(ss) : null;
       if (phys && typeof phys.cashAvailable === 'number') { physicalCashAvailable = phys.cashAvailable; }
     }
@@ -634,6 +643,7 @@ function fp_reconcileBuckets_(ss) {
       ledgerBucketTotal: ledgerTotal,
       buckets: balances,
       physicalCashTotal: physicalCashTotal,
+      physicalCashTotalSource: physicalCashTotalSource,
       physicalCashAvailable: physicalCashAvailable,
       unallocatedCash: m.unallocatedCash,
       ledgerVsTotalDrift: m.ledgerVsTotalDrift,
@@ -1602,4 +1612,43 @@ function runPatchC2DInspect() {
   } catch (e) {
     return { ok: false, error: String(e) };
   }
+}
+
+// ============================================================
+// PATCH C PHASE 2D-A - PHYSICAL CASH TOTAL READ (READ-ONLY)
+//
+// Reads the latest CASH_POSITION snapshot's total_cash so reconciliation
+// reflects real cash on hand instead of the stale FP_CONFIG estimate.
+// Writes nothing.
+// ============================================================
+
+// Latest CASH_POSITION.total_cash as a positive number, else null (so
+// callers fall back to the FP_CONFIG-derived total). Read-only.
+function cae_readPhysicalTotalCash_(ss) {
+  try {
+    if (!ss) { ss = fp_openSheet_(); }
+    if (!ss) { return null; }
+    var sh = ss.getSheetByName('CASH_POSITION');
+    if (!sh) { return null; }
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) { return null; }
+    var h = fp_headers_(data);
+    var tcCol = h.indexOf('total_cash');
+    if (tcCol < 0) { return null; }
+    var last = data[data.length - 1];
+    var v = parseFloat(last[tcCol]);
+    if (isNaN(v) || v <= 0) { return null; }
+    return cae_round2_(v);
+  } catch (e) { return null; }
+}
+
+// Read-only verify: shows the total_cash reconciliation will use + the full
+// reconciliation. Run AFTER entering the corrected CASH_POSITION snapshot.
+// Run in Apps Script editor: runPatchC2DCashTotalCheck()
+function runPatchC2DCashTotalCheck() {
+  var out = {};
+  out.cashPositionTotalCash = cae_readPhysicalTotalCash_();
+  out.reconcile = fp_reconcileBuckets_();
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
 }
