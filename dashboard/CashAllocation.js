@@ -1524,3 +1524,82 @@ function runPatchCPhase2cReconTest() {
   Logger.log('=== PATCH C PHASE 2C RECON TEST: ' + summary + ' ===');
   return { ok: passed === results.length, summary: summary, results: results, wroteRows: false };
 }
+
+// ============================================================
+// PATCH C PHASE 2D-A - TRUTH-CORRECTION INSPECTION (READ-ONLY)
+//
+// Reports the exact live structure of the sources that feed physical
+// cash total and rent protected, so we do NOT write reconciliation code
+// against assumed columns. Writes nothing.
+//
+// Run in Apps Script editor: runPatchC2DInspect()
+// ============================================================
+function runPatchC2DInspect() {
+  var out = { ok: true };
+  try {
+    var ss = fp_openSheet_();
+    if (!ss) { return { ok: false, error: 'Could not open spreadsheet.' }; }
+
+    // --- CASH_POSITION: exact headers + last row + row count ---
+    var cp = ss.getSheetByName('CASH_POSITION');
+    if (!cp) {
+      out.cashPosition = { exists: false };
+    } else {
+      var cpData = cp.getDataRange().getValues();
+      out.cashPosition = {
+        exists: true,
+        headers: cpData.length ? cpData[0] : [],
+        hasTotalCashColumn: cpData.length ? (fp_headers_(cpData).indexOf('total_cash') >= 0) : false,
+        dataRowCount: Math.max(0, cpData.length - 1),
+        lastRow: cpData.length > 1 ? cpData[cpData.length - 1] : null
+      };
+    }
+
+    // --- BILLS: the Rent row exactly as stored (first name-match) ---
+    var billsRent = null;
+    var liveBills = fp_readBills_(ss);
+    if (liveBills) {
+      for (var i = 0; i < liveBills.length; i++) {
+        if (String(liveBills[i].name).toLowerCase().indexOf('rent') >= 0) {
+          billsRent = { name: liveBills[i].name, amount: liveBills[i].amount,
+                        fundBalance: liveBills[i].fundBalance, status: liveBills[i].status };
+          break;
+        }
+      }
+    }
+    out.billsRent = billsRent;
+    out.billsRentNote = 'fp_readBills_ returns FIRST name-matched rent row. To correct, EDIT that row fund_balance in place (append would be ignored).';
+
+    // --- FP_CONFIG.cash.locations (the stale $1,655 source) ---
+    var locs = [], locTotal = 0;
+    for (var j = 0; j < FP_CONFIG.cash.locations.length; j++) {
+      locs.push({ name: FP_CONFIG.cash.locations[j].name, amount: FP_CONFIG.cash.locations[j].amount });
+      locTotal += FP_CONFIG.cash.locations[j].amount;
+    }
+    out.fpConfigLocations = locs;
+    out.fpConfigLocationsTotal = locTotal;
+
+    // --- What reconciliation currently uses as physicalCashTotal ---
+    var fp;
+    try { fp = api_getFinancialProtector(); } catch (eFp) { fp = null; }
+    out.currentPhysicalCashTotalSource = (fp && fp.ok && fp.cashPosition)
+      ? { source: 'api_getFinancialProtector().cashPosition.totalCash', value: fp.cashPosition.totalCash,
+          availableCash: fp.cashPosition.availableCash, assignedCash: fp.cashPosition.assignedCash }
+      : { source: 'FP unavailable', value: null };
+
+    // --- Current rent protection source ---
+    out.currentRentProtectionSource = (fp && fp.ok && fp.rentStatus)
+      ? { rentStatusSource: fp.rentStatus.source, monthly: fp.rentStatus.monthly,
+          fundBalance: fp.rentStatus.fundBalance,
+          shortfall: (fp.rentProtection ? fp.rentProtection.shortfall : null) }
+      : { source: 'FP unavailable' };
+
+    // --- Current ledger snapshot ---
+    out.ledger = fp_readBucketStatus_(ss);
+
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
