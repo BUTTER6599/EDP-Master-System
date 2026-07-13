@@ -98,6 +98,9 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
 #addApplianceBtn:hover{background:#EEF4FF;}
 #addSvcBtn{border-color:var(--cv);color:var(--cv);}
 #addSvcBtn:hover{background:#EDFAED;}
+
+#addPurchaseBtn{border-color:#8B5CF6;color:#8B5CF6;}
+#addPurchaseBtn:hover{background:#F5F3FF;}
 #settingsBtn{border-color:#555;color:#555;margin-left:auto;}
 #settingsBtn:hover{background:#f5f5f5;}
 /* SERVICE DETAIL MODAL */
@@ -453,6 +456,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
       <button class="addItemBtn" id="addPartBtn">+ ADD PART</button>
       <button class="addItemBtn" id="addApplianceBtn">+ ADD APPLIANCE</button>
       <button class="addItemBtn" id="addSvcBtn">+ ADD SERVICE</button>
+      <button class="addItemBtn" id="addPurchaseBtn">+ PURCHASE</button>
       <button class="addItemBtn" id="settingsBtn">[gear] SETTINGS</button>
     </div>
     <div id="partsFilterRow" style="display:none;"></div>
@@ -2754,6 +2758,7 @@ function updateAddBtns(cat){
   g('addPartBtn').className='addItemBtn'+(isOwner&&isParts?' visible':'');
   g('addApplianceBtn').className='addItemBtn'+(isOwner&&isAppl?' visible':'');
   g('addSvcBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
+  g('addPurchaseBtn').className='addItemBtn'+(isOwner?' visible':'');
   g('settingsBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
 }
 
@@ -2790,6 +2795,8 @@ g('addPartBtn').addEventListener('click',function(){openAddModal('PART');});
 g('addApplianceBtn').addEventListener('click',function(){openAddModal('APPLIANCE');});
 // Add Service button
 g('addSvcBtn').addEventListener('click',function(){openAddModal('SERVICE');});
+// Add Purchase button
+g('addPurchaseBtn').addEventListener('click',function(){openAddModal('PURCHASE');});
 
 g('addCl').addEventListener('click',function(){g('addModal').classList.remove('show');});
 g('addModal').addEventListener('click',function(e){if(e.target===this)g('addModal').classList.remove('show');});
@@ -2839,6 +2846,22 @@ function openAddModal(type){
       {id:'add_unit',lbl:'Unit',type:'select',opts:['flat','per hour','each']}
     ];
   }
+  } else if(type==='PURCHASE'){
+    fields=[
+      {id:'pur_itemtype',lbl:'Item Type',type:'select',opts:['APPLIANCE','PART','ELECTRONICS']},
+      {id:'pur_category',lbl:'Category',type:'select',opts:['WASHER']},
+      {id:'pur_brand',lbl:'Brand',type:'select',opts:['Whirlpool','Maytag','GE','Hotpoint','Frigidaire','Amana','Kenmore','LG','Samsung','Other']},
+      {id:'pur_model',lbl:'Model',type:'text',ph:'e.g. WTW5000DW'},
+      {id:'pur_serial',lbl:'Serial Number',type:'text',ph:'e.g. XY1234'},
+      {id:'pur_partname',lbl:'Part Name',type:'text',ph:'e.g. Water Pump',hide:true},
+      {id:'pur_condition',lbl:'Condition',type:'select',opts:['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN']},
+      {id:'pur_qty',lbl:'Quantity',type:'number',ph:'1'},
+      {id:'pur_price',lbl:'Purchase Price ($)',type:'number',ph:'0.00'},
+      {id:'pur_seller',lbl:'Seller Source',type:'select',opts:['Facebook Marketplace','Craigslist','Estate Sale','Donation','Private','Other']},
+      {id:'pur_phone',lbl:'Seller Phone',type:'text',ph:'e.g. 504-555-1234'},
+      {id:'pur_location',lbl:'Location / Bin / Shelf',type:'text',ph:'e.g. Receiving Area'},
+      {id:'pur_notes',lbl:'Notes',type:'textarea',ph:'Any notes...'}
+    ]
 
   fields.forEach(function(f){
     var div=document.createElement('div');div.className='addField';
@@ -2872,32 +2895,96 @@ function openAddModal(type){
     }
   }
 
-  // Photo upload
-  var photoDiv=document.createElement('div');photoDiv.className='addField';
-  var photoLbl=document.createElement('label');photoLbl.textContent='Photos (up to '+(type==='PART'?'20':type==='APPLIANCE'?'30':'5')+')';
-  photoDiv.appendChild(photoLbl);
-  var photoBtn=document.createElement('button');photoBtn.id='addPhotoBtn';photoBtn.type='button';
-  photoBtn.textContent='+ ADD PHOTOS';
-  var photoInp=document.createElement('input');photoInp.type='file';photoInp.accept='image/*';
-  photoInp.multiple=true;photoInp.capture='environment';photoInp.id='addPhotoInput';
-  var photoPrev=document.createElement('div');photoPrev.id='addPhotoPreview';
-  photoBtn.addEventListener('click',function(){photoInp.click();});
-  photoInp.addEventListener('change',function(){
-    var files=Array.prototype.slice.call(this.files||[]);
-    files.forEach(function(file){
-      var reader=new FileReader();
-      reader.onload=function(e){
-        addPhotos.push(e.target.result);
-        var thumb=document.createElement('div');thumb.className='addPhotoThumb';
-        var img=document.createElement('img');img.src=e.target.result;
-        thumb.appendChild(img);photoPrev.appendChild(thumb);
-      };
-      reader.readAsDataURL(file);
-    });
-  });
-  photoDiv.appendChild(photoBtn);photoDiv.appendChild(photoInp);photoDiv.appendChild(photoPrev);
-  bdy.appendChild(photoDiv);
 
+  // Purchase: item type change resets category + conditional fields
+  if(type==='PURCHASE'){
+    var typeSelPur=g('pur_itemtype');
+    var catSelPur=g('pur_category');
+    var partNameWrap=g('wrap_pur_partname');
+    var conditionSelPur=g('pur_condition');
+
+    function updatePurchaseFields(){
+      var itemType=typeSelPur?typeSelPur.value:'APPLIANCE';
+      var catMap={
+        'APPLIANCE':['WASHER','DRYER','REFRIGERATOR','STOVE','FREEZER'],
+        'PART':['WASHER','DRYER','REFRIGERATOR','STOVE','FREEZER'],
+        'ELECTRONICS':['COMPUTER','LAPTOP','DESKTOP','MONITOR','PRINTER','TABLET','OTHER']
+      };
+      var condMap={
+        'APPLIANCE':['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN'],
+        'PART':['USED','NEW_AFT','NEW_OEM'],
+        'ELECTRONICS':['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN']
+      };
+
+      if(catSelPur){
+        var newCats=catMap[itemType]||['WASHER'];
+        catSelPur.innerHTML='';
+        newCats.forEach(function(cat){
+          var opt=document.createElement('option');
+          opt.value=cat;opt.textContent=cat;
+          catSelPur.appendChild(opt);
+        });
+      }
+
+      if(conditionSelPur){
+        var newConds=condMap[itemType]||['WORKING'];
+        conditionSelPur.innerHTML='';
+        newConds.forEach(function(cond){
+          var opt=document.createElement('option');
+          opt.value=cond;opt.textContent=cond;
+          conditionSelPur.appendChild(opt);
+        });
+      }
+
+      if(partNameWrap){
+        partNameWrap.style.display=(itemType==='PART'?'block':'none');
+      }
+    }
+
+    if(typeSelPur){
+      typeSelPur.addEventListener('change',updatePurchaseFields);
+      updatePurchaseFields();
+    }
+
+    // Add ready_now checkbox
+    var readyDiv=document.createElement('div');readyDiv.className='addField';
+    var readyLabel=document.createElement('label');readyLabel.textContent='Ready to Sell Now?';readyDiv.appendChild(readyLabel);
+    var readyCb=document.createElement('input');readyCb.type='checkbox';readyCb.id='pur_readynow';readyDiv.appendChild(readyCb);
+    bdy.insertBefore(readyDiv,bdy.lastChild);
+  }
+  // Photo upload
+// Photo upload
+  var photoDiv=document.createElement('div');photoDiv.className='addField';
+  if(type==='PURCHASE'){
+    var photoLbl=document.createElement('label');photoLbl.textContent='Photos';
+    photoDiv.appendChild(photoLbl);
+    var photoNote=document.createElement('div');photoNote.style.color='#666';photoNote.style.fontSize='12px';photoNote.textContent='Add photos after saving via Google Sheet PURCHASES tab';
+    photoDiv.appendChild(photoNote);
+  } else {
+    var photoLbl=document.createElement('label');photoLbl.textContent='Photos (up to '+(type==='PART'?'20':type==='APPLIANCE'?'30':'5')+')';
+    photoDiv.appendChild(photoLbl);
+    var photoBtn=document.createElement('button');photoBtn.id='addPhotoBtn';photoBtn.type='button';
+    photoBtn.textContent='+ ADD PHOTOS';
+    var photoInp=document.createElement('input');photoInp.type='file';photoInp.accept='image/*';
+    photoInp.multiple=true;photoInp.capture='environment';photoInp.id='addPhotoInput';
+    var photoPrev=document.createElement('div');photoPrev.id='addPhotoPreview';
+    photoBtn.addEventListener('click',function(){photoInp.click();});
+    photoInp.addEventListener('change',function(){
+      var files=Array.prototype.slice.call(this.files||[]);
+      files.forEach(function(file){
+        var reader=new FileReader();
+        reader.onload=function(e){
+          addPhotos.push(e.target.result);
+          var thumb=document.createElement('div');thumb.className='addPhotoThumb';
+          var img=document.createElement('img');img.src=e.target.result;
+          thumb.appendChild(img);photoPrev.appendChild(thumb);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    photoDiv.appendChild(photoBtn);photoDiv.appendChild(photoInp);photoDiv.appendChild(photoPrev);
+  }
+  bdy.appendChild(photoDiv);
   // Status + Save button
   var status=document.createElement('div');status.id='addStatus';bdy.appendChild(status);
   var saveBtn=document.createElement('button');saveBtn.id='addSaveBtn';saveBtn.textContent='SAVE '+type;
@@ -3024,6 +3111,66 @@ function saveAddItem(type){
       .withFailureHandler(function(e){status.textContent='Error: '+e.message;status.style.color='#DC2626';})
       .api_addCustomService(payload3);
   }
+
+  } else if(type==='PURCHASE'){
+    var itemType=v('pur_itemtype');
+    var category=v('pur_category');
+    var brand=v('pur_brand');
+    var model=v('pur_model');
+    var serial=v('pur_serial');
+    var partName=v('pur_partname');
+    var condition=v('pur_condition');
+    var qtyStr=v('pur_qty').trim();
+    var qty;
+    if(itemType==='APPLIANCE'){
+      qty=qtyStr?parseInt(qtyStr):1;
+    } else {
+      qty=qtyStr?parseInt(qtyStr):0;
+    }
+    var price=parseFloat(v('pur_price'));
+    var seller=v('pur_seller');
+    var phone=v('pur_phone');
+    var location=v('pur_location');
+    var notes=v('pur_notes');
+    var readyNowChk=document.getElementById('pur_readynow');
+    var readyNow=readyNowChk&&readyNowChk.checked?'YES':'NO';
+
+    if(!itemType||!category||!brand||!seller){
+      status.textContent='Error: Missing required fields (Item Type, Category, Brand, Seller Source)';
+      status.style.color='#DC2626';
+      return;
+    }
+    if(itemType==='PART'&&!partName){
+      status.textContent='Error: Part Name required for parts';
+      status.style.color='#DC2626';
+      return;
+    }
+    if(isNaN(qty)||qty<1){
+      status.textContent='Error: Quantity must be 1 or more';
+      status.style.color='#DC2626';
+      return;
+    }
+    if(isNaN(price)||price<0){
+      status.textContent='Error: Purchase price cannot be negative';
+      status.style.color='#DC2626';
+      return;
+    }
+
+    var payload4={
+      item_type:itemType,item_category:category,brand:brand,model:model,
+      serial:serial,part_name:partName,condition:condition,qty:qty,
+      purchase_price:price,seller_source:seller,seller_phone:phone,
+      location:location,ready_now:readyNow,notes:notes
+    };
+    status.textContent='Saving purchase...';
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(!r.ok){status.textContent='Error: '+(r.error||'Unknown');status.style.color='#DC2626';return;}
+        status.textContent='Purchase saved to intake! ID: '+r.purchase_id;
+        setTimeout(function(){g('addModal').classList.remove('show');},1500);
+      })
+      .withFailureHandler(function(e){status.textContent='Error: '+e.message;status.style.color='#DC2626';})
+      .api_addPurchase(payload4);
 }
 
 // -- SMS RECEIPT VIA TEXTBELT ----------------------------
