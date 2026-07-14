@@ -1623,6 +1623,7 @@ function onBoot(d){
     if(typeof Logger!=='undefined'&&Logger.log)Logger.log('Customers loaded from boot: '+custList.length);
   }
   rwc();rtabs();rsubs();rinv();
+  updateAddBtns(st.cat||'W');
   if(st.user)g('pinbtn').textContent='[PIN] '+st.user.name.toUpperCase();
   google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).api_notifyRegisterOpen(st.user?st.user.name:'Unknown');
   startPoll();
