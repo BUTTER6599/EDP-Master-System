@@ -3120,13 +3120,13 @@ function saveAddItem(type){
     var serial=v('pur_serial');
     var partName=v('pur_partname');
     var condition=v('pur_condition');
-    var qtyStr=v('pur_qty').trim();
-    var qty;
-    if(itemType==='APPLIANCE'){
-      qty=qtyStr?parseInt(qtyStr):1;
-    } else {
-      qty=qtyStr?parseInt(qtyStr):0;
-    }
+    var qtyStr = v('pur_qty');
+    qtyStr = qtyStr == null ? '' : String(qtyStr).trim();
+
+    var qty = (qtyStr === '')
+      ? ((itemType === 'APPLIANCE') ? 1 : 0)
+      : parseInt(qtyStr, 10);
+
     var price=parseFloat(v('pur_price'));
     var seller=v('pur_seller');
     var phone=v('pur_phone');
@@ -3145,7 +3145,7 @@ function saveAddItem(type){
       status.style.color='#DC2626';
       return;
     }
-    if(isNaN(qty)||qty<1){
+    if (isNaN(qty) || qty < 1) {
       status.textContent='Error: Quantity must be 1 or more';
       status.style.color='#DC2626';
       return;

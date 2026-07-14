@@ -23,7 +23,7 @@ function ensurePurchasesSheet(){
 
 function api_addPurchase(payload){
   try{
-    var itemType=payload.item_type;
+    var itemType = String(payload.item_type || '').toUpperCase();
     var itemCategory=payload.item_category;
     var brand=payload.brand;
     var sellerSource=payload.seller_source;
@@ -32,8 +32,13 @@ function api_addPurchase(payload){
       return {ok:false,error:'Missing required fields: item_type, item_category, brand, seller_source'};
     }
 
-    var qty=payload.qty||0;
-    if(isNaN(qty)||qty<1){
+    var qty = payload.qty;
+    if (qty === undefined || qty === null || qty === '') {
+      qty = (itemType === 'APPLIANCE') ? 1 : 0;
+    }
+    qty = parseInt(qty, 10);
+
+    if (isNaN(qty) || qty < 1) {
       return {ok:false,error:'Quantity must be 1 or more'};
     }
 
