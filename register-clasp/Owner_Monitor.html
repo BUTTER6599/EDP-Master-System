@@ -53,10 +53,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
 .ctab[data-c=Z] .cn,.ctab[data-c=Z] .cc{color:var(--cz);}
 .ctab[data-c=P] .cn,.ctab[data-c=P] .cc{color:var(--cp);}
 .ctab[data-c=V] .cn,.ctab[data-c=V] .cc{color:var(--cv);}
-.ctab-special{display:flex;flex-direction:column;align-items:center;padding:7px 14px 9px;border-radius:10px 10px 0 0;cursor:pointer;transition:all .15s;border:2px solid transparent;border-bottom:none;min-width:82px;flex-shrink:0;position:relative;bottom:-2px;}
-.ctab-special .ci{font-size:24px;margin-bottom:2px;line-height:1;}
-.ctab-special .cn{font-family:var(--fh);font-size:14px;font-weight:900;letter-spacing:.03em;}
-.ctab-special .cc{font-family:var(--fm);font-size:12px;font-weight:700;margin-top:1px;}
 .ctab.blk{animation:tb 1.2s infinite;}
 @keyframes tb{0%,100%{opacity:1;}50%{opacity:.45;}}
 /* PARTS TAB SPECIFIC */
@@ -98,9 +94,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
 #addApplianceBtn:hover{background:#EEF4FF;}
 #addSvcBtn{border-color:var(--cv);color:var(--cv);}
 #addSvcBtn:hover{background:#EDFAED;}
-
-#addPurchaseBtn{border-color:#8B5CF6;color:#8B5CF6;}
-#addPurchaseBtn:hover{background:#F5F3FF;}
 #settingsBtn{border-color:#555;color:#555;margin-left:auto;}
 #settingsBtn:hover{background:#f5f5f5;}
 /* SERVICE DETAIL MODAL */
@@ -370,53 +363,63 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
 @keyframes la{0%{width:0%;margin-left:0;}50%{width:55%;}100%{width:0%;margin-left:100%;}}
 #ltxt{font-size:15px;color:var(--txt3);}
 #smsfloatbtn{display:none;}
-</style>
 <!-- RECEIPT OPTIONS MODAL -->
-<div id="rcptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center;padding:10px;overflow-y:auto;">
-  <div style="background:#111;border-radius:16px;width:100%;max-width:420px;padding:16px;box-shadow:0 8px 60px rgba(0,0,0,.7);border:1px solid #222;">
-    <div style="font-family:var(--fh);font-size:22px;font-weight:900;color:#fff;text-align:center;margin-bottom:2px;">SEND RECEIPT</div>
-    <div style="font-size:12px;color:#666;text-align:center;margin-bottom:12px;">Select all that apply.</div>
-    <div id="rcptPhoneRow" style="background:#1A1A1A;border:1px solid #333;border-radius:8px;padding:8px 12px;margin-bottom:8px;">
-      <div style="font-family:var(--fh);font-size:11px;color:#888;margin-bottom:3px;">PHONE</div>
-      <div style="display:flex;gap:6px;">
-        <input id="rcptPhone" type="tel" style="flex:1;background:transparent;border:none;color:#F97316;font-family:var(--fm);font-size:18px;font-weight:900;outline:none;" placeholder="504-000-0000">
-        <input id="rcptPhone2" type="tel" style="flex:1;background:transparent;border:none;color:#F97316;font-family:var(--fm);font-size:18px;font-weight:900;outline:none;border-left:1px solid #333;padding-left:8px;" placeholder="+ Add #">
-      </div>
+<div id="rcptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:460;align-items:center;justify-content:center;">
+  <div style="background:#111;border-radius:20px;width:500px;max-width:96vw;padding:28px;box-shadow:0 8px 60px rgba(0,0,0,.7);border:1px solid #222;">
+    <div style="font-family:var(--fh);font-size:30px;font-weight:900;color:#fff;text-align:center;margin-bottom:4px;">SEND RECEIPT</div>
+    <div style="font-size:14px;color:#666;text-align:center;margin-bottom:20px;">Choose how to deliver the receipt. Select all that apply.</div>
+    <!-- Customer phone display -->
+    <div id="rcptPhoneRow" style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:none;">
+      <div style="font-family:var(--fh);font-size:12px;color:#888;margin-bottom:4px;">CUSTOMER PHONE</div>
+      <input id="rcptPhone" type="tel" style="background:transparent;border:none;color:#F97316;font-family:var(--fm);font-size:22px;font-weight:900;outline:none;width:100%;" placeholder="Enter phone...">
     </div>
-    <div id="rcptEmailRow" style="background:#1A1A1A;border:1px solid #333;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
-      <div style="font-family:var(--fh);font-size:11px;color:#888;margin-bottom:3px;">EMAIL</div>
-      <div style="display:flex;gap:6px;">
-        <input id="rcptEmail" type="email" style="flex:1;background:transparent;border:none;color:#60A5FA;font-family:var(--fb);font-size:16px;font-weight:700;outline:none;" placeholder="email@...">
-        <input id="rcptEmail2b" type="email" style="flex:1;background:transparent;border:none;color:#60A5FA;font-family:var(--fb);font-size:16px;font-weight:700;outline:none;border-left:1px solid #333;padding-left:8px;" placeholder="+ Add email">
-      </div>
+    <!-- Customer email display -->
+    <div id="rcptEmailRow" style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:none;">
+      <div style="font-family:var(--fh);font-size:12px;color:#888;margin-bottom:4px;">CUSTOMER EMAIL</div>
+      <input id="rcptEmail" type="email" style="background:transparent;border:none;color:#60A5FA;font-family:var(--fb);font-size:18px;font-weight:700;outline:none;width:100%;" placeholder="Enter email...">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-      <button id="rcptText" style="padding:14px 8px;background:#1A3A1A;border:2px solid #16A34A;border-radius:10px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;">
-        <div style="font-size:18px;font-weight:900;color:#22C55E;">TEXT</div>
-        <div style="font-size:11px;color:#666;">Send to phone</div>
+    <!-- 4 BIG BUTTONS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <!-- TEXT -->
+      <button id="rcptText" style="padding:22px 12px;background:#1A3A1A;border:3px solid #16A34A;border-radius:14px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;transition:all .15s;">
+        <div style="font-size:32px;margin-bottom:6px;">SMS</div>
+        <div style="font-size:20px;font-weight:900;color:#22C55E;">TEXT</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Send to phone</div>
       </button>
-      <button id="rcptEmail2" style="padding:14px 8px;background:#1A1F3A;border:2px solid #2563EB;border-radius:10px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;">
-        <div style="font-size:18px;font-weight:900;color:#60A5FA;">EMAIL</div>
-        <div style="font-size:11px;color:#666;">Send to inbox</div>
+      <!-- EMAIL -->
+      <button id="rcptEmail2" style="padding:22px 12px;background:#1A1F3A;border:3px solid #2563EB;border-radius:14px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;transition:all .15s;">
+        <div style="font-size:32px;margin-bottom:6px;">@</div>
+        <div style="font-size:20px;font-weight:900;color:#60A5FA;">EMAIL</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Send to inbox</div>
       </button>
-      <button id="rcptPrint" style="padding:14px 8px;background:#3A1A1A;border:2px solid #DC2626;border-radius:10px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;">
-        <div style="font-size:18px;font-weight:900;color:#F87171;">PRINT</div>
-        <div style="font-size:11px;color:#666;">Epson TM-m30II</div>
+      <!-- PRINT -->
+      <button id="rcptPrint" style="padding:22px 12px;background:#3A1A1A;border:3px solid #DC2626;border-radius:14px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;transition:all .15s;">
+        <div style="font-size:32px;margin-bottom:6px;">[P]</div>
+        <div style="font-size:20px;font-weight:900;color:#F87171;">PRINT</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Epson TM-m30II</div>
       </button>
-      <button id="rcptPortal" style="padding:14px 8px;background:#2A1A3A;border:2px solid #9333EA;border-radius:10px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;">
-        <div style="font-size:18px;font-weight:900;color:#C084FC;">PORTAL</div>
-        <div style="font-size:11px;color:#666;">Save to account</div>
+      <!-- PORTAL -->
+      <button id="rcptPortal" style="padding:22px 12px;background:#2A1A3A;border:3px solid #9333EA;border-radius:14px;color:#fff;font-family:var(--fh);cursor:pointer;text-align:center;transition:all .15s;">
+        <div style="font-size:32px;margin-bottom:6px;">[*]</div>
+        <div style="font-size:20px;font-weight:900;color:#C084FC;">PORTAL</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Save to account</div>
       </button>
     </div>
-    <div id="rcptStatus" style="text-align:center;font-family:var(--fh);font-size:13px;color:#16A34A;min-height:18px;margin-bottom:8px;"></div>
-    <button id="rcptDone" style="width:100%;padding:12px;background:#222;border:2px solid #444;border-radius:10px;color:#fff;font-family:var(--fh);font-size:18px;font-weight:900;cursor:pointer;">DONE</button>
+    <!-- STATUS -->
+    <div id="rcptStatus" style="text-align:center;font-family:var(--fh);font-size:14px;color:#16A34A;min-height:20px;margin-bottom:12px;"></div>
+    <!-- DONE BUTTON -->
+    <button id="rcptDone" style="width:100%;padding:16px;background:#222;border:2px solid #444;border-radius:12px;color:#fff;font-family:var(--fh);font-size:20px;font-weight:900;cursor:pointer;">DONE - CLOSE</button>
   </div>
 </div>
-<button id="smsfloatbtn" style="display:none;">[SMS] TEXT RECEIPT</button>
-
+<button id="smsfloatbtn" style="display:none;">[SMS] TEXT RECEIPT</button>body.dark{--bg:#111;--sfc:#1A1A1A;--card:#222;--bdr:#333;--bdr2:#444;--txt:#F0F0F0;--txt2:#AAA;--txt3:#666;}
+body.dark #tb{background:#1A1A1A;}
+body.dark #tabs{background:#1A1A1A;}
+body.dark .ctab.on{background:#222;border-color:#444;}
+body.dark .ctab{background:#111;}
+.hid{display:none!important;}
+</style>
 </head>
 <body>
-<div id="diagBadge" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#FFEB3B;color:#000;font:bold 12px/1.4 monospace;padding:4px 8px;text-align:center;white-space:pre-wrap;">DIAG: init (waiting for boot…)</div>
 <div id="lov"><div id="llogo">EDP<span> REGISTER</span></div><div id="lbar"><div id="lfil"></div></div><div id="ltxt">Loading inventory...</div></div>
 <div id="fzov"><div id="fzbox"><div id="fzico">[!]</div><div id="fztit">REGISTER PAUSED</div><div id="fzmsg">Waiting for manager...</div><button id="fzack">Acknowledged</button></div></div>
 <div id="app">
@@ -428,11 +431,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
     <div id="tbbtns">
       <span style="font-family:var(--fm);font-size:11px;color:var(--txt3);flex-shrink:0;">v2.4.3</span>
       <button class="tbtn" id="refreshbtn" title="Refresh">&#8635;</button>
-      <button class="tbtn" id="darkbtn" title="Toggle dark/light mode">DARK</button>
-      <button class="tbtn" id="smsMon" title="SMS Credits" style="color:#16A34A;">SMS</button>
-      <button class="tbtn" id="custPortalBtn" style="color:#2563EB;">CUST</button>
-      <button class="tbtn" id="policyBtn" title="Customer Policy" style="color:#F97316;">POLICY</button>
-      <button class="tbtn" id="rcptFloatBtn" style="background:#16A34A;color:#fff;border-color:#16A34A;" title="Send Receipt">RECEIPT</button>
+      <button class="tbtn" id="darkbtn" title="Toggle dark/light mode">&#9790;</button>
       <button class="tbtn" id="msgbtn"><span id="midot"></span> MSG</button>
       <button class="tbtn" id="pinbtn">[PIN] LOGIN</button>
     </div>
@@ -446,8 +445,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
       <div class="ctab" data-c="Z"><div class="ci">*</div><div class="cn">FREEZERS</div><div class="cc" id="cZ">0</div></div>
       <div class="ctab" data-c="P"><div class="ci">[P]</div><div class="cn">PARTS</div><div class="cc" id="cP">0</div></div>
       <div class="ctab" data-c="V"><div class="ci">[SVC]</div><div class="cn">SERVICE</div><div class="cc" id="cV">-</div></div>
-      <div class="ctab-special" id="floorTab" style="background:#1A2A1A;border-color:#16A34A;"><div class="ci" style="color:#16A34A;">[FL]</div><div class="cn" style="color:#16A34A;">FLOOR</div><div class="cc" style="color:#16A34A;">+</div></div>
-
     </div>
   </div>
   <div id="main">
@@ -456,7 +453,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
       <button class="addItemBtn" id="addPartBtn">+ ADD PART</button>
       <button class="addItemBtn" id="addApplianceBtn">+ ADD APPLIANCE</button>
       <button class="addItemBtn" id="addSvcBtn">+ ADD SERVICE</button>
-      <button class="addItemBtn" id="addPurchaseBtn">+ PURCHASE</button>
       <button class="addItemBtn" id="settingsBtn">[gear] SETTINGS</button>
     </div>
     <div id="partsFilterRow" style="display:none;"></div>
@@ -474,10 +470,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
       <div class="svccattab" data-scat="CUSTOM">Custom</div>
     </div>
     <div id="subrow"></div>
-    <div id="srcrow" style="position:relative;">
-      <input id="src" type="text" placeholder="Search brand, model, SKU, part..." autocomplete="off" autocorrect="off">
-      <div id="globalResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1A1A1A;border:2px solid #F97316;border-top:none;border-radius:0 0 12px 12px;z-index:200;max-height:400px;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5);"></div>
-    </div>
+    <div id="srcrow"><input id="src" type="text" placeholder="Search brand, model, SKU..." autocomplete="off" autocorrect="off"></div>
     <div id="grid"><div id="emp"><p>No items on floor yet.</p></div></div>
     <div id="svcGrid" style="display:none;"></div>
   </div>
@@ -597,222 +590,6 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
 </div>
 <div id="dm"><div id="db"><div id="dh"><div id="dtit">Details</div><button id="dcl">X</button></div><div id="dbdy"><div id="dpg"></div><div id="dinf"></div><div id="dnt"><div id="dntl">Notes</div><div id="dntt"></div></div><button id="dadd">Add to Cart</button></div></div></div>
 <div id="cm"><div id="cb"><div id="cbt">Confirm Sale</div><div id="cdd"></div><div id="cbs"><button id="ccc">Cancel</button><button id="ccf">CONFIRM v</button></div></div></div>
-<!-- CUSTOMER POLICY SCREEN -->
-<div id="policyScreen" style="display:none;position:fixed;inset:0;background:#111;z-index:800;flex-direction:column;overflow:hidden;">
-  <div style="background:#F97316;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div>
-      <div style="font-family:var(--fh);font-size:28px;font-weight:900;color:#fff;">THE ELECTRONICS DEPOT</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.8);">7333 Airline Dr, Metairie LA 70003 | 504-342-4004</div>
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button id="policyRead" style="background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;padding:8px 10px;border-radius:8px;cursor:pointer;">EN</button>
-      <button id="policyReadES" style="background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;padding:8px 10px;border-radius:8px;cursor:pointer;">ES</button>
-      <button id="policyReadAR" style="background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;padding:8px 10px;border-radius:8px;cursor:pointer;">AR</button>
-      <button id="policyReadZH" style="background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;padding:8px 10px;border-radius:8px;cursor:pointer;">ZH</button>
-      <button id="policyStop" style="background:rgba(180,0,0,.5);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;padding:8px 10px;border-radius:8px;cursor:pointer;display:none;">STOP</button>
-      <button id="policyClose" style="background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5);color:#fff;font-family:var(--fh);font-size:16px;font-weight:900;padding:8px 14px;border-radius:8px;cursor:pointer;">X CLOSE</button>
-    </div>
-  </div>
-  <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;">
-
-    <div style="background:#1A1A1A;border-left:4px solid #DC2626;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#F87171;margin-bottom:4px;">NO REFUNDS</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">We do not offer refunds of any kind. If you buy an item, we will repair it. If we cannot repair it within 2-4 days, we will swap it with one of equal value. No cash refunds. No exceptions.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #F97316;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#F97316;margin-bottom:4px;">CASH ONLY</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">We accept cash only. No credit cards, debit cards, checks, Zelle, or Cash App of any kind.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #2563EB;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#60A5FA;margin-bottom:4px;">WARRANTY PROCESS</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">If your item has a problem under warranty, bring it back to the store. We will test it and repair it within 2-4 days. If we cannot fix it, we will swap it with one of equal value. You must bring it in - we do not pick up or make house calls.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #DC2626;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#F87171;margin-bottom:4px;">WARRANTY DOES NOT COVER</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">
-        - Computer boards or touch panels<br>
-        - Rubber gaskets or door seals<br>
-        - Door problems<br>
-        - Shelves, trays, handles, hinges, knobs<br>
-        - Damage from overloading<br>
-        - Discounted or sale items
-      </div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #D97706;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#FBBF24;margin-bottom:4px;">$50 TECH CHARGE</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">If you bring an item in for service and we find it is working correctly, or the problem was caused by misuse, a $50.00 technician fee will be charged.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #16A34A;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#22C55E;margin-bottom:4px;">ITEM MUST BE CLEAN</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">Any item brought in for service must be clean inside and out with no food, odors, or pest activity. We reserve the right to refuse service on items that are not clean.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #9333EA;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#C084FC;margin-bottom:4px;">DELIVERY TERMS</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">Delivery is outside and ground level only. We do not install, hook up, or remove old appliances. No stairs over 3 steps. Must be 21 or older with valid ID to accept delivery. Delivery fee is non-refundable.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border-left:4px solid #888;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#AAA;margin-bottom:4px;">TAKE PHOTOS AT PURCHASE</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">Please take at least 4 photos of your item before leaving — front, sides, inside, and model number sticker. Keep your receipt. Both are required for any warranty claim.</div>
-    </div>
-
-    <div style="background:#1A1A1A;border:2px solid #F97316;border-radius:10px;padding:14px 16px;text-align:center;">
-      <div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#F97316;">Testing available Mon-Sat 10:30 AM - 3:30 PM</div>
-      <div style="font-size:14px;color:#AAA;margin-top:4px;">Ask us to test your appliance before you leave the store.</div>
-    </div>
-    <div style="background:#1A1A1A;border-left:4px solid #DC2626;border-radius:0 10px 10px 0;padding:14px 16px;">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#F87171;margin-bottom:4px;">WAIVER OF REDHIBITION</div>
-      <div style="font-size:15px;color:#CCC;line-height:1.5;">Buyer accepts item AS-IS and waives all rights under Louisiana Civil Code Articles 2520-2548. No warranty of fitness for ordinary or intended use is expressed or implied.</div>
-    </div>
-
-  </div>
-</div>
-
-<!-- SMS MONITOR MODAL -->
-<div id="smsMonModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:600;align-items:center;justify-content:center;padding:12px;">
-  <div style="background:#111;border-radius:16px;width:100%;max-width:380px;border:1px solid #333;overflow:hidden;">
-    <div style="background:#15803D;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--fh);font-size:22px;font-weight:900;color:#fff;">SMS MONITOR</div>
-      <button id="smsMonClose" style="background:rgba(0,0,0,.3);border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;">X</button>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:14px;text-align:center;">
-          <div style="font-family:var(--fh);font-size:13px;color:#888;margin-bottom:4px;">BALANCE ($)</div>
-          <div id="smsCredits" style="font-family:var(--fh);font-size:32px;font-weight:900;color:#16A34A;">--</div>
-        </div>
-        <div style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:14px;text-align:center;">
-          <div style="font-family:var(--fh);font-size:13px;color:#888;margin-bottom:4px;">SENT TODAY</div>
-          <div id="smsToday" style="font-family:var(--fh);font-size:32px;font-weight:900;color:#F97316;">--</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:14px;text-align:center;">
-          <div style="font-family:var(--fh);font-size:13px;color:#888;margin-bottom:4px;">THIS WEEK</div>
-          <div id="smsWeek" style="font-family:var(--fh);font-size:32px;font-weight:900;color:#2563EB;">--</div>
-        </div>
-        <div style="background:#1A1A1A;border:1px solid #333;border-radius:10px;padding:14px;text-align:center;">
-          <div style="font-family:var(--fh);font-size:13px;color:#888;margin-bottom:4px;">TOTAL SENT</div>
-          <div id="smsTotal" style="font-family:var(--fh);font-size:32px;font-weight:900;color:#9333EA;">--</div>
-        </div>
-      </div>
-      <div id="smsMonStatus" style="text-align:center;font-size:13px;color:#888;font-family:var(--fh);">Loading...</div>
-      <button onclick="window.open('https://textbelt.com','_blank')" style="width:100%;padding:12px;background:#15803D;border:2px solid #16A34A;border-radius:10px;color:#fff;font-family:var(--fh);font-size:16px;font-weight:900;cursor:pointer;">BUY MORE CREDITS</button>
-    </div>
-  </div>
-</div>
-
-<!-- DISCLAIMER MODAL -->
-<div id="dscModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:500;align-items:flex-start;justify-content:center;padding:10px;overflow-y:auto;">
-  <div style="background:#111;border-radius:16px;width:100%;max-width:480px;border:2px solid #F97316;box-shadow:0 8px 40px rgba(0,0,0,.7);overflow:hidden;margin-bottom:10px;">
-    <div style="background:#F97316;padding:14px 20px;">
-      <div style="font-family:var(--fh);font-size:24px;font-weight:900;color:#fff;text-align:center;">THE ELECTRONICS DEPOT</div>
-      <div style="font-family:var(--fh);font-size:18px;font-weight:700;color:rgba(255,255,255,.9);text-align:center;">CUSTOMER AGREEMENT</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.7);text-align:center;margin-top:2px;">Customer must read and agree before purchase is complete</div>
-    </div>
-    <div style="padding:14px 16px;max-height:62vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
-
-      <div style="background:#1A1A1A;border-left:3px solid #DC2626;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F87171;">1. NO REFUNDS</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">We do not offer refunds of any kind. No cash, no Cash App, no exceptions. If you buy an item, we repair it. If we cannot repair in 2-4 days, we will swap it with one of equal value.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #F97316;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F97316;">2. CASH ONLY</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">We accept cash only. No cards, no checks, no Zelle, no Cash App refunds of any kind.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #D97706;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#FBBF24;">3. CUSTOMER BRINGS ITEM BACK</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">If service is needed, YOU are responsible for returning the item to the store. We do not pick up for repair or replacement, even if we delivered it. No service calls.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #2563EB;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#60A5FA;">4-8. WARRANTY DOES NOT COVER:</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">
-          - Computer boards or touch panels of any kind<br>
-          - Rubber gaskets or door seals<br>
-          - Door problems<br>
-          - Shelves, trays, handles, hinges, knobs<br>
-          - Washer springs worn out from overloading<br>
-          - Discounted or sale items (as-is, no warranty)
-        </div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #DC2626;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F87171;">9. $50 TECH CHARGE</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">If we test your item and it works, or the problem is found to be your fault, a $50.00 technician fee will be charged.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #16A34A;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#22C55E;">10. AS-IS PURCHASE</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">All items come as you see them. Inspect fully before purchasing. Testing available Mon-Sat 10:30AM-3:30PM. No returns after sale is complete.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #9333EA;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#C084FC;">11-12. SWAP OUT POLICY</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">If we cannot repair in 2-4 days, we will swap with equal value item. Color, features, and size may differ. If no replacement available, store credit only or wait for stock. Item must be clean inside and out with no smells to qualify.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #16A34A;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#22C55E;">13. SERVICE PICKUP</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">After repair is complete you have 2 days to pick up. Starting day 3, a $9.00/day holding fee applies (cash only). After 5 days we are not responsible for the item.</div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #F97316;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F97316;">14-18. ADDITIONAL TERMS</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">
-          - No power cords with 220v appliances<br>
-          - Make sure item fits your space before purchasing<br>
-          - This transaction may be recorded for quality purposes<br>
-          - No installation, hookup, or plug changes<br>
-          - No removing old appliances or moving furniture
-        </div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #DC2626;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F87171;">19. DELIVERY TERMS</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">
-          Delivery is outside/ground level only. No stairs over 3 steps. No delivery if drugs, weapons, or unsafe conditions are present. Delivery fee is non-refundable. Must be 21+ to accept delivery with valid ID. No waiting over 10 minutes. No blocking street.
-        </div>
-      </div>
-
-      <div style="background:#1A1A1A;border-left:3px solid #888;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#AAA;">TAKE PHOTOS AT PURCHASE</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">Please take at least 4 photos including: front, left side, right side, inside, and model/serial number sticker. Keep your receipt. Required for any warranty claim.</div>
-      </div>
-
-      <div style="background:#3A1A1A;border-left:3px solid #DC2626;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#F87171;">PEST INFESTATION - WARRANTY VOID</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">
-          Warranty is immediately voided if pest infestation (roaches, rodents, bedbugs) is found inside the unit at any time after purchase or delivery. To restore warranty, customer must provide a professional pest control receipt dated within 7 days of treatment. We reserve the right to refuse service at any property with active infestation. A $150 minimum service fee applies and is non-refundable if we arrive and must refuse due to conditions. Units brought in for service must be clean, pest-free, and odor-free or service will be declined.
-        </div>
-      </div>
-
-      <div style="background:#2A1A3A;border-left:3px solid #9333EA;padding:9px 12px;border-radius:0 8px 8px 0;">
-        <div style="font-family:var(--fh);font-size:13px;font-weight:900;color:#C084FC;">LANDLORD / TENANT POLICY</div>
-        <div style="font-size:12px;color:#AAA;margin-top:2px;">
-          For landlord service calls: tenant cannot authorize repairs. Landlord must approve all work by phone before we begin. Tenant-only visits are $150 minimum. If scope expands beyond what was discussed, an additional $50 fee applies and landlord is called immediately. We document everything with photos.
-        </div>
-      </div>
-
-    </div>
-    <div style="padding:12px 16px;border-top:1px solid #333;">
-      <div style="font-size:11px;color:#555;text-align:center;margin-bottom:8px;">By tapping I AGREE, customer confirms they have read, understood, and agreed to all terms above.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button id="dscDecline" style="padding:13px;background:#1A1A1A;border:2px solid #444;border-radius:10px;color:#888;font-family:var(--fh);font-size:17px;font-weight:900;cursor:pointer;">DECLINE</button>
-        <button id="dscAgree" style="padding:13px;background:#16A34A;border:2px solid #22C55E;border-radius:10px;color:#fff;font-family:var(--fh);font-size:19px;font-weight:900;cursor:pointer;">I AGREE</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- CUSTOMER ENTRY POPUP -->
 <div id="custModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:450;align-items:flex-start;justify-content:center;padding-top:20px;overflow-y:auto;">
   <div style="background:#1A1A1A;border-radius:16px;width:480px;max-width:96vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.6);border:1px solid #333;margin-bottom:20px;">
@@ -833,8 +610,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
     <!-- SEARCH ROW -->
     <div style="position:relative;margin-bottom:14px;">
       <label style="font-family:var(--fh);font-size:12px;font-weight:700;color:#F97316;display:block;margin-bottom:5px;">SEARCH BY NAME OR PHONE</label>
-      <input id="custSearch" type="text" autocomplete="off" placeholder="Start typing..." style="width:100%;font-size:20px;padding:12px;border:2px solid #F97316;border-radius:10px;background:#111;color:#fff;outline:none;font-family:var(--fb);">
-      <div id="custDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#222;border:2px solid #F97316;border-radius:8px;z-index:999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+      <input id="custSearch" type="text" placeholder="Start typing..." style="width:100%;font-size:20px;padding:12px;border:2px solid #F97316;border-radius:10px;background:#111;color:#fff;outline:none;font-family:var(--fb);">
+      <div id="custDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#222;border:1px solid #444;border-radius:8px;z-index:10;max-height:180px;overflow-y:auto;margin-top:2px;"></div>
     </div>
 
     <!-- CUSTOMER FORM FIELDS -->
@@ -973,8 +750,11 @@ if(typeof google==='undefined'){
     api_editPart:function(pl){setTimeout(function(){if(_s)_s({ok:true});},300);},
     api_uploadOnePhoto:function(pl){setTimeout(function(){if(_s)_s({ok:true});},200);},
     api_saveCustomer:function(pl){setTimeout(function(){if(_s)_s({ok:true,custId:'EDP-'+Math.floor(3000+Math.random()*7000),existing:false});},300);},
-    api_getTelnyxStats:function(){setTimeout(function(){if(_s)_s({ok:true,credits:47,today:3,week:12,total:47,lastPhone:'504-555-1234'});},300);},
-    api_getCustomers:function(){setTimeout(function(){if(_s)_s({ok:true,customers:[{cust_id:'EDP-3421',first_name:'John',last_name:'Smith',phone1:'5045551234',type:'REGULAR',email:'',address:'',total_spent:0,visit_count:1,notes:''},{cust_id:'EDP-5891',first_name:'Mary',last_name:'Johnson',phone1:'5045555678',type:'TENANT',email:'',address:'',total_spent:0,visit_count:1,notes:''},{cust_id:'EDP-7234',first_name:'Ray',last_name:'Angela',phone1:'5045559012',type:'PICKER',email:'',address:'',total_spent:0,visit_count:1,notes:''}]});},200);},
+    api_getCustomers:function(){setTimeout(function(){if(_s)_s({customers:[
+      {cust_id:'EDP-3421',name:'John Smith',phone:'504-555-1234',type:'REGULAR',email:''},
+      {cust_id:'EDP-5891',name:'Mary Johnson',phone:'504-555-5678',type:'TENANT',email:''},
+      {cust_id:'EDP-7234',name:'Ray Angela',phone:'504-555-9012',type:'PICKER',email:''}
+    ]});},200);},
     api_deleteCustomer:function(pl){setTimeout(function(){if(_s)_s({ok:true});},200);},
     api_sendEmailReceipt:function(pl){setTimeout(function(){if(_s)_s({ok:true});},400);},
     api_printReceipt:function(pl){setTimeout(function(){if(_s)_s({ok:true});},600);},
@@ -996,548 +776,6 @@ if(typeof google==='undefined'){
     }
   };return p;})()}};
 }
-
-// -- FLOOR PUSH ---------------------------------------------
-var fpItems=[];
-var fpSelected={};
-var fpBulkMode=false;
-var fpCurrentItem=null;
-var fpSelectedPhotos={};
-var fpHeroPhoto={};
-
-function openFloorPush(){
-  g('floorModal').style.display='flex';
-  fpLoadItems();
-}
-function closeFloorPush(){
-  g('floorModal').style.display='none';
-}
-
-function fpLoadItems(){
-  g('fpList').innerHTML='<div style="text-align:center;padding:40px;color:#888;font-family:var(--fh);font-size:18px;">Loading inventory...</div>';
-  // Timeout fallback so it never hangs forever
-  var loadTimer=setTimeout(function(){
-    g('fpList').innerHTML='<div style="text-align:center;padding:30px;color:#888;font-family:var(--fh);font-size:16px;">No items yet.<br><br>Use + ADD above to add your first item.</div>';
-  },8000);
-  google.script.run
-    .withSuccessHandler(function(r){
-      clearTimeout(loadTimer);
-      fpItems=r&&r.items?r.items:[];
-      fpRenderList();
-    })
-    .withFailureHandler(function(e){
-      clearTimeout(loadTimer);
-      g('fpList').innerHTML='<div style="text-align:center;padding:30px;color:#888;font-family:var(--fh);font-size:16px;">No items yet.<br><br>Use + ADD above to add your first item.</div>';
-    })
-    .api_getFloorInventory();
-}
-
-function fpRenderList(){
-  var el=g('fpList');
-  el.innerHTML='';
-  if(!fpItems.length){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:#444;font-family:var(--fh);font-size:18px;">No items yet. Add one above.</div>';
-    return;
-  }
-  fpItems.forEach(function(item){
-    var isSel=!!fpSelected[item.item_id];
-    var stageColor={'FLOOR_READY':'#16A34A','SOLD':'#DC2626','PENDING':'#F97316'}[item.stage]||'#888';
-    var card=document.createElement('div');
-    card.style.cssText='background:#1A1A1A;border:2px solid '+(isSel?'#F97316':'#333')+';border-radius:12px;padding:12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .15s;';
-
-    // Checkbox in bulk mode
-    var chk='';
-    if(fpBulkMode){
-      chk='<div style="width:24px;height:24px;border-radius:6px;border:2px solid '+(isSel?'#F97316':'#555')+';background:'+(isSel?'#F97316':'transparent')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">'+(isSel?'[OK]':'')+'</div>';
-    }
-
-    // Photo
-    var photos=item.photos?item.photos.split(',').filter(Boolean):[];
-    var hero=fpHeroPhoto[item.item_id]||photos[0]||'';
-    var photoEl=hero?'<img src="'+hero+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">':
-      '<div style="width:56px;height:56px;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#555;font-size:22px;flex-shrink:0;">[+]</div>';
-
-    card.innerHTML=chk+photoEl+
-      '<div style="flex:1;min-width:0;">'+
-        '<div style="font-family:var(--fh);font-size:16px;font-weight:900;color:#fff;">'+esc(item.brand||'')+' '+esc(item.model||'')+'</div>'+
-        '<div style="font-size:12px;color:#888;margin-top:2px;">'+esc(item.category||'')+' | '+esc(item.sku_id||item.item_id||'')+'</div>'+
-        '<div style="font-size:12px;color:#888;margin-top:1px;">'+esc(item.location||'Floor')+' | '+esc(item.condition||'')+'</div>'+
-      '</div>'+
-      '<div style="text-align:right;flex-shrink:0;">'+
-        '<div style="font-family:var(--fh);font-size:20px;font-weight:900;color:#F97316;">$'+parseFloat(item.list_price||0).toFixed(0)+'</div>'+
-        '<div style="font-size:11px;font-weight:900;color:'+stageColor+';">'+esc(item.stage||'')+'</div>'+
-        '<div style="font-size:11px;color:#555;">'+(item.days_on_hand||0)+' days</div>'+
-      '</div>';
-
-    card.addEventListener('click',function(){
-      if(fpBulkMode){
-        if(fpSelected[item.item_id])delete fpSelected[item.item_id];
-        else fpSelected[item.item_id]=item;
-        var cnt=Object.keys(fpSelected).length;
-        g('fpPushAllBtn').style.display=cnt?'inline-block':'none';
-        g('fpPushAllBtn').textContent='PUSH '+cnt+' SELECTED';
-        fpRenderList();
-      } else {
-        fpOpenDetail(item);
-      }
-    });
-    el.appendChild(card);
-  });
-}
-
-function fpOpenDetail(item){
-  fpCurrentItem=item;
-  var photos=item.photos?item.photos.split(',').filter(Boolean):[];
-  g('fpDetailTitle').textContent=(item.brand||'')+' '+(item.model||'');
-  g('fpDetailPrice').value=item.list_price||'';
-  g('fpDetailCond').value=item.condition||'WORKING';
-  g('fpDetailCondNote').value=item.condition_note||'';
-  g('fpDetailDesc').value=item.description||'';
-  g('fpDetailLoc').value=item.location||'FLOOR';
-  g('fpDetailStatus').textContent='';
-
-  // Render photos
-  var pg=g('fpPhotoGrid');
-  pg.innerHTML='';
-  if(!fpSelectedPhotos[item.item_id]){
-    fpSelectedPhotos[item.item_id]={};
-    photos.forEach(function(p){fpSelectedPhotos[item.item_id][p]=true;});
-  }
-  if(!fpHeroPhoto[item.item_id]&&photos.length) fpHeroPhoto[item.item_id]=photos[0];
-
-  photos.forEach(function(url,idx){
-    var isChk=!!fpSelectedPhotos[item.item_id][url];
-    var isHero=fpHeroPhoto[item.item_id]===url;
-    var wrap=document.createElement('div');
-    wrap.style.cssText='position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:2px solid '+(isHero?'#F97316':isChk?'#16A34A':'#333')+';cursor:pointer;';
-    wrap.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;">'+
-      '<div style="position:absolute;top:3px;left:3px;width:18px;height:18px;background:'+(isChk?'#16A34A':'rgba(0,0,0,.6)')+';border-radius:4px;border:1px solid '+(isChk?'#16A34A':'#fff')+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;">'+(isChk?'[OK]':'')+'</div>'+
-      (isHero?'<div style="position:absolute;bottom:3px;right:3px;background:#F97316;border-radius:4px;padding:1px 4px;font-family:var(--fh);font-size:9px;color:#fff;font-weight:900;">HERO</div>':'');
-    wrap.addEventListener('click',function(){
-      // Single tap = toggle show/hide
-      if(fpSelectedPhotos[item.item_id][url]) delete fpSelectedPhotos[item.item_id][url];
-      else fpSelectedPhotos[item.item_id][url]=true;
-      fpOpenDetail(item);
-    });
-    wrap.addEventListener('dblclick',function(){
-      // Double tap = set as hero
-      fpHeroPhoto[item.item_id]=url;
-      fpSelectedPhotos[item.item_id][url]=true;
-      fpOpenDetail(item);
-    });
-    pg.appendChild(wrap);
-  });
-
-  if(!photos.length){
-    pg.innerHTML='<div style="grid-column:1/-1;padding:20px;text-align:center;color:#555;font-family:var(--fh);font-size:13px;">No photos yet. Add photos below.</div>';
-  }
-
-  g('fpDetail').style.display='block';
-}
-
-// Bulk toggle
-g('fpBulkBtn').addEventListener('click',function(){
-  fpBulkMode=!fpBulkMode;
-  fpSelected={};
-  g('fpBulkBtn').textContent=fpBulkMode?'CANCEL':'SELECT';
-  g('fpBulkBtn').style.background=fpBulkMode?'#2A1A1A':'#1A2A1A';
-  g('fpBulkBtn').style.borderColor=fpBulkMode?'#DC2626':'#16A34A';
-  g('fpBulkBtn').style.color=fpBulkMode?'#F87171':'#16A34A';
-  g('fpPushAllBtn').style.display='none';
-  fpRenderList();
-});
-
-// Push selected bulk
-g('fpPushAllBtn').addEventListener('click',function(){
-  var items=Object.values(fpSelected);
-  if(!items.length)return;
-  var done=0;
-  items.forEach(function(item){
-    google.script.run
-      .withSuccessHandler(function(){
-        done++;
-        if(done===items.length){
-          g('fpPushAllBtn').textContent='PUSHED!';
-          setTimeout(function(){fpLoadItems();fpBulkMode=false;fpSelected={};g('fpBulkBtn').textContent='SELECT';g('fpPushAllBtn').style.display='none';fpRenderList();},1200);
-        }
-      })
-      .api_pushItemToFloor({item_id:item.item_id,push_to:'BOTH'});
-  });
-});
-
-// Add new item
-g('fpAddBtn').addEventListener('click',function(){
-  var brand=g('fpBrand').value.trim();
-  var model=g('fpModel').value.trim();
-  var price=parseFloat(g('fpPrice').value||0);
-  var cat=g('fpCat').value;
-  if(!brand){g('fpBrand').focus();return;}
-  g('fpAddBtn').textContent='...';
-  google.script.run
-    .withSuccessHandler(function(r){
-      g('fpAddBtn').textContent='+ ADD';
-      if(r&&r.ok){
-        g('fpBrand').value='';g('fpModel').value='';g('fpPrice').value='';
-        fpLoadItems();
-      }
-    })
-    .withFailureHandler(function(){g('fpAddBtn').textContent='+ ADD';})
-    .api_addFloorItem({category:cat,brand:brand,model:model,list_price:price,stage:'FLOOR_READY',added_by:st.user?st.user.name:'Staff'});
-});
-
-// Detail push buttons
-g('fpPushReg').addEventListener('click',function(){fpDoPush('REGISTER');});
-g('fpPushWeb').addEventListener('click',function(){fpDoPush('WEB');});
-g('fpPushBoth').addEventListener('click',function(){fpDoPush('BOTH');});
-g('fpMarkSold').addEventListener('click',function(){fpDoPush('SOLD');});
-
-function fpDoPush(target){
-  if(!fpCurrentItem)return;
-  var item=fpCurrentItem;
-  var selPhotos=Object.keys(fpSelectedPhotos[item.item_id]||{});
-  var hero=fpHeroPhoto[item.item_id]||selPhotos[0]||'';
-  var payload={
-    item_id:item.item_id,
-    push_to:target,
-    list_price:parseFloat(g('fpDetailPrice').value||item.list_price||0),
-    condition:g('fpDetailCond').value,
-    condition_note:g('fpDetailCondNote').value,
-    description:g('fpDetailDesc').value,
-    location:g('fpDetailLoc').value,
-    hero_photo:hero,
-    show_photos:selPhotos.join(',')
-  };
-  g('fpDetailStatus').textContent='Pushing...';
-  g('fpDetailStatus').style.color='#F97316';
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r&&r.ok){
-        g('fpDetailStatus').textContent=target==='SOLD'?'Marked as SOLD.':'Pushed to '+target+'!';
-        g('fpDetailStatus').style.color='#16A34A';
-        setTimeout(function(){
-          g('fpDetail').style.display='none';
-          fpLoadItems();
-          // Also refresh register inventory
-          if(target==='REGISTER'||target==='BOTH') boot(st.pin);
-        },1200);
-      } else {
-        g('fpDetailStatus').textContent='Error: '+(r?r.error:'Unknown');
-        g('fpDetailStatus').style.color='#DC2626';
-      }
-    })
-    .withFailureHandler(function(e){
-      g('fpDetailStatus').textContent='Failed: '+e;
-      g('fpDetailStatus').style.color='#DC2626';
-    })
-    .api_pushItemToFloor(payload);
-}
-
-// Photo upload in detail
-g('fpPhotoUpload').addEventListener('change',function(){
-  var files=this.files;
-  if(!files||!files.length||!fpCurrentItem)return;
-  g('fpDetailStatus').textContent='Uploading '+files.length+' photo(s)...';
-  g('fpDetailStatus').style.color='#F97316';
-  var uploaded=0;
-  for(var i=0;i<files.length;i++){
-    (function(file,idx){
-      var reader=new FileReader();
-      reader.onload=function(e){
-        google.script.run
-          .withSuccessHandler(function(r){
-            uploaded++;
-            if(r&&r.ok&&r.url){
-              if(!fpCurrentItem.photos) fpCurrentItem.photos=r.url;
-              else fpCurrentItem.photos+=','+r.url;
-              if(!fpHeroPhoto[fpCurrentItem.item_id]) fpHeroPhoto[fpCurrentItem.item_id]=r.url;
-              if(!fpSelectedPhotos[fpCurrentItem.item_id]) fpSelectedPhotos[fpCurrentItem.item_id]={};
-              fpSelectedPhotos[fpCurrentItem.item_id][r.url]=true;
-            }
-            if(uploaded===files.length){
-              g('fpDetailStatus').textContent='Photos uploaded.';
-              g('fpDetailStatus').style.color='#16A34A';
-              fpOpenDetail(fpCurrentItem);
-            }
-          })
-          .api_uploadOnePhoto({item_id:fpCurrentItem.item_id,item_type:'APPLIANCE',photo_b64:e.target.result,index:idx});
-      };
-      reader.readAsDataURL(file);
-    })(files[i],i);
-  }
-});
-
-
-//    CUSTOMER PORTAL                                         
-var cpAllCustomers = [];
-var cpCurrentCustomer = null;
-var cpActiveLetter = 'ALL';
-
-function openCustPortal(){
-  g('custPortal').style.display='flex';
-  cpLoadAll();
-}
-function closeCustPortal(){
-  g('custPortal').style.display='none';
-}
-function closeCpProfile(){
-  g('cpProfile').style.display='none';
-}
-function closeCpEdit(){
-  g('cpEditModal').style.display='none';
-}
-
-function cpLoadAll(){
-  var listEl=document.getElementById('cpList');
-  if(!listEl){
-    // Portal not visible yet - try showing it
-    var portal=document.getElementById('custPortal');
-    if(portal) portal.style.display='flex';
-    setTimeout(cpLoadAll,300);
-    return;
-  }
-  listEl.innerHTML='<div style="text-align:center;padding:40px;color:#888;font-family:var(--fh);font-size:18px;">Loading customers...</div>';
-  google.script.run
-    .withSuccessHandler(function(r){
-      cpAllCustomers=r&&r.customers?r.customers:[];
-      cpBuildAlpha();
-      cpRenderList(cpAllCustomers);
-    })
-    .withFailureHandler(function(e){
-      var el=document.getElementById('cpList');
-      if(el)el.innerHTML='<div style="text-align:center;padding:40px;color:#DC2626;font-family:var(--fh);">Error: '+e+'</div>';
-    })
-    .api_getCustomers();
-}
-function cpBuildAlpha(){
-  var alpha=g('cpAlpha');
-  alpha.innerHTML='';
-  var letters=['ALL','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
-  letters.forEach(function(l){
-    var btn=document.createElement('button');
-    btn.className='cpLetter';
-    btn.textContent=l;
-    btn.style.cssText='padding:6px 10px;background:'+(l===cpActiveLetter?'#2563EB':'#1A1A1A')+';border:'+(l===cpActiveLetter?'none':'1px solid #333')+';border-radius:6px;color:'+(l===cpActiveLetter?'#fff':'#888')+';font-family:var(--fh);font-size:13px;font-weight:900;cursor:pointer;min-width:36px;';
-    btn.addEventListener('click',function(){
-      cpActiveLetter=l;
-      cpBuildAlpha();
-      var filtered=l==='ALL'?cpAllCustomers:cpAllCustomers.filter(function(c){
-        return (c.last_name||c.first_name||'').toUpperCase().charAt(0)===l;
-      });
-      cpRenderList(filtered);
-      g('cpSearch').value='';
-    });
-    alpha.appendChild(btn);
-  });
-}
-
-function cpRenderList(customers){
-  var el=g('cpList');
-  el.innerHTML='';
-  if(!customers.length){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:#444;font-family:var(--fh);font-size:16px;">No customers found.</div>';
-    return;
-  }
-  // Count label
-  var cnt=document.createElement('div');
-  cnt.style.cssText='font-family:var(--fh);font-size:12px;color:#555;padding:4px 0 8px;';
-  cnt.textContent=customers.length+' customer'+(customers.length!==1?'s':'');
-  el.appendChild(cnt);
-
-  customers.forEach(function(c){
-    var typeColor={'VIP':'#F97316','SUPER_VIP':'#DC2626','REGULAR':'#555','TENANT':'#2563EB','PICKER':'#16A34A'}[c.type]||'#555';
-    var card=document.createElement('div');
-    card.style.cssText='background:#1A1A1A;border:1px solid #2A2A2A;border-radius:10px;padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:border-color .15s;';
-    card.innerHTML=
-      '<div style="flex:1;min-width:0;">'+
-        '<div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#fff;">'+esc((c.first_name||'')+' '+(c.last_name||''))+'</div>'+
-        '<div style="font-family:var(--fm);font-size:16px;font-weight:900;color:#fff;margin-top:4px;letter-spacing:.05em;">'+esc(c.phone1||'No phone')+'</div>'+
-        '<div style="font-size:12px;color:#555;margin-top:2px;">'+esc(c.email||'')+(c.address?' | '+esc(c.address.substring(0,30)):'')+'</div>'+
-      '</div>'+
-      '<div style="text-align:right;flex-shrink:0;margin-left:12px;">'+
-        '<div style="font-family:var(--fh);font-size:11px;font-weight:900;color:'+typeColor+';">'+esc(c.type||'')+'</div>'+
-        '<div style="font-family:var(--fm);font-size:15px;color:#F97316;font-weight:900;margin-top:2px;">$'+parseFloat(c.total_spent||0).toFixed(0)+'</div>'+
-        '<div style="font-size:11px;color:#444;">'+(c.visit_count||0)+' orders</div>'+
-      '</div>';
-    card.addEventListener('mouseenter',function(){this.style.borderColor='#2563EB';});
-    card.addEventListener('mouseleave',function(){this.style.borderColor='#2A2A2A';});
-    card.addEventListener('click',function(){cpOpenProfile(c);});
-    el.appendChild(card);
-  });
-}
-
-function cpOpenProfile(c){
-  cpCurrentCustomer=c;
-  g('cpProfileName').textContent=(c.first_name||'')+' '+(c.last_name||'');
-  var body=g('cpProfileBody');
-  body.innerHTML='';
-  var typeColor={'VIP':'#F97316','SUPER_VIP':'#DC2626','REGULAR':'#555','TENANT':'#2563EB','PICKER':'#16A34A'}[c.type]||'#555';
-
-  // Contact card
-  var contact=document.createElement('div');
-  contact.style.cssText='background:#1A1A1A;border-radius:12px;padding:16px;border-left:4px solid #2563EB;';
-  contact.innerHTML=
-    '<div style="font-family:var(--fh);font-size:12px;color:#2563EB;font-weight:900;margin-bottom:8px;">CONTACT INFO</div>'+
-    '<div style="font-family:var(--fm);font-size:22px;font-weight:900;color:#fff;letter-spacing:.05em;">'+esc(c.phone1||'No phone')+'</div>'+
-    (c.phone2?'<div style="font-size:14px;color:#888;margin-top:4px;">'+esc(c.phone2_name||'2nd')+': '+esc(c.phone2)+'</div>':'')+
-    (c.phone3?'<div style="font-size:14px;color:#888;margin-top:2px;">'+esc(c.phone3_name||'3rd')+': '+esc(c.phone3)+'</div>':'')+
-    (c.email?'<div style="font-size:14px;color:#888;margin-top:4px;">'+esc(c.email)+'</div>':'')+
-    (c.address?'<div style="font-size:14px;color:#888;margin-top:4px;">'+esc(c.address)+'</div>':'')+
-    '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">'+
-      '<span style="font-family:var(--fh);font-size:12px;font-weight:900;color:'+typeColor+';background:'+typeColor+'22;padding:4px 10px;border-radius:20px;">'+esc(c.type||'REGULAR')+'</span>'+
-      '<span style="font-size:12px;color:#555;">ID: '+esc(c.cust_id||'')+'</span>'+
-    '</div>';
-  body.appendChild(contact);
-
-  // Stats card
-  var stats=document.createElement('div');
-  stats.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;';
-  stats.innerHTML=
-    '<div style="background:#1A1A1A;border-radius:10px;padding:14px;text-align:center;">'+
-      '<div style="font-family:var(--fh);font-size:11px;color:#888;margin-bottom:4px;">TOTAL SPENT</div>'+
-      '<div style="font-family:var(--fm);font-size:28px;font-weight:900;color:#F97316;">$'+parseFloat(c.total_spent||0).toFixed(0)+'</div>'+
-    '</div>'+
-    '<div style="background:#1A1A1A;border-radius:10px;padding:14px;text-align:center;">'+
-      '<div style="font-family:var(--fh);font-size:11px;color:#888;margin-bottom:4px;">TOTAL ORDERS</div>'+
-      '<div style="font-family:var(--fm);font-size:28px;font-weight:900;color:#2563EB;">'+(c.visit_count||0)+'</div>'+
-    '</div>';
-  body.appendChild(stats);
-
-  // Notes
-  if(c.notes){
-    var notes=document.createElement('div');
-    notes.style.cssText='background:#1A1A1A;border-radius:10px;padding:14px;border-left:4px solid #F97316;';
-    notes.innerHTML='<div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:6px;">NOTES</div><div style="font-size:14px;color:#CCC;">'+esc(c.notes)+'</div>';
-    body.appendChild(notes);
-  }
-
-  // Purchase history placeholder
-  var hist=document.createElement('div');
-  hist.style.cssText='background:#1A1A1A;border-radius:10px;padding:14px;';
-  hist.innerHTML='<div style="font-family:var(--fh);font-size:11px;color:#888;margin-bottom:8px;">PURCHASE HISTORY</div><div style="color:#444;font-size:14px;font-family:var(--fh);">Coming soon - will show all items purchased with photos and warranty status.</div>';
-  body.appendChild(hist);
-
-  g('cpProfile').style.display='flex';
-}
-
-// Search live
-var cpSearchTimer=null;
-g('cpSearch').addEventListener('input',function(){
-  var q=this.value.trim();
-  clearTimeout(cpSearchTimer);
-  if(!q){
-    cpActiveLetter='ALL';
-    cpBuildAlpha();
-    cpRenderList(cpAllCustomers);
-    return;
-  }
-  cpSearchTimer=setTimeout(function(){
-    google.script.run
-      .withSuccessHandler(function(r){
-        cpRenderList(r&&r.customers?r.customers:[]);
-      })
-      .withFailureHandler(function(){})
-      .api_searchCustomers(q);
-  },300);
-});
-
-// New customer from portal
-g('cpNewBtn').addEventListener('click',function(){
-  cpCurrentCustomer=null;
-  g('cpEditId').value='';
-  g('cpEditFn').value='';
-  g('cpEditLn').value='';
-  g('cpEditP1').value='';
-  g('cpEditEm').value='';
-  g('cpEditAddr').value='';
-  g('cpEditType').value='REGULAR';
-  g('cpEditNotes').value='';
-  g('cpEditStatus').textContent='';
-  g('cpEditModal').style.display='block';
-});
-
-// Edit from profile
-g('cpEditBtn').addEventListener('click',function(){
-  if(!cpCurrentCustomer)return;
-  var c=cpCurrentCustomer;
-  g('cpEditId').value=c.cust_id||'';
-  g('cpEditFn').value=c.first_name||'';
-  g('cpEditLn').value=c.last_name||'';
-  g('cpEditP1').value=c.phone1||'';
-  g('cpEditEm').value=c.email||'';
-  g('cpEditAddr').value=c.address||'';
-  g('cpEditType').value=c.type||'REGULAR';
-  g('cpEditNotes').value=c.notes||'';
-  g('cpEditStatus').textContent='';
-  g('cpEditModal').style.display='block';
-});
-
-// Select customer for cart
-g('cpSelectBtn').addEventListener('click',function(){
-  if(!cpCurrentCustomer)return;
-  var c=cpCurrentCustomer;
-  selCust=c;
-  g('custPortal').style.display='none';
-  g('cpProfile').style.display='none';
-  // Show confirmation
-  var msg=document.createElement('div');
-  msg.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#16A34A;color:#fff;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px 24px;border-radius:10px;z-index:999;';
-  msg.textContent='Customer set: '+(c.first_name||'')+' '+(c.last_name||'');
-  document.body.appendChild(msg);
-  setTimeout(function(){if(msg.parentNode)msg.parentNode.removeChild(msg);},2500);
-});
-
-// Delete from profile
-g('cpDelBtn').addEventListener('click',function(){
-  if(!cpCurrentCustomer)return;
-  var name=(cpCurrentCustomer.first_name||'')+' '+(cpCurrentCustomer.last_name||'');
-  if(!confirm('Delete '+name+'? This cannot be undone.'))return;
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r&&r.ok){
-        closeCpProfile();
-        cpLoadAll();
-      }
-    })
-    .api_deleteCustomer({cust_id:cpCurrentCustomer.cust_id});
-});
-
-// Save edit
-g('cpSaveEditBtn').addEventListener('click',function(){
-  var payload={
-    cust_id:   g('cpEditId').value,
-    first_name:g('cpEditFn').value.trim(),
-    last_name: g('cpEditLn').value.trim(),
-    phone1:    g('cpEditP1').value.trim(),
-    email:     g('cpEditEm').value.trim(),
-    address:   g('cpEditAddr').value.trim(),
-    type:      g('cpEditType').value,
-    notes:     g('cpEditNotes').value.trim(),
-    added_by:  st.user?st.user.name:'Staff'
-  };
-  g('cpEditStatus').textContent='Saving...';
-  g('cpEditStatus').style.color='#F97316';
-  var fn = payload.cust_id ? 'api_updateCustomer' : 'api_saveCustomer';
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r&&r.ok){
-        g('cpEditStatus').textContent='Saved!';
-        g('cpEditStatus').style.color='#16A34A';
-        setTimeout(function(){
-          closeCpEdit();
-          cpLoadAll();
-        },800);
-      } else {
-        g('cpEditStatus').textContent='Error: '+(r?r.error:'Unknown');
-        g('cpEditStatus').style.color='#DC2626';
-      }
-    })
-    .withFailureHandler(function(e){
-      g('cpEditStatus').textContent='Failed: '+e;
-      g('cpEditStatus').style.color='#DC2626';
-    })
-    [fn](payload);
-});
-
 </script>
 <script>
 (function(){
@@ -1560,9 +798,6 @@ var SEMOJI={W:'[W]',D:'[D]',S:'[S]',F:'[F]',Z:'[Z]',P:'[P]',V:'[V]'};
 var st={inv:[],cart:[],cat:'W',sub:'',srch:'',pin:'',pbuf:'',pcb:null,isOwner:false,user:null,wc:0,wcg:2400,selItem:null,frozen:false,polling:null};
 var g=function(id){return document.getElementById(id);};
 var esc=function(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-// Rewrite Google Drive share links (drive.google.com/uc?id=, /file/d/ID/, open?id=)
-// into a browser-embeddable image URL. Non-Drive URLs pass through unchanged.
-var driveImg_=function(u){u=String(u||'');var m=u.match(/[?&]id=([A-Za-z0-9_-]+)/)||u.match(/\/d\/([A-Za-z0-9_-]+)/);return (m&&m[1])?'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1000':u;};
 function normCat(c){c=String(c||'').toUpperCase();
   if(c.includes('WASH'))return'W';if(c.includes('DRY'))return'D';if(c.includes('STOV')||c.includes('RANG'))return'S';
   if(c.includes('FRIG')||c.includes('REF'))return'F';if(c.includes('FREEZ'))return'Z';if(c.includes('PART'))return'P';
@@ -1584,44 +819,18 @@ function boot(pin){
   google.script.run
     .withSuccessHandler(onBoot)
     .withFailureHandler(function(e){
-      try{var _b=g('diagBadge');if(_b)_b.textContent='DIAG: BOOT FAILED → '+(e&&e.message?e.message:'Unknown');}catch(_x){}
       g('ltxt').textContent='Error: '+(e&&e.message?e.message:'Unknown');
       g('lov').classList.add('hid');
     })
     .api_getRegisterBoot(pin||null);
 }
-// Fallback: if the boot payload is missing/empty inventory (e.g. boot return
-// failed to serialize), load the floor directly from api_getRegisterInventoryOnly().
-function loadInventoryFallback(){
-  try{var _b=g('diagBadge');if(_b)_b.textContent+=' | fallback:api_getRegisterInventoryOnly…';}catch(_x){}
-  google.script.run
-    .withSuccessHandler(function(r){
-      var arr=(r&&r.inventory)?r.inventory:[];
-      st.inv=arr||[];
-      try{var _b=g('diagBadge');if(_b)_b.textContent+=' | fallback st.inv='+st.inv.length;}catch(_x){}
-      rtabs();rinv();
-    })
-    .withFailureHandler(function(e){
-      try{var _b=g('diagBadge');if(_b)_b.textContent+=' | fallback FAILED: '+(e&&e.message?e.message:'Unknown');}catch(_x){}
-    })
-    .api_getRegisterInventoryOnly(st.pin||null);
-}
 function onBoot(d){
-  try{var _b=g('diagBadge');if(_b)_b.textContent='DIAG: onBoot err='+(d&&d.error?d.error:'none')+' | d.inventory='+(d&&d.inventory?d.inventory.length:'MISSING');}catch(_x){}
-  if(!d||d.error){g('lov').classList.add('hid');loadInventoryFallback();return;}
+  if(!d||d.error){g('lov').classList.add('hid');return;}
   st.inv=d.inventory||[];
-  try{var _b2=g('diagBadge');if(_b2)_b2.textContent+=' | st.inv='+st.inv.length;}catch(_x){}
-  if(!st.inv.length){loadInventoryFallback();}
   st.isOwner=d.isOwner||false;
   st.user=d.currentUser||null;
   st.wc=d.warChest||0;
   st.wcg=d.warChestGoal||2400;
-  // Load customers from boot so search works immediately
-  if(d.customers&&d.customers.length){
-    custList=d.customers;
-    cpAllCustomers=d.customers;
-    if(typeof Logger!=='undefined'&&Logger.log)Logger.log('Customers loaded from boot: '+custList.length);
-  }
   rwc();rtabs();rsubs();rinv();
   if(st.user)g('pinbtn').textContent='[PIN] '+st.user.name.toUpperCase();
   google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).api_notifyRegisterOpen(st.user?st.user.name:'Unknown');
@@ -1630,7 +839,6 @@ function onBoot(d){
 }
 // Tabs
 function rtabs(){
-  try{var _b=g('diagBadge');if(_b)_b.textContent+=' | rtabs:RAN(inv='+st.inv.length+')';}catch(_x){}
   var cnts={W:0,D:0,S:0,F:0,Z:0,P:0};
   st.inv.forEach(function(i){var c=normCat(i.category||'');if(cnts[c]!==undefined)cnts[c]++;});
   var ks=Object.keys(cnts);
@@ -1655,153 +863,9 @@ function rsubs(){
     if(t.ok)first=false;});}
 // Category click
 document.querySelectorAll('.ctab').forEach(function(tab){tab.addEventListener('click',function(){
-  // Skip special tabs that have their own handlers
-  if(tab.id==='floorTab'||tab.id==='custTab') return;
   document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('on');});
   tab.classList.add('on');st.cat=tab.dataset.c;st.sub='';st.srch='';g('src').value='';rsubs();rinv();});});
-g('src').addEventListener('input',function(){
-  var q=this.value.trim();
-  st.srch=q;
-  var gr=g('globalResults');
-  if(!q||q.length<2){gr.style.display='none';rinv();return;}
-  var ql=q.toLowerCase();
-  // Search appliances
-  var appMatches=st.inv.filter(function(i){
-    return (i.brand||'').toLowerCase().includes(ql)||
-           (i.model||'').toLowerCase().includes(ql)||
-           (i.sku_id||'').toLowerCase().includes(ql)||
-           (i.serial||'').toLowerCase().includes(ql)||
-           (i.category||'').toLowerCase().includes(ql)||
-           (i.condition||'').toLowerCase().includes(ql);
-  }).slice(0,8);
-  // Search parts
-  var partMatches=(st.parts||[]).filter(function(p){
-    return (p.part_name||'').toLowerCase().includes(ql)||
-           (p.brand||'').toLowerCase().includes(ql)||
-           (p.compatible_models||'').toLowerCase().includes(ql)||
-           (p.part_id||'').toLowerCase().includes(ql)||
-           (p.appliance_type||'').toLowerCase().includes(ql);
-  }).slice(0,6);
-  // Search service
-  var svcMatches=(st.svcs||[]).filter(function(s){
-    return (s.service_name||'').toLowerCase().includes(ql)||
-           (s.description||'').toLowerCase().includes(ql);
-  }).slice(0,4);
-
-  var total=appMatches.length+partMatches.length+svcMatches.length;
-  if(!total){gr.style.display='none';rinv();return;}
-
-  gr.innerHTML='';
-  // Header
-  var hdr=document.createElement('div');
-  hdr.style.cssText='padding:8px 14px;font-family:var(--fh);font-size:12px;color:#888;border-bottom:1px solid #333;';
-  hdr.textContent=total+' result'+(total!==1?'s':'');
-  gr.appendChild(hdr);
-
-  // Appliance results
-  if(appMatches.length){
-    var ah=document.createElement('div');
-    ah.style.cssText='padding:6px 14px;font-family:var(--fh);font-size:11px;font-weight:900;color:#F97316;background:#1F1F1F;';
-    ah.textContent='APPLIANCES ('+appMatches.length+')';
-    gr.appendChild(ah);
-    appMatches.forEach(function(item){
-      var row=document.createElement('div');
-      row.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid #2A2A2A;display:flex;align-items:center;gap:10px;transition:background .1s;';
-      var photo=item.photos&&item.photos[0]?'<img src="'+item.photos[0]+'" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0;">':'<div style="width:36px;height:36px;background:#333;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">'+SEMOJI[normCat(item.category||'')]+'</div>';
-      row.innerHTML=photo+
-        '<div style="flex:1;min-width:0;">'+
-          '<div style="font-family:var(--fh);font-size:15px;font-weight:900;color:#fff;">'+esc(item.brand||'')+' '+esc(item.model||'')+'</div>'+
-          '<div style="font-size:11px;color:#888;">'+esc(item.category||'')+' | '+esc(item.condition||'')+' | '+esc(item.sku_id||item.item_id||'')+'</div>'+
-        '</div>'+
-        '<div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#F97316;">$'+parseFloat(item.list_price||0).toFixed(0)+'</div>';
-      row.addEventListener('mouseenter',function(){this.style.background='#2A2A2A';});
-      row.addEventListener('mouseleave',function(){this.style.background='';});
-      row.addEventListener('click',function(){
-        // Switch to right tab and add to cart
-        var cat=normCat(item.category||'W');
-        document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('on');});
-        var tab=document.querySelector('.ctab[data-c="'+cat+'"]');
-        if(tab)tab.classList.add('on');
-        st.cat=cat;st.srch='';g('src').value='';
-        gr.style.display='none';
-        rinv();
-        // Add to cart
-        setTimeout(function(){tapItem(item);},100);
-      });
-      gr.appendChild(row);
-    });
-  }
-
-  // Parts results
-  if(partMatches.length){
-    var ph2=document.createElement('div');
-    ph2.style.cssText='padding:6px 14px;font-family:var(--fh);font-size:11px;font-weight:900;color:#FBBF24;background:#1F1F1F;';
-    ph2.textContent='PARTS ('+partMatches.length+')';
-    gr.appendChild(ph2);
-    partMatches.forEach(function(part){
-      var row=document.createElement('div');
-      row.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid #2A2A2A;display:flex;align-items:center;gap:10px;transition:background .1s;';
-      row.innerHTML=
-        '<div style="width:36px;height:36px;background:#2A2A1A;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">[P]</div>'+
-        '<div style="flex:1;min-width:0;">'+
-          '<div style="font-family:var(--fh);font-size:15px;font-weight:900;color:#fff;">'+esc(part.part_name||'')+'</div>'+
-          '<div style="font-size:11px;color:#888;">'+esc(part.brand||'')+' | '+esc(part.appliance_type||'')+' | '+esc(part.part_id||'')+'</div>'+
-        '</div>'+
-        '<div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#FBBF24;">$'+parseFloat(part.price_used||part.sale_price||0).toFixed(0)+'</div>';
-      row.addEventListener('mouseenter',function(){this.style.background='#2A2A2A';});
-      row.addEventListener('mouseleave',function(){this.style.background='';});
-      row.addEventListener('click',function(){
-        // Switch to parts tab
-        document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('on');});
-        var ptab=document.querySelector('.ctab[data-c="P"]');
-        if(ptab)ptab.classList.add('on');
-        st.cat='P';st.srch='';g('src').value='';
-        gr.style.display='none';
-        rinv();
-      });
-      gr.appendChild(row);
-    });
-  }
-
-  // Service results
-  if(svcMatches.length){
-    var svh=document.createElement('div');
-    svh.style.cssText='padding:6px 14px;font-family:var(--fh);font-size:11px;font-weight:900;color:#22C55E;background:#1F1F1F;';
-    svh.textContent='SERVICES ('+svcMatches.length+')';
-    gr.appendChild(svh);
-    svcMatches.forEach(function(svc){
-      var row=document.createElement('div');
-      row.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid #2A2A2A;display:flex;align-items:center;gap:10px;transition:background .1s;';
-      row.innerHTML=
-        '<div style="width:36px;height:36px;background:#1A2A1A;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">[S]</div>'+
-        '<div style="flex:1;min-width:0;">'+
-          '<div style="font-family:var(--fh);font-size:15px;font-weight:900;color:#fff;">'+esc(svc.service_name||'')+'</div>'+
-          '<div style="font-size:11px;color:#888;">'+esc((svc.description||'').substring(0,50))+'</div>'+
-        '</div>'+
-        '<div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#22C55E;">$'+parseFloat(svc.base_price||svc.price||0).toFixed(0)+'</div>';
-      row.addEventListener('mouseenter',function(){this.style.background='#2A2A2A';});
-      row.addEventListener('mouseleave',function(){this.style.background='';});
-      row.addEventListener('click',function(){
-        document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('on');});
-        var svctab=document.querySelector('.ctab[data-c="SVC"]');
-        if(svctab)svctab.classList.add('on');
-        st.cat='SVC';st.srch='';g('src').value='';
-        gr.style.display='none';
-        rinv();
-      });
-      gr.appendChild(row);
-    });
-  }
-
-  gr.style.display='block';
-  rinv();
-});
-
-// Close global results when clicking outside
-document.addEventListener('click',function(e){
-  var gr=g('globalResults');
-  if(gr&&!g('srcrow').contains(e.target)){gr.style.display='none';}
-});
+g('src').addEventListener('input',function(){st.srch=this.value;rinv();});
 // Inventory render
 function rinv(){
   var grid=g('grid'),emp=g('emp');
@@ -1822,18 +886,8 @@ function mkCard(item,cartIds,color){
   // Photo
   var ph=document.createElement('div');ph.className='iph';
   var photos=item.photos||[];
-  if(photos.length&&photos[0]){var img=document.createElement('img');img.src=driveImg_(photos[0]);img.alt=item.brand||'';img.onerror=function(){this.parentNode.innerHTML='<div class="ipi">'+SEMOJI[st.cat]+'</div>';};ph.appendChild(img);}
+  if(photos.length&&photos[0]){var img=document.createElement('img');img.src=photos[0];img.alt=item.brand||'';img.onerror=function(){this.parentNode.innerHTML='<div class="ipi">'+SEMOJI[st.cat]+'</div>';};ph.appendChild(img);}
   else{ph.innerHTML='<div class="ipi">'+SEMOJI[st.cat]+'</div>';}
-  // TEMP PHOTO DIAG - remove after reading
-  try{
-    var _p0=photos[0]||'';
-    var _kind=!photos.length?'NONE':((/drive\.google|[?&]id=|\/d\//).test(_p0)?'DRIVE':((/^https?:/).test(_p0)?'URL':'RAW'));
-    var _lbl=document.createElement('div');_lbl.textContent='PHOTO:'+photos.length+' '+_kind;
-    _lbl.style.cssText='position:absolute;top:2px;left:2px;z-index:5;background:#000;color:#0F0;font:bold 10px monospace;padding:1px 4px;border-radius:3px;';
-    ph.appendChild(_lbl);
-    if(!window._photoDbgDone){window._photoDbgDone=true;var _bb=g('diagBadge');if(_bb)_bb.textContent+=' | P0raw='+String(_p0).slice(0,40)+' | P0fix='+String(driveImg_(_p0)).slice(0,40);}
-  }catch(_x){}
-  // END TEMP PHOTO DIAG
   card.appendChild(ph);
   // Badges
   var br=document.createElement('div');br.className='ibdg';
@@ -1858,7 +912,7 @@ function mkCard(item,cartIds,color){
 // Detail modal
 function openDet(item){st.selItem=item;g('dtit').textContent=(item.brand||'')+' '+(item.model||'');
   var photos=item.photos||[];var pg=g('dpg');pg.innerHTML='';
-  for(var p2=0;p2<Math.max(photos.length,4);p2++){var pd=document.createElement('div');pd.className='dp';if(photos[p2]){var img2=document.createElement('img');img2.src=driveImg_(photos[p2]);img2.alt='Photo';pd.appendChild(img2);}else{pd.innerHTML='<div class="dpi">'+SEMOJI[st.cat]+'</div>';}pg.appendChild(pd);}
+  for(var p2=0;p2<Math.max(photos.length,4);p2++){var pd=document.createElement('div');pd.className='dp';if(photos[p2]){var img2=document.createElement('img');img2.src=photos[p2];img2.alt='Photo';pd.appendChild(img2);}else{pd.innerHTML='<div class="dpi">'+SEMOJI[st.cat]+'</div>';}pg.appendChild(pd);}
   var days=parseInt(item.days_on_hand||0),rem=30-days;
   g('dinf').innerHTML='<div class="dir"><div class="dil">Brand</div><div class="div2">'+esc(item.brand||'-')+'</div></div>'+
     '<div class="dir"><div class="dil">Model</div><div class="div2">'+esc(item.model||'-')+'</div></div>'+
@@ -1889,42 +943,12 @@ function uCartUI(){
   if(needsW)showWGate(needsW);else g('wg').classList.remove('show');
   st.cart.forEach(function(item){
     var row=document.createElement('div');row.className='cr';
-    var serial=item.serial?'SN: '+item.serial:'';
-    var cond=item.condition||item.condLabel||'';
-    var detailLine=[serial,cond].filter(Boolean).join(' | ');
-    var editBtn=st.isOwner?'<button class="crx" style="background:#D97706;color:#fff;font-size:11px;border:none;border-radius:6px;padding:4px 7px;cursor:pointer;" data-editid="'+esc(item.id)+'">EDIT</button>':'';
-    row.innerHTML=
-      '<div style="flex:1;min-width:0;">'+
-        '<div class="crn">'+esc(item.brand)+' '+(item.model?esc(item.model):'')+'</div>'+
-        (detailLine?'<div style="font-size:11px;color:#888;margin-top:1px;">'+esc(detailLine)+'</div>':'')+
-        '<div class="crs">'+esc(item.sku||item.id||'')+'</div>'+
-        (item.wLabel?'<div class="crw" style="color:#16A34A">[OK] '+esc(item.wLabel)+'</div>':'<div class="crw" style="color:#B45309">[!] Select warranty</div>')+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:5px;">'+
-        editBtn+
-        '<div class="crp">$'+item.salePrice.toFixed(0)+'</div>'+
-        '<button class="crx" data-id="'+esc(item.id)+'">[X]</button>'+
-      '</div>';
-    row.querySelector('[data-id]').addEventListener('click',function(){
-      var id=this.dataset.id;st.cart=st.cart.filter(function(c){return c.id!==id;});uCartUI();rinv();
-    });
-    var eb=row.querySelector('[data-editid]');
-    if(eb){
-      eb.addEventListener('click',function(){
-        var id=this.dataset.editid;
-        var itm=st.cart.find(function(c){return c.id===id;});
-        if(!itm)return;
-        var np=prompt('New price for '+itm.brand+' '+itm.model+'? Current: $'+itm.salePrice.toFixed(2));
-        if(np===null)return;
-        var parsed=parseFloat(np);
-        if(isNaN(parsed)||parsed<0){toast('Invalid price.','e');return;}
-        itm.salePrice=parsed;itm.listPrice=parsed;
-        toast('Price updated to $'+parsed.toFixed(2),'s');
-        uCartUI();
-      });
-    }
-    ci.insertBefore(row,g('cem'));
-  });
+    row.innerHTML='<div style="flex:1;min-width:0;"><div class="crn">'+esc(item.brand)+' '+esc(item.model||'')+'</div><div class="crs">'+esc(item.sku||item.id)+'</div>'+
+      (item.wLabel?'<div class="crw" style="color:#16A34A">[OK] '+esc(item.wLabel)+'</div>':'<div class="crw" style="color:#B45309">[!] Select warranty</div>')+'</div>'+
+      '<div style="display:flex;align-items:center;gap:5px;"><div class="crp">$'+item.salePrice.toFixed(0)+'</div>'+
+      '<button class="crx" data-id="'+esc(item.id)+'">[X]</button></div>';
+    row.querySelector('.crx').addEventListener('click',function(){var id=this.dataset.id;st.cart=st.cart.filter(function(c){return c.id!==id;});uCartUI();rinv();});
+    ci.insertBefore(row,g('cem'));});
   uTotal();}
 function showWGate(item){g('wg').classList.add('show');g('wgt').textContent='[!] '+item.brand+' '+item.model+' - Select Warranty';
   var tiers=WTIERS[item.rating]||WTIERS[3];var c2=g('wgo');c2.innerHTML='';
@@ -1947,17 +971,6 @@ g('chkbtn').addEventListener('click',function(){
   var tot=st.cart.reduce(function(s,i){return s+i.salePrice;},0);
   var cash=parseFloat(g('cashi').value)||0;
   if(cash<tot){toast('Cash tendered less than total.','e');return;}
-  // Show disclaimer first
-  g('dscModal').style.display='flex';
-});
-
-g('dscDecline').addEventListener('click',function(){
-  g('dscModal').style.display='none';
-  toast('Sale cancelled - customer declined policy.','e');
-});
-
-g('dscAgree').addEventListener('click',function(){
-  g('dscModal').style.display='none';
   openCustModal();
 });
 function openConf(tot,cash){var ch=cash-tot;
@@ -1982,27 +995,12 @@ function procSale(){var tot=st.cart.reduce(function(s,i){return s+i.salePrice;},
     st.inv=st.inv.filter(function(i){return!sIds.includes(i.item_id);});
     st.cart=[];g('cashi').value='';rtabs();rinv();uCartUI();
     toast('[OK] SALE COMPLETE - $'+tot.toFixed(2)+' | Change $'+r.change.toFixed(2),'s');
-    g('cm').classList.remove('show');
-    g('cm').style.display='none';
-    setTimeout(function(){
-      showSMSBtn(completedSale);
-    },600);})
+    showSMSBtn(completedSale);})
   .withFailureHandler(function(e){toast('Error: '+e.message,'e');g('chkbtn').disabled=false;g('chkbtn').textContent='CHARGE SALE';})
   .api_processRegisterSale({items:st.cart,total:tot,cash:cash,employee:st.user?st.user.name:'Staff'});}
 // -- CUSTOMER POPUP -------------------------------------------
 var custList=[];
 var selCust=null;
-
-// Preload customers at boot so search is instant
-function preloadCustomers(){
-  google.script.run
-    .withSuccessHandler(function(r){
-      custList=r&&r.customers?r.customers:[];
-      if(typeof Logger!=='undefined'&&Logger.log)Logger.log('Customers preloaded: '+custList.length);
-    })
-    .withFailureHandler(function(){custList=[];})
-    .api_getCustomers();
-}
 
 function openCustModal(){
   selCust=null;
@@ -2012,7 +1010,7 @@ function openCustModal(){
   g('custPhone3Name').value='';
   g('custAddr').value='';g('custEmail').value='';
   g('custType').value='REGULAR';g('custSearch').value='';
-  g('custStatus').textContent=custList.length>0?'Loaded '+custList.length+' customers. Start typing to search.':'Loading customers...';
+  g('custStatus').textContent='';
   g('custDropdown').style.display='none';
   g('custIdDisplay').style.display='none';
   if(g('custPhone3Wrap'))g('custPhone3Wrap').style.display='none';
@@ -2021,73 +1019,59 @@ function openCustModal(){
   g('custBtnDel').style.display='none';
   g('custModal').style.display='flex';
   google.script.run
-    .withSuccessHandler(function(r){
-      custList=r&&r.customers?r.customers:[];
-      g('custStatus').textContent='Loaded '+custList.length+' customers. Start typing to search.';
-    })
-    .withFailureHandler(function(){})
+    .withSuccessHandler(function(r){custList=r&&r.customers?r.customers:[];})
+    .withFailureHandler(function(){custList=[];})
     .api_getCustomers();
 }
+
 function closeCustModal(){g('custModal').style.display='none';}
 
 function proceedToSale(){
   closeCustModal();
-  procSale();
+  var tot=st.cart.reduce(function(s,i){return s+i.salePrice;},0);
+  var cash=parseFloat(g('cashi').value)||0;
+  openConf(tot,cash);
 }
 
 g('custSearch').addEventListener('input',function(){
-  var q=this.value.trim();
+  var q=this.value.toLowerCase().trim();
   var dd=g('custDropdown');
   if(!q||q.length<2){dd.style.display='none';return;}
-  // Show searching indicator
-  dd.innerHTML='<div style="padding:10px 14px;color:#888;font-family:var(--fh);font-size:13px;">Searching...</div>';
+  var matches=custList.filter(function(c){
+    var full=((c.first_name||'')+' '+(c.last_name||'')).toLowerCase();
+    return full.includes(q)||(c.phone1||'').includes(q)||(c.cust_id||'').toLowerCase().includes(q);
+  }).slice(0,6);
+  if(!matches.length){dd.style.display='none';return;}
+  dd.innerHTML='';
+  matches.forEach(function(c){
+    var row=document.createElement('div');
+    row.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid #333;color:#fff;font-family:var(--fb);font-size:15px;';
+    var fullName=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Unknown';
+    row.innerHTML='<strong style="color:#F97316;">'+esc(fullName)+'</strong> <span style="color:#888;font-size:13px;">'+esc(c.phone1||'')+'</span><span style="color:#555;font-size:12px;float:right;">'+esc(c.cust_id||'')+'</span>';
+    row.addEventListener('click',function(){
+      selCust=c;
+      g('custFirstName').value=c.first_name||'';
+      g('custLastName').value=c.last_name||'';
+      g('custPhone').value=c.phone1||'';
+      g('custEmail').value=c.email||'';
+      if(g('custPhone2'))g('custPhone2').value=c.phone2||'';
+      if(g('custPhone2Name'))g('custPhone2Name').value=c.phone2_name||'';
+      if(g('custPhone3'))g('custPhone3').value=c.phone3||'';
+      if(g('custPhone3Name'))g('custPhone3Name').value=c.phone3_name||'';
+      if(g('custAddr'))g('custAddr').value=c.address||'';
+      g('custType').value=c.type||'REGULAR';
+      g('custSearch').value=fullName;
+      g('custIdDisplay').style.display='block';
+      g('custIdVal').textContent=c.cust_id||'';
+      g('custBtnEdit').style.display='flex';
+      g('custBtnDel').style.display='flex';
+      g('custStatus').textContent='Found: '+esc(fullName)+' ('+esc(c.cust_id||'')+')';
+      dd.style.display='none';
+      toggleExtraFields();
+    });
+    dd.appendChild(row);
+  });
   dd.style.display='block';
-  // Live search from sheet - Shopify style
-  google.script.run
-    .withSuccessHandler(function(r){
-      dd.innerHTML='';
-      var matches=r&&r.customers?r.customers:[];
-      if(!matches.length){
-        dd.innerHTML='<div style="padding:10px 14px;color:#888;font-family:var(--fh);font-size:13px;">No customers found. Fill in below to add new.</div>';
-        dd.style.display='block';
-        return;
-      }
-      matches.forEach(function(c){
-        var row=document.createElement('div');
-        row.style.cssText='padding:10px 14px;cursor:pointer;border-bottom:1px solid #333;color:#fff;font-family:var(--fb);font-size:15px;';
-        var fullName=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Unknown';
-        var typeColor={'VIP':'#F97316','SUPER_VIP':'#DC2626','REGULAR':'#888','TENANT':'#2563EB','PICKER':'#16A34A'}[c.type]||'#888';
-        row.innerHTML='<strong style="color:#F97316;">'+esc(fullName)+'</strong> <span style="color:#888;font-size:13px;">'+esc(c.phone1||'')+'</span><span style="color:'+typeColor+';font-size:11px;float:right;font-family:var(--fh);font-weight:900;">'+esc(c.type||'')+'</span>';
-        row.addEventListener('mouseenter',function(){this.style.background='#2A2A2A';});
-        row.addEventListener('mouseleave',function(){this.style.background='';});
-        row.addEventListener('click',function(){
-          selCust=c;
-          g('custFirstName').value=c.first_name||'';
-          g('custLastName').value=c.last_name||'';
-          g('custPhone').value=c.phone1||'';
-          g('custEmail').value=c.email||'';
-          if(g('custPhone2'))g('custPhone2').value=c.phone2||'';
-          if(g('custPhone2Name'))g('custPhone2Name').value=c.phone2_name||'';
-          if(g('custPhone3'))g('custPhone3').value=c.phone3||'';
-          if(g('custPhone3Name'))g('custPhone3Name').value=c.phone3_name||'';
-          if(g('custAddr'))g('custAddr').value=c.address||'';
-          g('custType').value=c.type||'REGULAR';
-          g('custSearch').value=fullName;
-          g('custIdDisplay').style.display='block';
-          g('custIdVal').textContent=c.cust_id||'';
-          g('custStatus').textContent='Customer loaded: '+esc(fullName);
-          g('custBtnEdit').style.display='inline-block';
-          g('custBtnDel').style.display='inline-block';
-          dd.style.display='none';
-        });
-        dd.appendChild(row);
-      });
-      dd.style.display='block';
-    })
-    .withFailureHandler(function(){
-      dd.innerHTML='<div style="padding:10px 14px;color:#DC2626;font-size:13px;">Search error. Try again.</div>';
-    })
-    .api_searchCustomers(q);
 });
 
 function toggleExtraFields(){
@@ -2382,32 +1366,14 @@ function openPartDetail(part){
   g('ptnewaft').textContent=pna>0?'$'+pna.toFixed(2):'N/A';
   g('ptnewoem').textContent=pno>0?'$'+pno.toFixed(2):'N/A';
 
-  var qty=parseInt(part.qty||0);
-  var isUnavailable=qty<=0;
   var inCart=st.cart.some(function(c){return c.id===part.part_id;});
-
-  g('pdbadd_used').style.display=(!inCart&&pu>0&&!isUnavailable)?'block':'none';
-  g('pdbadd_used').disabled=isUnavailable;
-  g('pdbadd_aft').style.display=(!inCart&&pna>0&&!isUnavailable)?'block':'none';
-  g('pdbadd_aft').disabled=isUnavailable;
-  g('pdbadd_oem').style.display=(!inCart&&pno>0&&!isUnavailable)?'block':'none';
-  g('pdbadd_oem').disabled=isUnavailable;
+  g('pdbadd_used').style.display=(!inCart&&pu>0)?'block':'none';
+  g('pdbadd_aft').style.display=(!inCart&&pna>0)?'block':'none';
+  g('pdbadd_oem').style.display=(!inCart&&pno>0)?'block':'none';
   g('pdbadd_rem').style.display=inCart?'block':'none';
-
-  var msgDiv=g('pdbmsg');
-  if(!msgDiv){
-    msgDiv=document.createElement('div');
-    msgDiv.id='pdbmsg';
-    msgDiv.style.cssText='padding:12px;background:#FEE2E2;border:2px solid #DC2626;border-radius:var(--rs);color:#991B1B;font-family:var(--fh);font-weight:700;text-align:center;margin-bottom:8px;';
-    g('pdbtierbtns').insertBefore(msgDiv,g('pdbtierbtns').firstChild);
-  }
-  msgDiv.style.display=isUnavailable?'block':'none';
-  msgDiv.textContent='OUT OF STOCK';
-
   g('pdbadd_used').textContent='ADD USED PULL -- $'+pu.toFixed(2);
   g('pdbadd_aft').textContent='ADD NEW AFTERMARKET -- $'+pna.toFixed(2);
   g('pdbadd_oem').textContent='ADD NEW OEM -- $'+pno.toFixed(2);
-
   // Show edit button for owners only
   g('pdbedit').style.display=st.isOwner?'block':'none';
   g('pdm').classList.add('show');
@@ -2541,7 +1507,6 @@ function openEditPart(part){
 }
 
 function addPartToCart(part, price, tierLabel){
-  if(parseInt(part.qty||0)<=0){toast('This part is out of stock and cannot be added to cart.','e');return;}
   st.cart.push({
     id:part.part_id,sku:part.part_id,
     brand:part.brand,model:part.part_name+' ('+tierLabel+')',
@@ -2758,7 +1723,6 @@ function updateAddBtns(cat){
   g('addPartBtn').className='addItemBtn'+(isOwner&&isParts?' visible':'');
   g('addApplianceBtn').className='addItemBtn'+(isOwner&&isAppl?' visible':'');
   g('addSvcBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
-  g('addPurchaseBtn').className='addItemBtn'+(isOwner?' visible':'');
   g('settingsBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
 }
 
@@ -2795,8 +1759,6 @@ g('addPartBtn').addEventListener('click',function(){openAddModal('PART');});
 g('addApplianceBtn').addEventListener('click',function(){openAddModal('APPLIANCE');});
 // Add Service button
 g('addSvcBtn').addEventListener('click',function(){openAddModal('SERVICE');});
-// Add Purchase button
-g('addPurchaseBtn').addEventListener('click',function(){openAddModal('PURCHASE');});
 
 g('addCl').addEventListener('click',function(){g('addModal').classList.remove('show');});
 g('addModal').addEventListener('click',function(e){if(e.target===this)g('addModal').classList.remove('show');});
@@ -2845,22 +1807,6 @@ function openAddModal(type){
       {id:'add_price',lbl:'Price ($)',type:'number',ph:'0.00'},
       {id:'add_unit',lbl:'Unit',type:'select',opts:['flat','per hour','each']}
     ];
-  } else if(type==='PURCHASE'){
-    fields=[
-      {id:'pur_itemtype',lbl:'Item Type',type:'select',opts:['APPLIANCE','PART','ELECTRONICS']},
-      {id:'pur_category',lbl:'Category',type:'select',opts:['WASHER']},
-      {id:'pur_brand',lbl:'Brand',type:'select',opts:['Whirlpool','Maytag','GE','Hotpoint','Frigidaire','Amana','Kenmore','LG','Samsung','Other']},
-      {id:'pur_model',lbl:'Model',type:'text',ph:'e.g. WTW5000DW'},
-      {id:'pur_serial',lbl:'Serial Number',type:'text',ph:'e.g. XY1234'},
-      {id:'pur_partname',lbl:'Part Name',type:'text',ph:'e.g. Water Pump',hide:true},
-      {id:'pur_condition',lbl:'Condition',type:'select',opts:['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN']},
-      {id:'pur_qty',lbl:'Quantity',type:'number',ph:'1'},
-      {id:'pur_price',lbl:'Purchase Price ($)',type:'number',ph:'0.00'},
-      {id:'pur_seller',lbl:'Seller Source',type:'select',opts:['Facebook Marketplace','Craigslist','Estate Sale','Donation','Private','Other']},
-      {id:'pur_phone',lbl:'Seller Phone',type:'text',ph:'e.g. 504-555-1234'},
-      {id:'pur_location',lbl:'Location / Bin / Shelf',type:'text',ph:'e.g. Receiving Area'},
-      {id:'pur_notes',lbl:'Notes',type:'textarea',ph:'Any notes...'}
-    ];
   }
 
   fields.forEach(function(f){
@@ -2895,96 +1841,32 @@ function openAddModal(type){
     }
   }
 
-
-  // Purchase: item type change resets category + conditional fields
-  if(type==='PURCHASE'){
-    var typeSelPur=g('pur_itemtype');
-    var catSelPur=g('pur_category');
-    var partNameWrap=g('wrap_pur_partname');
-    var conditionSelPur=g('pur_condition');
-
-    function updatePurchaseFields(){
-      var itemType=typeSelPur?typeSelPur.value:'APPLIANCE';
-      var catMap={
-        'APPLIANCE':['WASHER','DRYER','REFRIGERATOR','STOVE','FREEZER'],
-        'PART':['WASHER','DRYER','REFRIGERATOR','STOVE','FREEZER'],
-        'ELECTRONICS':['COMPUTER','LAPTOP','DESKTOP','MONITOR','PRINTER','TABLET','OTHER']
-      };
-      var condMap={
-        'APPLIANCE':['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN'],
-        'PART':['USED','NEW_AFT','NEW_OEM'],
-        'ELECTRONICS':['WORKING','BROKEN-REPAIR','BROKEN-PARTS','UNKNOWN']
-      };
-
-      if(catSelPur){
-        var newCats=catMap[itemType]||['WASHER'];
-        catSelPur.innerHTML='';
-        newCats.forEach(function(cat){
-          var opt=document.createElement('option');
-          opt.value=cat;opt.textContent=cat;
-          catSelPur.appendChild(opt);
-        });
-      }
-
-      if(conditionSelPur){
-        var newConds=condMap[itemType]||['WORKING'];
-        conditionSelPur.innerHTML='';
-        newConds.forEach(function(cond){
-          var opt=document.createElement('option');
-          opt.value=cond;opt.textContent=cond;
-          conditionSelPur.appendChild(opt);
-        });
-      }
-
-      if(partNameWrap){
-        partNameWrap.style.display=(itemType==='PART'?'block':'none');
-      }
-    }
-
-    if(typeSelPur){
-      typeSelPur.addEventListener('change',updatePurchaseFields);
-      updatePurchaseFields();
-    }
-
-    // Add ready_now checkbox
-    var readyDiv=document.createElement('div');readyDiv.className='addField';
-    var readyLabel=document.createElement('label');readyLabel.textContent='Ready to Sell Now?';readyDiv.appendChild(readyLabel);
-    var readyCb=document.createElement('input');readyCb.type='checkbox';readyCb.id='pur_readynow';readyDiv.appendChild(readyCb);
-    bdy.insertBefore(readyDiv,bdy.lastChild);
-  }
   // Photo upload
-// Photo upload
   var photoDiv=document.createElement('div');photoDiv.className='addField';
-  if(type==='PURCHASE'){
-    var photoLbl=document.createElement('label');photoLbl.textContent='Photos';
-    photoDiv.appendChild(photoLbl);
-    var photoNote=document.createElement('div');photoNote.style.color='#666';photoNote.style.fontSize='12px';photoNote.textContent='Add photos after saving via Google Sheet PURCHASES tab';
-    photoDiv.appendChild(photoNote);
-  } else {
-    var photoLbl=document.createElement('label');photoLbl.textContent='Photos (up to '+(type==='PART'?'20':type==='APPLIANCE'?'30':'5')+')';
-    photoDiv.appendChild(photoLbl);
-    var photoBtn=document.createElement('button');photoBtn.id='addPhotoBtn';photoBtn.type='button';
-    photoBtn.textContent='+ ADD PHOTOS';
-    var photoInp=document.createElement('input');photoInp.type='file';photoInp.accept='image/*';
-    photoInp.multiple=true;photoInp.capture='environment';photoInp.id='addPhotoInput';
-    var photoPrev=document.createElement('div');photoPrev.id='addPhotoPreview';
-    photoBtn.addEventListener('click',function(){photoInp.click();});
-    photoInp.addEventListener('change',function(){
-      var files=Array.prototype.slice.call(this.files||[]);
-      files.forEach(function(file){
-        var reader=new FileReader();
-        reader.onload=function(e){
-          addPhotos.push(e.target.result);
-          var thumb=document.createElement('div');thumb.className='addPhotoThumb';
-          var img=document.createElement('img');img.src=e.target.result;
-          thumb.appendChild(img);photoPrev.appendChild(thumb);
-        };
-        reader.readAsDataURL(file);
-      });
+  var photoLbl=document.createElement('label');photoLbl.textContent='Photos (up to '+(type==='PART'?'20':type==='APPLIANCE'?'30':'5')+')';
+  photoDiv.appendChild(photoLbl);
+  var photoBtn=document.createElement('button');photoBtn.id='addPhotoBtn';photoBtn.type='button';
+  photoBtn.textContent='+ ADD PHOTOS';
+  var photoInp=document.createElement('input');photoInp.type='file';photoInp.accept='image/*';
+  photoInp.multiple=true;photoInp.capture='environment';photoInp.id='addPhotoInput';
+  var photoPrev=document.createElement('div');photoPrev.id='addPhotoPreview';
+  photoBtn.addEventListener('click',function(){photoInp.click();});
+  photoInp.addEventListener('change',function(){
+    var files=Array.prototype.slice.call(this.files||[]);
+    files.forEach(function(file){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        addPhotos.push(e.target.result);
+        var thumb=document.createElement('div');thumb.className='addPhotoThumb';
+        var img=document.createElement('img');img.src=e.target.result;
+        thumb.appendChild(img);photoPrev.appendChild(thumb);
+      };
+      reader.readAsDataURL(file);
     });
-    photoDiv.appendChild(photoBtn);photoDiv.appendChild(photoInp);photoDiv.appendChild(photoPrev);
-  }
+  });
+  photoDiv.appendChild(photoBtn);photoDiv.appendChild(photoInp);photoDiv.appendChild(photoPrev);
   bdy.appendChild(photoDiv);
+
   // Status + Save button
   var status=document.createElement('div');status.id='addStatus';bdy.appendChild(status);
   var saveBtn=document.createElement('button');saveBtn.id='addSaveBtn';saveBtn.textContent='SAVE '+type;
@@ -3110,65 +1992,6 @@ function saveAddItem(type){
       })
       .withFailureHandler(function(e){status.textContent='Error: '+e.message;status.style.color='#DC2626';})
       .api_addCustomService(payload3);
-  } else if(type==='PURCHASE'){
-    var itemType=v('pur_itemtype');
-    var category=v('pur_category');
-    var brand=v('pur_brand');
-    var model=v('pur_model');
-    var serial=v('pur_serial');
-    var partName=v('pur_partname');
-    var condition=v('pur_condition');
-    var qtyStr = v('pur_qty');
-    qtyStr = qtyStr == null ? '' : String(qtyStr).trim();
-
-    var qty = (qtyStr === '')
-      ? ((itemType === 'APPLIANCE') ? 1 : 0)
-      : parseInt(qtyStr, 10);
-
-    var price=parseFloat(v('pur_price'));
-    var seller=v('pur_seller');
-    var phone=v('pur_phone');
-    var location=v('pur_location');
-    var notes=v('pur_notes');
-    var readyNowChk=document.getElementById('pur_readynow');
-    var readyNow=readyNowChk&&readyNowChk.checked?'YES':'NO';
-
-    if(!itemType||!category||!brand||!seller){
-      status.textContent='Error: Missing required fields (Item Type, Category, Brand, Seller Source)';
-      status.style.color='#DC2626';
-      return;
-    }
-    if(itemType==='PART'&&!partName){
-      status.textContent='Error: Part Name required for parts';
-      status.style.color='#DC2626';
-      return;
-    }
-    if (isNaN(qty) || qty < 1) {
-      status.textContent='Error: Quantity must be 1 or more';
-      status.style.color='#DC2626';
-      return;
-    }
-    if(isNaN(price)||price<0){
-      status.textContent='Error: Purchase price cannot be negative';
-      status.style.color='#DC2626';
-      return;
-    }
-
-    var payload4={
-      item_type:itemType,item_category:category,brand:brand,model:model,
-      serial:serial,part_name:partName,condition:condition,qty:qty,
-      purchase_price:price,seller_source:seller,seller_phone:phone,
-      location:location,ready_now:readyNow,notes:notes
-    };
-    status.textContent='Saving purchase...';
-    google.script.run
-      .withSuccessHandler(function(r){
-        if(!r.ok){status.textContent='Error: '+(r.error||'Unknown');status.style.color='#DC2626';return;}
-        status.textContent='Purchase saved to intake! ID: '+r.purchase_id;
-        setTimeout(function(){g('addModal').classList.remove('show');},1500);
-      })
-      .withFailureHandler(function(e){status.textContent='Error: '+e.message;status.style.color='#DC2626';})
-      .api_addPurchase(payload4);
   }
 }
 
@@ -3182,61 +2005,21 @@ function sendSMSReceipt(saleId,tot,items,phone){
   if(!phone||!phone.trim())return;
   var ph=phone.replace(/[^0-9]/g,'');
   if(ph.length===10)ph='1'+ph;
-  var cust=st.currentCustomer||{};
-  var custName=cust.name||'';
-  var cash=parseFloat(g('cashi').value)||tot;
-  var change=cash-tot;
-  var now=new Date();
-  var date=now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  var time=now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
-  var associate=st.user?st.user.name:'Staff';
-
-  var lines=[];
-  lines.push('================================');
-  lines.push('  THE ELECTRONICS DEPOT');
-  lines.push('  7333 Airline Dr');
-  lines.push('  Metairie, LA 70003');
-  lines.push('  504-342-4004');
-  lines.push('================================');
-  if(custName)lines.push('Customer:  '+custName);
-  lines.push('Associate: '+associate);
-  lines.push('Sale #:    '+saleId);
-  lines.push('Date:      '+date);
-  lines.push('Time:      '+time);
-  lines.push('--------------------------------');
-
-  items.forEach(function(i,idx){
-    var name=(i.brand||'')+(i.model?' '+i.model:'');
-    var cond=i.condition||i.condLabel||'';
-    var itemPrice=parseFloat(i.salePrice||0);
-    var warranty=i.wLabel||'No Warranty';
-    lines.push((idx+1)+'. '+name);
-    if(cond)lines.push('   Condition: '+cond);
-    lines.push('   Item Price: $'+itemPrice.toFixed(2));
-    lines.push('   Warranty:   '+warranty);
+  var lines=[STORE_NM,STORE_AD,'---'];
+  lines.push('Sale: '+saleId);
+  lines.push('Date: '+new Date().toLocaleDateString('en-US'));
+  items.forEach(function(i){
+    lines.push((i.brand||'')+(i.model?' '+i.model:''));
+    lines.push('  Warranty: '+(i.wLabel||'None')+' $'+i.salePrice.toFixed(2));
   });
-
-  lines.push('--------------------------------');
-  lines.push('SUBTOTAL:  $'+tot.toFixed(2));
-  lines.push('TAX:       Included');
-  lines.push('--------------------------------');
-  lines.push('TOTAL:     $'+tot.toFixed(2));
-  lines.push('CASH:      $'+cash.toFixed(2));
-  lines.push('CHANGE:    $'+change.toFixed(2));
-  lines.push('================================');
-  lines.push('ALL SALES FINAL');
-  lines.push('No cash refunds.');
-  lines.push('Warranty: in-store service only.');
-  lines.push('Transport voids warranty.');
-  lines.push('================================');
-  lines.push('Thank you for shopping with us!');
-  lines.push('Questions? Call 504-342-4004');
-
+  lines.push('---');
+  lines.push('TOTAL: $'+tot.toFixed(2));
+  lines.push('Qs? '+STORE_PHONE);
   var msg=lines.join('\n');
   google.script.run
     .withSuccessHandler(function(){})
     .withFailureHandler(function(){})
-    .api_sendSMSTelnyx({phone:ph,message:msg});
+    .api_sendSMSTextbelt({phone:ph,message:msg});
 }
 
 function promptAndSendSMS(saleId,tot,items){
@@ -3247,16 +2030,17 @@ function promptAndSendSMS(saleId,tot,items){
 var lastSale=null;
 
 function showReceiptModal(sale){
-  if(!g('rcptModal')||!g('rcptPhone')){toast('Receipt screen not ready.','e');return;}
   lastSale=sale;
   var cust=st.currentCustomer||{};
-  g('rcptPhone').value=cust.phone||'';
-  g('rcptPhone2').value='';
-  g('rcptEmail').value=cust.email||'';
-  g('rcptEmail2b').value='';
+  // Pre-fill phone and email from customer
+  var phone=cust.phone||'';
+  var email=cust.email||'';
+  g('rcptPhone').value=phone;
+  g('rcptEmail').value=email;
   g('rcptPhoneRow').style.display='block';
   g('rcptEmailRow').style.display='block';
   g('rcptStatus').textContent='';
+  // Reset button styles
   ['rcptText','rcptEmail2','rcptPrint','rcptPortal'].forEach(function(id){
     g(id).style.opacity='1';
   });
@@ -3266,20 +2050,14 @@ function showReceiptModal(sale){
 function showSMSBtn(sale){showReceiptModal(sale);}
 
 function wireReceiptModal(){
-  if(!g('rcptText')||!g('rcptPhone')){
-    setTimeout(wireReceiptModal,300);
-    return;
-  }
   // TEXT button
   g('rcptText').addEventListener('click',function(){
     var phone=g('rcptPhone').value.trim();
-    var phone2=g('rcptPhone2').value.trim();
-    if(!phone&&!phone2){g('rcptStatus').textContent='Enter a phone number first.';return;}
+    if(!phone){g('rcptStatus').textContent='Enter a phone number first.';return;}
     this.style.opacity='.5';
     g('rcptStatus').textContent='Sending text...';
-    if(phone&&lastSale)sendSMSReceipt(lastSale.id,lastSale.total,lastSale.items,phone);
-    if(phone2&&lastSale)sendSMSReceipt(lastSale.id,lastSale.total,lastSale.items,phone2);
-    setTimeout(function(){g('rcptStatus').textContent='Text sent!';},800);
+    if(lastSale)sendSMSReceipt(lastSale.id,lastSale.total,lastSale.items,phone);
+    setTimeout(function(){g('rcptStatus').textContent='Text sent to '+phone;},800);
   });
 
   // EMAIL button
@@ -3296,64 +2074,16 @@ function wireReceiptModal(){
     }
   });
 
-  // PRINT button - sends to Node bridge at 192.168.1.47:3000
+  // PRINT button
   g('rcptPrint').addEventListener('click',function(){
-    var btn=this;
-    btn.style.opacity='.5';
+    this.style.opacity='.5';
     g('rcptStatus').textContent='Sending to printer...';
-    if(!lastSale){g('rcptStatus').textContent='No sale data.';return;}
-
-    var cust=st.currentCustomer||{};
-    var employee=st.user?st.user.name:'Staff';
-    var date=new Date().toLocaleString();
-    var items=lastSale.items||[];
-    var total=lastSale.total||0;
-
-    // Build plain text receipt
-    var receiptText='EDP REGISTER\n'+
-      'The Electronics Depot\n'+
-      '7333 Airline Dr, Metairie LA 70003\n'+
-      '504-342-4004\n'+
-      '--------------------------------\n'+
-      'Sale: '+(lastSale.id||'SALE')+'\n'+
-      'Date: '+date+'\n'+
-      (cust.name?'Customer: '+cust.name+'\n':'')+
-      'Employee: '+employee+'\n'+
-      '--------------------------------\n';
-
-    items.forEach(function(i){
-      var name=(i.brand||'')+' '+(i.model||'');
-      var price='$'+(parseFloat(i.salePrice||0).toFixed(2));
-      var warranty=i.wLabel||'No Warranty';
-      receiptText+=name+'\n'+
-        '  '+price+' | '+warranty+'\n';
-    });
-
-    receiptText+='--------------------------------\n'+
-      'TOTAL: $'+parseFloat(total).toFixed(2)+'\n'+
-      '--------------------------------\n'+
-      'ALL SALES FINAL\n'+
-      'No cash refunds\n'+
-      'Warranty: in-store service only\n'+
-      'Thank you!\n';
-
-    fetch('http://192.168.1.47:3000/print',{
-      method:'POST',
-      headers:{'Content-Type':'text/plain'},
-      body:receiptText
-    }).then(function(r){
-      return r.json().then(function(data){
-        if(r.ok && data.success){
-          g('rcptStatus').textContent='Printed!';
-        } else {
-          g('rcptStatus').textContent='Print failed - check bridge connection.';
-          btn.style.opacity='1';
-        }
-      });
-    }).catch(function(){
-      g('rcptStatus').textContent='Printer bridge not running. Open PowerShell and run node server.js.';
-      btn.style.opacity='1';
-    });
+    if(lastSale){
+      google.script.run
+        .withSuccessHandler(function(r){g('rcptStatus').textContent=r.ok?'Printed!':'Print failed - check printer connection.';})
+        .withFailureHandler(function(){g('rcptStatus').textContent='Printer error - check 192.168.12.97';})
+        .api_printReceipt({saleId:lastSale.id,total:lastSale.total,items:lastSale.items,custName:st.currentCustomer?st.currentCustomer.name:'',employee:st.user?st.user.name:'Staff'});
+    }
   });
 
   // PORTAL button
@@ -3371,26 +2101,8 @@ function wireReceiptModal(){
 
 // Boot
 boot(null);
+wireSMSBtn();
 wireReceiptModal();
-// Wire special tabs - use setTimeout to ensure DOM is ready
-setTimeout(function(){
-  var ft = document.getElementById('floorTab');
-  var ct = document.getElementById('custTab');
-  var fpc = document.getElementById('fpCloseBtn');
-  var cpc = document.getElementById('cpCloseBtn');
-  if(ft){ft.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();g('floorModal').style.display='flex';fpLoadItems();});}
-  // custPortalBtn wired below
-  if(fpc){fpc.addEventListener('click',function(){g('floorModal').style.display='none';});}
-  if(cpc){cpc.addEventListener('click',function(){g('custPortal').style.display='none';});}
-}, 1000);
-// Preload customers on boot so search works instantly when modal opens
-google.script.run
-  .withSuccessHandler(function(r){
-    custList=r&&r.customers?r.customers:[];
-    if(typeof Logger!=='undefined'&&Logger.log)Logger.log('Customers preloaded: '+custList.length);
-  })
-  .withFailureHandler(function(){custList=[];})
-  .api_getCustomers();
 
 // Refresh button
 g('refreshbtn').addEventListener('click',function(){
@@ -3399,329 +2111,16 @@ g('refreshbtn').addEventListener('click',function(){
   boot(st.pin);
 });
 
-// POLICY button
-g('policyBtn').addEventListener('click',function(){
-  g('policyScreen').style.display='flex';
-});
-g('policyClose').addEventListener('click',function(){
-  window.speechSynthesis.cancel();
-  g('policyScreen').style.display='none';
-});
-// POLICY READ ALOUD - ElevenLabs 4 languages
-var POLICY_VOICE_ID = 'EOVAuWqgSZN2Oel78Psj';
-var policyAudio = null;
-
-var POLICY_TEXT = {
-  en: 'The Electronics Depot Customer Policy. Number 1. No Refunds. We do not offer refunds of any kind. If you buy an item, we will repair it. If we cannot repair it within 2 to 4 days, we will swap it with one of equal value. Number 2. Cash Only. We accept cash only. No credit cards, debit cards, or digital payments. Number 3. Warranty Process. If your item has a problem, bring it back to the store. We do not pick up or make house calls. Number 4. Warranty does not cover computer boards, touch panels, rubber gaskets, door problems, shelves, handles, hinges, or knobs. Number 5. Fifty dollar tech charge if item is found working or problem was caused by misuse. Number 6. Item must be clean inside and out to qualify for service. Number 7. Delivery is outside and ground level only. No installation. No hookup. Must be 21 or older with ID. Delivery fee is non-refundable. Number 8. Please take at least 4 photos and keep your receipt.',
-  es: 'Politica del cliente de The Electronics Depot. Numero 1. Sin reembolsos. No ofrecemos reembolsos de ningun tipo. Si compra un articulo, lo repararemos. Si no podemos repararlo en 2 a 4 dias, lo cambiaremos por uno de igual valor. Numero 2. Solo efectivo. Aceptamos solo efectivo. No tarjetas de credito ni pagos digitales. Numero 3. Si su articulo tiene un problema, traialo a la tienda. No hacemos llamadas a domicilio. Numero 4. La garantia no cubre tarjetas de computadora, paneles tactiles, juntas de goma, problemas de puertas, estantes, manijas ni bisagras. Numero 5. Se cobra cincuenta dolares si el articulo funciona bien o el problema fue causado por mal uso. Numero 6. El articulo debe estar limpio para calificar para el servicio. Numero 7. La entrega es solo en el exterior. Debe tener 21 anos o mas con identificacion. El cargo de entrega no es reembolsable. Numero 8. Tome al menos 4 fotos y conserve su recibo.',
-  ar: 'AR_POLICY',
-  zh: 'ZH_POLICY'
-};
-
-function stopPolicyAudio(){
-  if(policyAudio){policyAudio.pause();policyAudio=null;}
-  g('policyStop').style.display='none';
-  ['policyRead','policyReadES','policyReadAR','policyReadZH'].forEach(function(id){
-    g(id).style.background='rgba(0,0,0,.3)';
-  });
-}
-
-function readPolicyElevenLabs(lang, btnId){
-  stopPolicyAudio();
-  var text=POLICY_TEXT[lang];
-  if(!text)return;
-  g(btnId).style.background='rgba(249,115,22,.6)';
-  g('policyStop').style.display='inline-block';
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r&&r.audioUrl){
-        policyAudio=new Audio(r.audioUrl);
-        policyAudio.play();
-        policyAudio.onended=function(){stopPolicyAudio();};
-      } else {
-        // Fallback to browser TTS
-        var utt=new SpeechSynthesisUtterance(text);
-        utt.rate=0.88;
-        utt.onend=function(){stopPolicyAudio();};
-        window.speechSynthesis.speak(utt);
-      }
-    })
-    .withFailureHandler(function(){
-      // Fallback to browser TTS
-      var utt=new SpeechSynthesisUtterance(text);
-      utt.rate=0.88;
-      utt.onend=function(){stopPolicyAudio();};
-      window.speechSynthesis.speak(utt);
-    })
-    .api_elevenLabsSpeak({text:text,voiceId:POLICY_VOICE_ID});
-}
-
-g('policyRead').addEventListener('click',function(){readPolicyElevenLabs('en','policyRead');});
-g('policyReadES').addEventListener('click',function(){readPolicyElevenLabs('es','policyReadES');});
-g('policyReadAR').addEventListener('click',function(){readPolicyElevenLabs('ar','policyReadAR');});
-g('policyReadZH').addEventListener('click',function(){readPolicyElevenLabs('zh','policyReadZH');});
-g('policyStop').addEventListener('click',function(){
-  stopPolicyAudio();
-  window.speechSynthesis.cancel();
-});
-g('custPortalBtn').addEventListener('click',function(){
-  g('custPortal').style.display='flex';
-  cpLoadAll();
-});
-g('smsMon').addEventListener('click',function(){
-  g('smsMonModal').style.display='flex';
-  g('smsMonStatus').textContent='Loading stats...';
-  google.script.run
-    .withSuccessHandler(function(r){
-      if(r&&r.ok){
-        var c=r.credits;
-        g('smsCredits').textContent=c;
-        g('smsCredits').style.color=c<=10?'#DC2626':c<=20?'#F97316':'#16A34A';
-        g('smsToday').textContent=r.today;
-        g('smsWeek').textContent=r.week;
-        g('smsTotal').textContent=r.total;
-        g('smsMonStatus').textContent='Last sent to: '+(r.lastPhone||'N/A');
-        g('smsMon').style.color=c<=10?'#DC2626':c<=20?'#F97316':'#16A34A';
-        g('smsMon').textContent='SMS '+c;
-      } else {
-        g('smsMonStatus').textContent='Could not load stats.';
-      }
-    })
-    .withFailureHandler(function(){g('smsMonStatus').textContent='Error loading stats.';})
-    .api_getTelnyxStats();
-});
-g('smsMonClose').addEventListener('click',function(){g('smsMonModal').style.display='none';});
-
-// RECEIPT button - shows receipt modal for last sale anytime
-g('rcptFloatBtn').addEventListener('click',function(){
-  if(!lastSale){
-    // No sale yet - show empty modal so they can still text/email manually
-    lastSale={id:'MANUAL',total:0,items:[]};
-  }
-  var cust=st.currentCustomer||{};
-  g('rcptPhone').value=cust.phone||'';
-  g('rcptEmail').value=cust.email||'';
-  g('rcptPhoneRow').style.display='block';
-  g('rcptEmailRow').style.display='block';
-  g('rcptStatus').textContent='';
-  ['rcptText','rcptEmail2','rcptPrint','rcptPortal'].forEach(function(id){
-    g(id).style.opacity='1';
-  });
-  g('rcptModal').style.display='flex';
-});
-
 // Dark/light toggle
 var isDark=false;
 g('darkbtn').addEventListener('click',function(){
   isDark=!isDark;
   document.body.classList.toggle('dark',isDark);
-  g('darkbtn').textContent=isDark?'LIGHT':'DARK';
+  g('darkbtn').textContent=isDark?'\u2600':'\u263D';
 });
 
+// Boot
+boot(null);
+wireSMSBtn();
 })();
-</script>
-
-<!-- CUSTOMER PORTAL - FULL SCREEN -->
-<div id="custPortal" style="display:none;position:fixed;inset:0;background:#0A0A0A;z-index:700;flex-direction:column;overflow:hidden;">
-
-  <!-- Header -->
-  <div style="background:#111;border-bottom:2px solid #2563EB;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-family:var(--fh);font-size:22px;font-weight:900;color:#2563EB;">CUSTOMERS</div>
-    <div style="display:flex;gap:8px;">
-      <button id="cpNewBtn" style="padding:8px 16px;background:#2563EB;border:none;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">+ NEW</button>
-      <button id="cpCloseBtn" style="padding:8px 14px;background:#1A1A1A;border:2px solid #444;border-radius:8px;color:#888;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">X CLOSE</button>
-    </div>
-  </div>
-
-  <!-- Search bar -->
-  <div style="background:#1A1A1A;padding:10px 16px;border-bottom:1px solid #333;flex-shrink:0;">
-    <input id="cpSearch" type="text" autocomplete="off" placeholder="Search name, phone, item #, appliance, date..." style="width:100%;padding:12px 16px;background:#111;border:2px solid #2563EB;border-radius:10px;color:#fff;font-family:var(--fb);font-size:18px;box-sizing:border-box;outline:none;">
-  </div>
-
-  <!-- A-Z filter -->
-  <div id="cpAlpha" style="background:#111;padding:8px 16px;border-bottom:1px solid #222;display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;">
-    <button class="cpLetter" data-l="ALL" style="padding:6px 10px;background:#2563EB;border:none;border-radius:6px;color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;cursor:pointer;">ALL</button>
-  </div>
-
-  <!-- Customer list -->
-  <div id="cpList" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
-    <div style="text-align:center;padding:40px;color:#444;font-family:var(--fh);font-size:18px;">Loading customers...</div>
-  </div>
-</div>
-
-<!-- CUSTOMER PROFILE - FULL SCREEN -->
-<div id="cpProfile" style="display:none;position:fixed;inset:0;background:#0A0A0A;z-index:800;flex-direction:column;overflow:hidden;">
-
-  <!-- Profile header -->
-  <div style="background:#111;border-bottom:2px solid #2563EB;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <button onclick="closeCpProfile()" style="padding:8px 14px;background:#1A1A1A;border:2px solid #444;border-radius:8px;color:#888;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">BACK</button>
-    <div id="cpProfileName" style="font-family:var(--fh);font-size:20px;font-weight:900;color:#fff;text-align:center;flex:1;padding:0 10px;"></div>
-    <div style="display:flex;gap:8px;">
-      <button id="cpEditBtn" style="padding:8px 14px;background:#F97316;border:none;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">EDIT</button>
-      <button id="cpSelectBtn" style="padding:8px 14px;background:#16A34A;border:none;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">SELECT</button>
-      <button id="cpDelBtn" style="padding:8px 14px;background:#1A1A1A;border:2px solid #DC2626;border-radius:8px;color:#F87171;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">DELETE</button>
-    </div>
-  </div>
-
-  <!-- Profile content -->
-  <div id="cpProfileBody" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;"></div>
-</div>
-
-<!-- CUSTOMER EDIT MODAL -->
-<div id="cpEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:900;overflow-y:auto;padding:16px;">
-  <div style="max-width:500px;margin:0 auto;background:#111;border-radius:16px;border:1px solid #333;overflow:hidden;">
-    <div style="background:#1A1A1A;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--fh);font-size:18px;font-weight:900;color:#F97316;">EDIT CUSTOMER</div>
-      <button onclick="closeCpEdit()" style="background:#333;border:none;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:var(--fh);font-weight:900;">X</button>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
-      <input type="hidden" id="cpEditId">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">FIRST NAME</div><input id="cpEditFn" type="text" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:16px;box-sizing:border-box;"></div>
-        <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">LAST NAME</div><input id="cpEditLn" type="text" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:16px;box-sizing:border-box;"></div>
-      </div>
-      <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">PRIMARY PHONE</div><input id="cpEditP1" type="tel" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fm);font-size:18px;box-sizing:border-box;"></div>
-      <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">EMAIL</div><input id="cpEditEm" type="email" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:16px;box-sizing:border-box;"></div>
-      <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">ADDRESS</div><input id="cpEditAddr" type="text" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:16px;box-sizing:border-box;"></div>
-      <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">TYPE</div>
-        <select id="cpEditType" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;">
-          <option value="REGULAR">Regular Customer</option>
-          <option value="VIP">VIP</option>
-          <option value="SUPER_VIP">Super VIP</option>
-          <option value="TENANT">Tenant</option>
-          <option value="PICKER">Picker</option>
-        </select>
-      </div>
-      <div><div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">NOTES</div><textarea id="cpEditNotes" rows="3" style="width:100%;padding:10px;background:#0A0A0A;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:14px;resize:none;box-sizing:border-box;"></textarea></div>
-      <button id="cpSaveEditBtn" style="width:100%;padding:14px;background:#F97316;border:none;border-radius:10px;color:#fff;font-family:var(--fh);font-size:18px;font-weight:900;cursor:pointer;">SAVE CHANGES</button>
-      <div id="cpEditStatus" style="text-align:center;font-family:var(--fh);font-size:14px;min-height:20px;"></div>
-    </div>
-  </div>
-</div>
-
-<!-- FLOOR PUSH MODAL -->
-<div id="floorModal" style="display:none;position:fixed;inset:0;background:#0A0A0A;z-index:700;flex-direction:column;overflow:hidden;">
-  <!-- Header -->
-  <div style="background:#111;border-bottom:2px solid #16A34A;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-family:var(--fh);font-size:24px;font-weight:900;color:#16A34A;">FLOOR PUSH</div>
-    <div style="display:flex;gap:8px;">
-      <button id="fpBulkBtn" style="padding:8px 14px;background:#1A2A1A;border:2px solid #16A34A;border-radius:8px;color:#16A34A;font-family:var(--fh);font-size:13px;font-weight:900;cursor:pointer;">SELECT</button>
-      <button id="fpPushAllBtn" style="display:none;padding:8px 14px;background:#F97316;border:none;border-radius:8px;color:#fff;font-family:var(--fh);font-size:13px;font-weight:900;cursor:pointer;">PUSH SELECTED</button>
-      <button id="fpCloseBtn" style="padding:8px 14px;background:#1A1A1A;border:2px solid #444;border-radius:8px;color:#888;font-family:var(--fh);font-size:13px;font-weight:900;cursor:pointer;">X CLOSE</button>
-    </div>
-  </div>
-  <!-- Add new item bar -->
-  <div style="background:#1A1A1A;padding:10px 16px;border-bottom:1px solid #333;display:flex;gap:8px;flex-shrink:0;">
-    <select id="fpCat" style="flex:1;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;">
-      <option value="WASHER">Washer</option>
-      <option value="DRYER_ELECTRIC">Dryer - Electric</option>
-      <option value="DRYER_GAS">Dryer - Gas</option>
-      <option value="REFRIGERATOR">Refrigerator</option>
-      <option value="STOVE_ELECTRIC">Stove - Electric</option>
-      <option value="STOVE_GAS">Stove - Gas</option>
-      <option value="FREEZER">Freezer</option>
-      <option value="PART">Part</option>
-    </select>
-    <input id="fpBrand" type="text" placeholder="Brand" style="flex:1;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:14px;">
-    <input id="fpModel" type="text" placeholder="Model" style="flex:1;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:14px;">
-    <input id="fpPrice" type="number" placeholder="Price" style="width:90px;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fm);font-size:14px;">
-    <button id="fpAddBtn" style="padding:8px 16px;background:#16A34A;border:none;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">+ ADD</button>
-  </div>
-  <!-- Item list -->
-  <div id="fpList" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;">
-    <div style="text-align:center;padding:40px;color:#444;font-family:var(--fh);font-size:18px;">Loading inventory...</div>
-  </div>
-</div>
-
-<!-- FLOOR ITEM DETAIL PANEL -->
-<div id="fpDetail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:800;overflow-y:auto;padding:16px;">
-  <div style="max-width:520px;margin:0 auto;background:#111;border-radius:16px;border:1px solid #333;overflow:hidden;">
-    <div style="background:#1A1A1A;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
-      <div id="fpDetailTitle" style="font-family:var(--fh);font-size:20px;font-weight:900;color:#fff;"></div>
-      <button onclick="g('fpDetail').style.display='none'" style="background:#333;border:none;color:#fff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;">X</button>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
-      <!-- Photos -->
-      <div>
-        <div style="font-family:var(--fh);font-size:12px;font-weight:900;color:#F97316;margin-bottom:6px;">PHOTOS - check to show customers, tap star for hero</div>
-        <div id="fpPhotoGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;"></div>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;">
-          <input type="file" id="fpPhotoUpload" accept="image/*" capture="environment" style="display:none;" multiple>
-          <button onclick="g('fpPhotoUpload').click()" style="padding:8px 14px;background:#1A1A1A;border:1px dashed #444;border-radius:8px;color:#888;font-family:var(--fh);font-size:13px;cursor:pointer;">+ ADD PHOTOS</button>
-        </label>
-      </div>
-      <!-- Fields -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">PRICE</div>
-          <input id="fpDetailPrice" type="number" style="width:100%;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fm);font-size:16px;">
-        </div>
-        <div>
-          <div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">CONDITION</div>
-          <select id="fpDetailCond" style="width:100%;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;">
-            <option>WORKING</option>
-            <option>BROKEN-REPAIR</option>
-            <option>LIKE NEW</option>
-            <option>GOOD</option>
-            <option>FAIR</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">CONDITION DETAILS</div>
-        <input id="fpDetailCondNote" type="text" placeholder="e.g. small dent on left side, works perfectly" style="width:100%;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:14px;">
-      </div>
-      <div>
-        <div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">CUSTOMER DESCRIPTION</div>
-        <textarea id="fpDetailDesc" rows="3" placeholder="Write what customers will see..." style="width:100%;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fb);font-size:14px;resize:none;"></textarea>
-      </div>
-      <div>
-        <div style="font-family:var(--fh);font-size:11px;color:#F97316;margin-bottom:3px;">STORE LOCATION</div>
-        <select id="fpDetailLoc" style="width:100%;padding:8px;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-family:var(--fh);font-size:14px;">
-          <option value="FLOOR">Floor</option>
-          <option value="SHELF_A">Shelf A</option>
-          <option value="SHELF_B">Shelf B</option>
-          <option value="BACK_ROOM">Back Room</option>
-          <option value="OUTSIDE">Outside</option>
-          <option value="WINDOW">Window Display</option>
-          <option value="STORAGE">Storage</option>
-        </select>
-      </div>
-      <!-- Push buttons -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
-        <button id="fpPushReg" style="padding:12px;background:#1A3A1A;border:2px solid #16A34A;border-radius:10px;color:#22C55E;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">PUSH TO REGISTER</button>
-        <button id="fpPushWeb" style="padding:12px;background:#1A1F3A;border:2px solid #2563EB;border-radius:10px;color:#60A5FA;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">PUSH TO WEB APP</button>
-      </div>
-      <button id="fpPushBoth" style="width:100%;padding:14px;background:#F97316;border:none;border-radius:10px;color:#fff;font-family:var(--fh);font-size:18px;font-weight:900;cursor:pointer;">PUSH TO BOTH</button>
-      <button id="fpMarkSold" style="width:100%;padding:10px;background:#1A1A1A;border:2px solid #DC2626;border-radius:10px;color:#F87171;font-family:var(--fh);font-size:14px;font-weight:900;cursor:pointer;">MARK AS SOLD</button>
-    </div>
-    <div id="fpDetailStatus" style="text-align:center;padding:10px;font-family:var(--fh);font-size:14px;color:#16A34A;min-height:20px;"></div>
-  </div>
-</div>
-
-<script>
-// CUST PORTAL WIRING - onclick for iPad compatibility
-setTimeout(function(){
-  var portalBtn = document.getElementById('custPortalBtn');
-  if(portalBtn){
-    portalBtn.onclick = function(){
-      var portal = document.getElementById('custPortal');
-      if(portal){ portal.style.display='flex'; cpLoadAll(); }
-    };
-  }
-  // Wire search
-  var cpSrch = document.getElementById('cpSearch');
-  if(cpSrch){
-    cpSrch.oninput = function(){
-      var q = this.value.toLowerCase().trim();
-      if(!q){ cpRenderList(cpAllCustomers); return; }
-      var matches = cpAllCustomers.filter(function(c){
-        return ((c.first_name||'')+' '+(c.last_name||'')).toLowerCase().indexOf(q)>-1||
-               String(c.phone1||'').indexOf(q)>-1;
-      });
-      cpRenderList(matches);
-    };
-  }
-  // Also add Waiver to policy screen if not there
-},1000);
 </script>
