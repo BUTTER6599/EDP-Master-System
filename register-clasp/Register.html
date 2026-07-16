@@ -2759,7 +2759,8 @@ function updateAddBtns(cat){
   g('addPartBtn').className='addItemBtn'+(isOwner&&isParts?' visible':'');
   g('addApplianceBtn').className='addItemBtn'+(isOwner&&isAppl?' visible':'');
   g('addSvcBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
-  g('addPurchaseBtn').className='addItemBtn'+(isOwner?' visible':'');
+  var pb=g('addPurchaseBtn');
+  if(pb){pb.className='addItemBtn'+(isOwner?' visible':'');pb.style.display=isOwner?'flex':'none';}
   g('settingsBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
 }
 
@@ -3379,7 +3380,7 @@ setTimeout(function(){
   var ct = document.getElementById('custTab');
   var fpc = document.getElementById('fpCloseBtn');
   var cpc = document.getElementById('cpCloseBtn');
-  if(ft){ft.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();g('floorModal').style.display='flex';fpLoadItems();});}
+  if(ft){ft.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();updateAddBtns('W');g('floorModal').style.display='flex';fpLoadItems();});}
   // custPortalBtn wired below
   if(fpc){fpc.addEventListener('click',function(){g('floorModal').style.display='none';});}
   if(cpc){cpc.addEventListener('click',function(){g('custPortal').style.display='none';});}
