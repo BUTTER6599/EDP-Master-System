@@ -2941,6 +2941,11 @@ function openAddModal(type){
       if(partNameWrap){
         partNameWrap.style.display=(itemType==='PART'?'block':'none');
       }
+
+      var qtyWrap=g('wrap_pur_qty');
+      if(qtyWrap){
+        qtyWrap.style.display=(itemType==='APPLIANCE'?'none':'block');
+      }
     }
 
     if(typeSelPur){
