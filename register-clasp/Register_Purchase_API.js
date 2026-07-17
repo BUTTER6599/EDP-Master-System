@@ -24,6 +24,17 @@ function ensurePurchasesSheet(){
     if(missingHeaders.length>0){
       Logger.log('Warning: PURCHASES sheet missing headers: '+missingHeaders.join(', '));
     }
+
+    var sellerInfoHeaders=['seller_name','seller_address'];
+    var headersToAdd=[];
+    sellerInfoHeaders.forEach(function(h){
+      if(headerRow.indexOf(h)<0)headersToAdd.push(h);
+    });
+    if(headersToAdd.length>0){
+      var newHeaderRow=headerRow.concat(headersToAdd);
+      sheet.getRange(1,1,1,newHeaderRow.length).setValues([newHeaderRow]);
+      Logger.log('Added missing seller info headers to PURCHASES sheet: '+headersToAdd.join(', '));
+    }
   }
   return sheet;
 }
