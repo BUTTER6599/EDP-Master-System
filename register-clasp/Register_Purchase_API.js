@@ -63,7 +63,7 @@ function api_addPurchase(payload){
     var now=new Date();
     var dateStr=Utilities.formatDate(now,'America/Chicago','yyyy-MM-dd');
     var timeStr=Utilities.formatDate(now,'America/Chicago','HH:mm:ss');
-    var employeeName=Session.getEffectiveUser()?Session.getEffectiveUser().getEmail():'Unknown';
+    var employeeName=String(payload.employee_name||'Staff');
 
     var targetInventory='';
     if(itemType==='APPLIANCE')targetInventory='APPLIANCES';
