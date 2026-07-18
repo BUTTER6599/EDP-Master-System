@@ -12,7 +12,7 @@ function ensurePurchasesSheet(){
   var sheet=ss.getSheetByName('PURCHASES');
   if(!sheet){
     sheet=ss.insertSheet('PURCHASES',ss.getSheets().length);
-    var headers=['purchase_id','date_received','timestamp','employee_name','item_type','item_category','brand','model','serial','part_name','condition','qty','purchase_price','seller_source','seller_phone','location','ready_now','notes','stage','status','promote_when_saved','target_inventory'];
+    var headers=['purchase_id','date_received','timestamp','employee_name','item_type','item_category','brand','model','serial','part_name','condition','qty','purchase_price','seller_source','seller_name','seller_address','seller_phone','location','ready_now','notes','stage','status','promote_when_saved','target_inventory'];
     sheet.getRange(1,1,1,headers.length).setValues([headers]);
   } else {
     var headerRow=sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
@@ -45,10 +45,11 @@ function api_addPurchase(payload){
     var itemCategory=payload.item_category;
     var brand=payload.brand;
     var sellerSource=payload.seller_source;
+    var sellerName=payload.seller_name;
     var partName = String(payload.part_name || '').trim();
 
-    if(!itemType||!itemCategory||!brand||!sellerSource){
-      return {ok:false,error:'Missing required fields: item_type, item_category, brand, seller_source'};
+    if(!itemType||!itemCategory||!brand||!sellerSource||!sellerName){
+      return {ok:false,error:'Missing required fields: item_type, item_category, brand, seller_source, seller_name'};
     }
 
     if (itemType === 'PART' && !partName) {
@@ -85,7 +86,7 @@ function api_addPurchase(payload){
     var row=[
       purchaseId,dateStr,timeStr,employeeName,itemType,itemCategory,brand,
       payload.model||'',payload.serial||'',partName,payload.condition||'',
-      qty,price,sellerSource,payload.seller_phone||'',payload.location||'',
+      qty,price,sellerSource,sellerName,payload.seller_address||'',payload.seller_phone||'',payload.location||'',
       payload.ready_now||'NO',payload.notes||'','RECEIVED','PENDING_VALIDATION','NO',targetInventory
     ];
 

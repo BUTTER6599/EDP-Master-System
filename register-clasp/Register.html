@@ -2859,6 +2859,8 @@ function openAddModal(type){
       {id:'pur_qty',lbl:'Quantity',type:'number',ph:'1'},
       {id:'pur_price',lbl:'Purchase Price ($)',type:'number',ph:'0.00'},
       {id:'pur_seller',lbl:'Seller Source',type:'select',opts:['Facebook Marketplace','Craigslist','Estate Sale','Donation','Private','Other']},
+      {id:'pur_sellername',lbl:'Seller Name',type:'text',ph:'e.g. John Smith'},
+      {id:'pur_selleraddr',lbl:'Seller Address',type:'text',ph:'e.g. 123 Main St, City, State'},
       {id:'pur_phone',lbl:'Seller Phone',type:'text',ph:'e.g. 504-555-1234'},
       {id:'pur_location',lbl:'Location / Bin / Shelf',type:'text',ph:'e.g. Receiving Area'},
       {id:'pur_notes',lbl:'Notes',type:'textarea',ph:'Any notes...'}
@@ -3134,14 +3136,16 @@ function saveAddItem(type){
 
     var price=parseFloat(v('pur_price'));
     var seller=v('pur_seller');
+    var sellerName=v('pur_sellername');
+    var sellerAddr=v('pur_selleraddr');
     var phone=v('pur_phone');
     var location=v('pur_location');
     var notes=v('pur_notes');
     var readyNowChk=document.getElementById('pur_readynow');
     var readyNow=readyNowChk&&readyNowChk.checked?'YES':'NO';
 
-    if(!itemType||!category||!brand||!seller){
-      status.textContent='Error: Missing required fields (Item Type, Category, Brand, Seller Source)';
+    if(!itemType||!category||!brand||!seller||!sellerName){
+      status.textContent='Error: Missing required fields (Item Type, Category, Brand, Seller Source, Seller Name)';
       status.style.color='#DC2626';
       return;
     }
@@ -3164,7 +3168,7 @@ function saveAddItem(type){
     var payload4={
       item_type:itemType,item_category:category,brand:brand,model:model,
       serial:serial,part_name:partName,condition:condition,qty:qty,
-      purchase_price:price,seller_source:seller,seller_phone:phone,
+      purchase_price:price,seller_source:seller,seller_name:sellerName,seller_address:sellerAddr,seller_phone:phone,
       location:location,ready_now:readyNow,notes:notes
     };
     status.textContent='Saving purchase...';
