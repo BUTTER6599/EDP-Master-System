@@ -457,6 +457,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-fami
       <button class="addItemBtn" id="addApplianceBtn">+ ADD APPLIANCE</button>
       <button class="addItemBtn" id="addSvcBtn">+ ADD SERVICE</button>
       <button class="addItemBtn" id="addPurchaseBtn">+ PURCHASE</button>
+      <button class="addItemBtn" id="tradeInBtn" style="background:#EA580C;border-color:#F97316;color:#fff;">[TRADE-IN] SELL TO EDP</button>
       <button class="addItemBtn" id="settingsBtn">[gear] SETTINGS</button>
     </div>
     <div id="partsFilterRow" style="display:none;"></div>
@@ -2761,6 +2762,8 @@ function updateAddBtns(cat){
   g('addSvcBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
   var pb=g('addPurchaseBtn');
   if(pb){pb.className='addItemBtn'+(isOwner?' visible':'');pb.style.display=isOwner?'flex':'none';}
+  var tb=g('tradeInBtn');
+  if(tb){tb.className='addItemBtn'+(isOwner?' visible':'');tb.style.display=isOwner?'flex':'none';}
   g('settingsBtn').className='addItemBtn'+(isOwner&&isSvc?' visible':'');
 }
 
@@ -2799,6 +2802,11 @@ g('addApplianceBtn').addEventListener('click',function(){openAddModal('APPLIANCE
 g('addSvcBtn').addEventListener('click',function(){openAddModal('SERVICE');});
 // Add Purchase button
 g('addPurchaseBtn').addEventListener('click',function(){openAddModal('PURCHASE');});
+// Trade-In / Sell to EDP button
+g('tradeInBtn').addEventListener('click',function(){
+  var intakeUrl='https://script.google.com/macros/s/AKfycby6CbCNjYJXVU6uCX9JkxauGTtvHA5RQClOy1l9MbwJPhUL1cxbO-CEPs_gpuXBypg8/exec';
+  window.open(intakeUrl,'_blank');
+});
 
 g('addCl').addEventListener('click',function(){g('addModal').classList.remove('show');});
 g('addModal').addEventListener('click',function(e){if(e.target===this)g('addModal').classList.remove('show');});
