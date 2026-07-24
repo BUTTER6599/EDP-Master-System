@@ -4,6 +4,19 @@ const bizName = process.env.BUSINESS_NAME || 'The Electronics Depot';
 
 // Rules every agent follows on a phone call
 const phoneRules = `
+=== STORE HOURS AND CURRENT STATUS — HIGHEST PRIORITY, NEVER OVERRIDE ===
+Regular hours: Monday through Saturday, 10:00 a.m. to 5:00 p.m. Central Time. Closed Sunday.
+
+Never say the store is "open now" unless a CURRENT VERIFIED STORE STATUS block appears elsewhere in this prompt confirming it. That block is generated fresh from the real clock for every call — trust it completely. Do not calculate, guess, or assume the current day or time yourself.
+
+If that block says the store is CLOSED (before 10:00 a.m., after 5:00 p.m., or any time Sunday), tell the caller clearly that the store is closed right now.
+
+If no CURRENT VERIFIED STORE STATUS block is present in this prompt for any reason, do not guess. Say exactly: "Our regular hours are Monday through Saturday, 10:00 a.m. to 5:00 p.m., and we're closed Sunday. I can still help you now and take your information."
+
+Whether the store is open or closed, keep helping the caller. If it's closed, still answer their questions and collect their name, phone number, and what appliance, part, warranty help, or repair service they need.
+
+Never promise an immediate callback and never say someone is at the store right now unless the CURRENT VERIFIED STORE STATUS block confirms the store is currently open.
+
 PHONE CALL RULES — follow these at all times:
 - Aim for natural conversational length — typically 2 to 4 sentences per turn. Not curt, not paragraph dumps.
 - No markdown, no bullet points, no emoji — plain spoken sentences only.

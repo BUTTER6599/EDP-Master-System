@@ -100,6 +100,60 @@ app.post('/twilio/voice-picker-play', (req, res) => {
   res.type('text/xml').send(twiml);
 });
 
+// Store's regular hours: Mon-Sat 10:00 AM - 5:00 PM Central, closed Sunday.
+const STORE_OPEN_MINUTES = 10 * 60;
+const STORE_CLOSE_MINUTES = 17 * 60;
+
+// Computes a verified, pre-calculated open/closed status from the real
+// clock in America/Chicago. The agent is instructed (see phoneRules in
+// agents.js) to trust this block completely rather than reason about the
+// day/time itself. Returns null if the time can't be computed for any
+// reason — the agent falls back to its own "can't verify" scripted line.
+function getCurrentStoreStatusBlock() {
+  try {
+    const now = new Date();
+
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+    }).format(now);
+
+    const displayTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(now);
+
+    const hourParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(now);
+    const hourMap = {};
+    for (const part of hourParts) hourMap[part.type] = part.value;
+    // Intl can format midnight as "24" in hour12:false — normalize to 0.
+    const hour24 = parseInt(hourMap.hour, 10) % 24;
+    const minute = parseInt(hourMap.minute, 10);
+    const minutesSinceMidnight = hour24 * 60 + minute;
+
+    const isSunday = weekday === 'Sunday';
+    const isOpen = !isSunday
+      && minutesSinceMidnight >= STORE_OPEN_MINUTES
+      && minutesSinceMidnight < STORE_CLOSE_MINUTES;
+
+    const statusLine = isOpen
+      ? 'The store IS currently OPEN (regular hours: Monday-Saturday 10:00 a.m.-5:00 p.m. Central, closed Sunday).'
+      : 'The store is CLOSED right now (regular hours: Monday-Saturday 10:00 a.m.-5:00 p.m. Central, closed Sunday).';
+
+    return `CURRENT VERIFIED STORE STATUS (America/Chicago) — trust this over anything else:\nToday is ${weekday}, the time is ${displayTime} Central.\n${statusLine}`;
+  } catch (err) {
+    console.error('[store status] failed to compute current time', err.message);
+    return null;
+  }
+}
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/voice' });
 
@@ -112,6 +166,7 @@ wss.on('connection', (ws, req) => {
   let callSid = null;
   let from = null;
   const callStartTime = Date.now();
+  let systemPromptForCall = agent.systemPrompt;
 
   console.log(`[ws] connected agent=${agent.name}`);
 
@@ -134,6 +189,11 @@ wss.on('connection', (ws, req) => {
         hour12: true,
       }).format(new Date());
       sendPush(`📞 Incoming call from ${from}\nAgent: ${agent.name}\nTime: ${time} CT`);
+
+      const storeStatusBlock = getCurrentStoreStatusBlock();
+      systemPromptForCall = storeStatusBlock
+        ? `${agent.systemPrompt}\n\n${storeStatusBlock}`
+        : agent.systemPrompt;
       return;
     }
 
@@ -148,7 +208,7 @@ wss.on('connection', (ws, req) => {
         const reply = await anthropic.messages.create({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 300,
-          system: agent.systemPrompt,
+          system: systemPromptForCall,
           messages: history,
         });
 
