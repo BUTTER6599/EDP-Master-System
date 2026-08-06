@@ -1,8 +1,21 @@
 # EO-016 — Authoritative LIVE Source Map (Read-Only Verification)
 
-**Date:** August 6, 2026, 00:16 CDT
+**Date:** August 6, 2026 — updated 01:0x CDT after iPad deployment ID was supplied
 **Authorization:** READ-ONLY VERIFICATION ONLY
 **Status:** COMPLETE — all 8 steps answered.
+
+> ## ⛔ UPDATE — PUNCH LOGGING HAS BEEN BROKEN SINCE JULY 17, 2026
+>
+> The open question in §6 is **resolved**. Employees have been punching normally. The kiosk uploads
+> their photo, then **fails to write the time record**. Nothing is logged, no receipt is sent, and
+> the employee sees a 2-second error flash.
+>
+> **At least 56 punch events between July 18 and August 5 have no time record anywhere.**
+> Clarence and Kenneth both clocked in Wednesday August 5 (10:07 AM and 10:40 AM) and neither
+> punch was recorded.
+>
+> The punch photos in Drive carry exact timestamps and are a usable reconstruction basis for
+> payroll. Full table in §14. Root cause and evidence in §13.
 
 **Nothing was written, pushed, deployed, created, copied, or modified.** No `clasp push`, no deploy,
 no Script Property change, no trigger creation, no spreadsheet write, no function execution.
@@ -345,20 +358,213 @@ Copy of EDP_Kiosk_V2 TEST  (1hExChp4…)
 
 ---
 
-## 13. Recommended next steps
+## 13. INCIDENT — punch writes failing since July 17, 2026
 
-**Before any TEST build:**
+### 13.1 iPad deployment matched — steps 1–3
 
-1. **Resolve where Wednesday's punches went** (§6.4). Read the `/exec` URL off the kiosk iPad and tell
-   me which deployment ID it contains. If punches are failing silently, that outranks all of EO-016.
-2. Decide on the TEST copy's two live deployments (§10).
+The `/exec` URL supplied by Taylor:
 
-**Then, for the TEST build** — plan shape is unchanged, with these corrections:
+```
+https://script.google.com/macros/s/AKfycbzjf8KaKh0Cs5kI1DxPVl7Na8Hmlg-PEJHb6OtmRiMpApCWsP8gu_nrryfMho8ToXEN/exec
+```
 
-3. Copy `EDP_MASTER_DATABASE` as the TEST fixture only once §6.4 confirms it is the real target.
-4. First code change in TEST: move `KIOSK_SHEET_ID` from a literal to a Script Property (§5).
-5. Rewrite the 5:15 PM check as a window + idempotency guard, with a missed-window alert (§8.2).
-6. Add the missing `ShoesPhotoId` column to the TEST `TIME_LOGS` header (§7).
-7. Borrow the OPS v1.2.0 design — void-not-delete, LockService, exceptions table (§9).
+| Question | Answer |
+|---|---|
+| Matched deployment | `AKfycbzjf8Ka…ToXEN` — **exact match**, 4th entry in the deployment list |
+| Version serving the iPad | **@23** — `Point kiosk to master sheet for TIME_LOGS/SCHEDULE` |
+| @23 vs editor HEAD | **IDENTICAL — zero drift** |
+| Spreadsheet the iPad writes to | `117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI` → `EDP_MASTER_DATABASE`, tab `TIME_LOGS` |
+
+The iPad is running current code. Stale deployment is **eliminated** as an explanation.
+
+### 13.2 The punches are real — proof
+
+`api_punch` executes in this order (`Kiosk_Main.js` 184–215):
+
+```
+1. validate PIN                    ← passes (PINs live in Script Properties)
+2. _saveToDrive(face photo)        ← SUCCEEDS — files exist in Drive
+3. SpreadsheetApp.openById(...)
+4. _getOrCreateLog(ss)
+5. sh.appendRow([7 values])        ← FAILS HERE
+6. _pushPunch() / _emailPunch()    ← never reached: no Pushover, no email receipt
+```
+
+Step 2 writes a file named `<Name>_FACE_<ACTION>_<epoch_ms>.jpg` into Drive folder
+**`LOGIN_PHOTOS`** (`18NJEILkQDOil_a60pXakdUNdQfwg-VtM`), resolved from the `PHOTO_FOLDER_ID`
+Script Property.
+
+**Those files exist. The matching spreadsheet rows do not.** That is the proof: the punch reached
+the server, authenticated, and got as far as the photo write — then died before the row write.
+
+Wednesday August 5:
+
+| Time (CDT) | Employee | Action | Photo in Drive | Row in `TIME_LOGS` |
+|---|---|---|---|---|
+| 10:07 AM | Clarence | CLOCK_IN | ✅ `Clarence_FACE_CLOCK_IN_1785942473783.jpg` | ❌ |
+| 10:40 AM | Kenneth | CLOCK_IN | ✅ `Kenneth_FACE_CLOCK_IN_1785944440329.jpg` | ❌ |
+
+Neither clocked out. No `AUTO_CLOCKOUT` fired either (§8.2 — and it could not have written a row
+regardless, since it uses the same 7-value `appendRow`).
+
+### 13.3 Answering the four candidate modes
+
+| Mode | Verdict |
+|---|---|
+| Rejected before write | **No.** PIN validation passed — otherwise `_saveToDrive` would never have run. |
+| **Partially written** | **YES — this is what is happening.** The Drive photo persists; the spreadsheet row is lost. Orphaned photos with no corresponding record. |
+| Silently failed | **Effectively yes, from the floor.** `withFailureHandler` fires a red `ERROR` flash for ~2.2 s, then the kiosk resets. No Pushover, no email — because both come *after* the failed write. Nothing reaches an owner. |
+| Written successfully, UI not updating | **No.** The write is precisely what fails. |
+
+### 13.4 Root cause — column-count mismatch introduced by @23
+
+`_getOrCreateLog` (line 455) returns an existing tab untouched; it only creates and formats a
+7-column tab when one is **absent**:
+
+```js
+sh.appendRow(["Timestamp","EmployeeID","Name","Action","FacePhotoId","Notes","ShoesPhotoId"]);
+sh.setColumnWidths(1,7,160);
+```
+
+`api_punch` then writes **7 values**.
+
+The two spreadsheets differ exactly where it matters:
+
+| Target | `TIME_LOGS` header | Columns | Created by | Writes |
+|---|---|---|---|---|
+| `EDP_MASTER_OPS FOLDER 2026` (@22) | `… \| EmployeeID \| Name \| Action \| FacePhotoId \| Notes \| ShoesPhotoId` | **7** | `_getOrCreateLog` | worked through 7/17 |
+| `EDP_MASTER_DATABASE` (@23) | `Timestamp \| EmployeeID \| Name \| Action \| PhotoFileId \| Notes` | **6** | pre-existing, not by this code | **failing** |
+
+Two independent confirmations that master's tab was never created by this code:
+
+1. It uses `PhotoFileId`, not `FacePhotoId`, and has no `ShoesPhotoId`.
+2. A Drive full-text search for `ShoesPhotoId` returns `EDP_MASTER_OPS FOLDER 2026`,
+   `EDP_MASTER_SYSTEM — OPS`, and the two script projects — **but not `EDP_MASTER_DATABASE`**.
+   Had `_getOrCreateLog` ever created a tab there, that header string would exist in the file.
+
+All 414 rows in master's `TIME_LOGS` are uniformly 6 fields, ending 4/9/2026. No 7-field row has
+ever landed.
+
+**Conclusion:** @23 repointed a 7-value writer at a pre-existing 6-column tab. `Sheet.appendRow()`
+does not widen a sheet; when the array is longer than the sheet's column count it throws
+`The number of columns in the data does not match the number of columns in the range`.
+
+Confidence: **high but not executed** — I did not run code, so the exception text is inferred rather
+than observed. The timing, the column evidence, and the working-vs-failing contrast between the two
+targets all agree.
+
+**Two 30-second confirmations, both zero-risk:**
+
+1. Open `EDP_MASTER_DATABASE` → `TIME_LOGS` and check the sheet's actual column count. If it is 6,
+   this is confirmed outright.
+2. Apps Script editor → **Executions** → filter `api_punch`, August 5. Failed executions with a
+   column-count exception confirm it directly. (This panel is the execution log; it is not reachable
+   through clasp, which needs a GCP project the script is not attached to — see §15.)
+
+### 13.5 When it broke
+
+| Date | Evidence |
+|---|---|
+| 7/17 11:36 AM CDT | Joe CLOCK_IN — photo **and** presumably logged |
+| **7/17 1:39 PM CDT** | **`EDP_MASTER_OPS FOLDER 2026` last modified — last successful kiosk write** |
+| 7/17 4:00 PM CDT | Joe LUNCH_OUT — photo, no row |
+| 7/17 6:08 PM CDT | Joe LUNCH_IN + CLOCK_OUT — photos, no row |
+| 7/18 onward | every punch — photos, no rows |
+
+**@23 was deployed on July 17, 2026, between 1:39 PM and 4:00 PM CDT.** Everything after is lost.
+
+---
+
+## 14. Reconstructed punch record — 56 unlogged events
+
+From `LOGIN_PHOTOS` filename timestamps (`Date.now()` at punch time), converted to CDT. **This is
+the only surviving record of this time.** Photos: Joe 23, Kenneth 18, Clarence 15.
+Actions: 24 CLOCK_IN, 25 CLOCK_OUT, 4 LUNCH_OUT, 3 LUNCH_IN.
+
+| Date | Punches (CDT) |
+|---|---|
+| Sat 7/18 | 10:59 Kenneth IN · 11:03 Clarence IN · 11:39 Clarence OUT · 14:49 Kenneth OUT · 16:44 Clarence OUT · 16:46 Clarence OUT · 17:01 Clarence IN · 17:28 Clarence OUT |
+| Mon 7/20 | 11:55 Joe IN · 12:38 Joe LUNCH_OUT |
+| Tue 7/21 | 12:55 Joe IN · 12:55 Joe OUT · 12:56 Joe IN · 14:43 Joe LUNCH_OUT · 15:10 Clarence IN · 17:02 Joe LUNCH_IN · 17:03 Clarence OUT |
+| Thu 7/23 | 12:39 Joe OUT · 12:40 Joe IN · 15:34 Joe OUT |
+| Fri 7/24 | 11:45 Joe IN · 16:23 Joe OUT |
+| Tue 7/28 | 12:02 Joe IN · 17:39 Joe OUT |
+| Wed 7/29 | 12:39 Kenneth IN · 14:58 Clarence IN · 14:59 Kenneth LUNCH_OUT · 15:30 Kenneth LUNCH_IN · 18:01 Kenneth OUT · 18:02 Clarence OUT |
+| Thu 7/30 | 09:55 Clarence IN · 12:34 Clarence OUT · 12:41 Joe IN · 15:16 Joe OUT |
+| Fri 7/31 | 10:50 Kenneth IN · 13:20 Kenneth LUNCH_OUT · 13:51 Joe IN · 14:19 Kenneth LUNCH_IN · 17:02 Joe OUT · 17:02 Joe OUT · 17:03 Kenneth OUT |
+| Sat 8/1 | 09:56 Kenneth IN · 13:23 Kenneth OUT |
+| Mon 8/3 | 11:46 Kenneth IN · 11:53 Joe IN · 13:48 Kenneth OUT · 13:48 Kenneth OUT · 15:17 Joe OUT |
+| Tue 8/4 | 10:32 Kenneth IN · 11:56 Joe IN · 12:47 Clarence IN · 14:29 Kenneth OUT · 16:55 Clarence OUT · 17:01 Joe OUT |
+| **Wed 8/5** | **10:07 Clarence IN · 10:40 Kenneth IN** *(no clock-outs)* |
+
+**Caveats for payroll use:**
+
+- Duplicate adjacent entries (7/31 Joe 17:02 ×2, 8/3 Kenneth 13:48 ×2, 7/18 Clarence 16:44/16:46)
+  are double-taps, not separate punches.
+- Photo timestamps are **device** time captured at upload, not server-authoritative time.
+- Only punches that carry a photo appear here. Any punch where the camera was skipped left no trace
+  at all, so **this table is a floor, not a complete record.**
+- 44 checklist photos (`*_CHK_*`) exist in the same window; those `CHECKLIST_*` writes also failed.
+- Employees should confirm their own hours before these figures are paid.
+
+---
+
+## 15. Execution logs — not reachable read-only
+
+`clasp tail-logs` returns `GCP project ID is not set, unable to continue.` The project uses the
+default hidden GCP project, and attaching a standard one would modify LIVE project settings, which
+is outside authorization. The Apps Script editor's **Executions** panel shows the same data and
+needs no change — that is the route to the actual exception text (§13.4).
+
+---
+
+## 16. Existing TEST environment — findings
+
+| Asset | Exists? | Detail |
+|---|---|---|
+| `Copy of EDP_Kiosk_V2 TEST` (script) | **Yes** | Points at `1laPGf…` = `EDP_MASTER_OPS FOLDER 2026`, a **production** sheet. 2 live deployments (`@HEAD`, `@10`). Not isolated. |
+| A kiosk TEST spreadsheet | **No** | Title search for `Kiosk_TEST` / `EDP_Kiosk_TEST` / `KIOSK TEST` returns only the script above. No `EDP_Kiosk_TEST_DATA` exists. |
+| `TEST — EDP Operations App` + `— DATA` | Yes, unrelated | Belongs to EO-013/015, isolated, not kiosk. |
+
+**No usable kiosk TEST environment exists.** The one thing named TEST writes to production data.
+
+Note: because that project shares `EDP_MASTER_OPS FOLDER 2026` — which has a **correct 7-column**
+`TIME_LOGS` — its punches would still write successfully. If anyone opens either of its two URLs,
+rows land in a production spreadsheet.
+
+---
+
+## 17. Recommended next steps
+
+**EO-016 is no longer the most urgent item.** A production outage is losing wage records daily.
+
+**Immediate — stop the bleeding (needs approval; each is a LIVE change):**
+
+1. **Confirm the cause** — check `TIME_LOGS` column count, or the Executions panel (§13.4). Zero risk,
+   no approval needed.
+2. **Restore logging.** Two options:
+   - **(a) Widen the target** — add a 7th column to `EDP_MASTER_DATABASE` → `TIME_LOGS`. One
+     spreadsheet edit, no code change, no redeploy. Lowest risk, fastest.
+   - **(b) Roll back to @22** — repoints at `EDP_MASTER_OPS FOLDER 2026`, which has a working
+     7-column tab. Restores logging immediately but splits history across two spreadsheets, and that
+     tab is banner-flagged as TEST data.
+
+   **(a) is the recommendation.** It fixes the defect where it exists and keeps history in one place.
+3. **Preserve the photo evidence** before Drive retention or cleanup touches `LOGIN_PHOTOS`. It is
+   currently the only record of 19 days of work.
+4. **Reconstruct and approve the missing time** with each employee (§14), then enter it as owner
+   corrections with reasons — not as invented punches.
+
+**Then, for the TEST build** — plan shape unchanged, with these corrections:
+
+5. First code change in TEST: move `KIOSK_SHEET_ID` from a literal to a Script Property (§5). This
+   incident is exactly what a hardcoded environment binding causes.
+6. Rewrite the 5:15 PM check as a window + idempotency guard, with a missed-window alert (§8.2).
+7. **Make write failure loud.** `api_punch` must verify the row landed and, on failure, alert the
+   owner and tell the employee their punch was not recorded. A payroll write that can fail silently
+   for 19 days is the deeper defect — bigger than the column mismatch that triggered it.
+8. Validate the target schema at boot: if the log tab is too narrow or misnamed, refuse to start and
+   alert, rather than failing per-punch.
+9. Borrow the OPS v1.2.0 design — void-not-delete, LockService, exceptions table (§9).
 
 Stopping here. No further action without approval.

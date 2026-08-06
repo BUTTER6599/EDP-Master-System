@@ -4,6 +4,26 @@
 **Authorization:** READ-ONLY VERIFICATION ONLY
 **Status:** PARTIAL — 6 of 10 steps blocked on clasp authentication, which requires Taylor.
 
+> ## ⚠️ SUPERSEDED IN PART — see `EO-016-AUTHORITATIVE-SOURCE-MAP.md`
+>
+> clasp has since been authenticated and the blocked steps completed. Two conclusions below are
+> now corrected:
+>
+> **§3 — "today's punches are not in this Drive account."** Correct as far as it went, but the
+> inference was wrong. Punches are not missing from Drive — they are missing from the
+> **spreadsheet**. The kiosk has been uploading punch photos to Drive and then failing to write
+> the time record since **July 17, 2026**. At least 56 punch events are unlogged.
+> The photos are the surviving evidence.
+>
+> **§4 — spreadsheet binding "narrowed, unresolved."** Now resolved: **hardcoded** at
+> `Kiosk_Main.js` line 15 → `EDP_MASTER_DATABASE`, tab `TIME_LOGS`. Not a Script Property.
+>
+> **§5.2 — 5:15 PM auto clock-out "not in this file."** Correct: it is in `EDP_Kiosk_V2`,
+> `_autoClockOut()` at line 329, fired by a one-minute `checkScheduleAlerts` trigger.
+>
+> Everything else below — the clasp blocker, the missing `142367e` baseline, the two-timeclock
+> finding — stands as written.
+
 **Nothing was created, deployed, pushed, copied, or written.** No Script Property was read or changed.
 No trigger was created. No LIVE or TEST project or spreadsheet was modified. All access was read-only
 Google Drive metadata and content reads.
