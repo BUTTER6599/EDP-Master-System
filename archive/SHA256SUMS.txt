@@ -1,0 +1,6 @@
+eb2af1e2547ee676ab1fcffbf60b9d6b4a3957209d7c4aff9379492acac4e19c  archive/kiosk-live-2026-08-06/Kiosk.html
+29096a2a70bdfe361b2b015682d15297584a16f68ad15eb3bc40e0914152bd96  archive/kiosk-live-2026-08-06/Kiosk_Main.js
+cd31a65b502af5d9ccd0abd6f7204b1bb7aa9cc68bfcdc1b2e61f556458f064e  archive/kiosk-live-2026-08-06/appsscript.json
+eb2af1e2547ee676ab1fcffbf60b9d6b4a3957209d7c4aff9379492acac4e19c  archive/kiosk-test-2026-08-06/Kiosk.html
+25837139f385d9d40096f6892a4d8a1085a8a2e332bc33a30a3eae0deb61a3d3  archive/kiosk-test-2026-08-06/Kiosk_Main.js
+cd31a65b502af5d9ccd0abd6f7204b1bb7aa9cc68bfcdc1b2e61f556458f064e  archive/kiosk-test-2026-08-06/appsscript.json
