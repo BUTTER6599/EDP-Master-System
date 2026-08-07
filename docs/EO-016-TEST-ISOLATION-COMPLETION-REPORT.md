@@ -37,8 +37,12 @@ Source snapshots also committed to this branch under `archive/`, with `SHA256SUM
 | **TEST deployment ID** | `AKfycbx9U_BuZgbnymjD5f3B75oCKz9wfafrU6dIv7FaKyIFRaZ8bbxnxwou1NJwxzhEwQ8Feg` @1 |
 | **TEST /exec URL** | https://script.google.com/macros/s/AKfycbx9U_BuZgbnymjD5f3B75oCKz9wfafrU6dIv7FaKyIFRaZ8bbxnxwou1NJwxzhEwQ8Feg/exec |
 
-A second `@HEAD` deployment (`AKfycbwKEV2VrtYthFiogPjd5tdIGm8SolUnxyg-2nN9x0o3`) was created
-automatically by Apps Script. Both are TEST-only.
+**Exactly one deployment was created on this project:** `@1` above.
+
+`clasp list-deployments` shows a second entry, `AKfycbwKEV2VrtYthFiogPjd5tdIGm8SolUnxyg-2nN9x0o3 @HEAD`.
+That is the **automatic head deployment** Apps Script maintains for every project — it always tracks
+the current editor content and is not a deployment anyone created. It is listed for completeness, not
+as a second TEST web app.
 
 ---
 
@@ -176,7 +180,7 @@ Covered in §3. No capability; isolation does not depend on them; one-click help
 | `TEST_LOGIN_PHOTOS` | — | 0 files |
 | LIVE deployments | 4 | **4** |
 | LIVE versions | 23 | **23** |
-| TEST deployments | — | 2 (`@HEAD`, `@1`) |
+| TEST deployments **created** | — | **1** (`@1`). `clasp` also lists the automatic `@HEAD` entry, which is not a created deployment |
 
 ---
 
@@ -204,9 +208,11 @@ unchanged deployment and version counts (tests 12–13), none of which can drift
 
 Nothing created here touches production, so rollback is deletion. In order:
 
-1. **Undeploy TEST deployments** —
-   `clasp undeploy AKfycbx9U_BuZgbnymjD5f3B75oCKz9wfafrU6dIv7FaKyIFRaZ8bbxnxwou1NJwxzhEwQ8Feg`,
-   then the `@HEAD` one.
+1. **Undeploy the one TEST deployment that was created** —
+   `clasp undeploy AKfycbx9U_BuZgbnymjD5f3B75oCKz9wfafrU6dIv7FaKyIFRaZ8bbxnxwou1NJwxzhEwQ8Feg`
+
+   That is the only deployment to remove. Do **not** try to undeploy the automatic `@HEAD` entry —
+   it is intrinsic to the project and disappears with the project itself at step 2.
 2. **Delete the TEST Apps Script project** — `1Q7_6jgY-BcZJoATq0wh31zxpugaP9d4n2tJ4KYUxYFxn-l5HQdlzNAJm`,
    via Drive trash or `clasp delete-script`.
 3. **Delete the TEST folder** — `15B4ERK7O3ED5bifdhESMPLUhXI6MVlaW`, which removes
