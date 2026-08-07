@@ -5,8 +5,8 @@
 **Result:** TEST environment created and isolated. **LIVE not modified — verified by hash.**
 **Status:** Awaiting approval before any EO-016 feature coding.
 **Update Aug 6:** First controlled TEST clock-in/out cycle **completed successfully** — TEST punch
-writes verified (§4.3). One defect found: TEST spreadsheet timezone is `Etc/GMT`, not
-`America/Chicago` (§4A). Correction is a Sheets-UI setting change; **not yet applied.**
+writes verified (§4.3). TEST spreadsheet timezone defect found and **corrected to `America/Chicago`**
+(§4A). Correction verified; the three pre-change rows are confirmed stale fixtures.
 
 ---
 
@@ -100,7 +100,7 @@ No LIVE Script Property was read or written.
 | 6 | Pushover token and user key removed | ✅ **PASS** — both 0 occurrences; constants set to `""` |
 | 7 | Notifications disabled at the function level | ✅ **PASS** — `_push`, `_email`, `_pushPunch`, `_emailPunch` each return early when `NOTIFICATIONS_ENABLED` is false, logging instead of sending |
 | 8 | Auto clock-out disabled | ✅ **PASS** — `AUTO_CLOCKOUT_ENABLED = false`; **no trigger installed** in TEST |
-| 9 | TEST timezone | ✅ **PASS** — `America/Chicago` |
+| 9 | TEST **script** timezone | ✅ **PASS** — `appsscript.json` = `America/Chicago`. Note: the TEST **spreadsheet** timezone was separately wrong and has since been corrected (§4A) |
 | 10 | TEST spreadsheet is empty | ✅ **PASS** — 1,024 bytes, no rows |
 
 ### 4.2 LIVE integrity — verified by re-pull and hash comparison
@@ -140,14 +140,14 @@ Timestamp | EmployeeID | Name | Action | FacePhotoId | Notes | ShoesPhotoId
    6-column legacy header LIVE inherited.
 2. **No duplicate punches.** Three actions, three rows, in correct sequence.
 
-## 4A. TEST timezone defect — FOUND, correction PENDING
+## 4A. TEST timezone defect — FOUND and CORRECTED
 
 ### 4A.1 The defect
 
-| Environment | Spreadsheet timezone |
-|---|---|
-| `EDP_MASTER_DATABASE` (LIVE) | `America/Chicago` — correct |
-| `EDP_Kiosk_TEST_DATA` (TEST) | **`Etc/GMT`** — wrong |
+| Environment | Spreadsheet timezone (before) | (after) |
+|---|---|---|
+| `EDP_MASTER_DATABASE` (LIVE) | `America/Chicago` | **`America/Chicago` — unchanged, not touched** |
+| `EDP_Kiosk_TEST_DATA` (TEST) | **`Etc/GMT`** — wrong | **`America/Chicago` — corrected** |
 
 A new Google spreadsheet inherits a default timezone; this one came out as `Etc/GMT`. The TEST
 *script* timezone is correct (`appsscript.json` = `America/Chicago`, byte-identical to LIVE), so the
@@ -160,46 +160,48 @@ stored and displayed as `22:06`. The three rows from the first cycle are shifted
 Confirmed by the data: the cycle was run in the Chicago evening and the rows read `22:06` / `22:21`,
 which is UTC, not Central.
 
-### 4A.2 I cannot make this change — it needs the Sheets UI
+### 4A.2 Correction applied by Taylor
 
-Spreadsheet timezone lives in spreadsheet settings, reachable through the Sheets API
-(`updateSpreadsheetProperties`) or `SpreadsheetApp.setSpreadsheetTimeZone()`. This session has
-neither: the Drive connector exposes create/copy/read only, and running
-`setSpreadsheetTimeZone()` would require a TEST **code change**, which is explicitly deferred.
+Changed via Sheets UI (File → Settings → Time zone) on August 6, 2026. **No code change, no Script
+Property change, no LIVE change.** I could not perform it myself — spreadsheet timezone needs the
+Sheets API or `setSpreadsheetTimeZone()`, and this session has neither.
 
-**Taylor, in `EDP_Kiosk_TEST_DATA`:** File → Settings → Time zone →
-`(GMT-05:00) Central Time – Chicago` → Save settings. About 20 seconds. **No code change needed.**
+### 4A.3 The three existing rows were NOT corrected — confirmed empirically
 
-### 4A.3 Important — the existing three rows will NOT be corrected by this
+Google Sheets stores datetimes as **serial numbers with no timezone attached**, so changing the
+spreadsheet timezone does not rewrite existing values. This was predicted before the change and is
+now **confirmed by re-reading the sheet afterwards**:
 
-Google Sheets stores datetimes as **serial numbers with no timezone attached**. Changing the
-spreadsheet timezone does not rewrite existing serials.
+```
+Timestamp | EmployeeID | Name | Action | FacePhotoId | Notes | ShoesPhotoId
+8/6/2026 22:06:00 | TAYLOR | Taylor | CLOCK_IN
+8/6/2026 22:21:43 | TAYLOR | Taylor | CLOCK_OUT
+8/6/2026 22:21:57 | TAYLOR | Taylor | CHECKLIST_REGISTER_DONE
+```
 
-So after the change, the three existing rows will **still display `22:06` / `22:21`** — but that text
-will now mean 10:06 PM Central instead of 10:06 PM UTC. They move from "5 hours late" to "5 hours
-late in a different direction." They do not become correct.
+**Byte-identical to the pre-change read.** The displayed text did not move, which means the absolute
+instant each row represents shifted by five hours: `22:06` used to mean 22:06 UTC (5:06 PM Central,
+the real punch time) and now means 22:06 Central.
 
-**They should not be repaired.** They are three throwaway test punches with no value. The correct
-sequence is:
+**These three rows are stale fixtures.** They record a real cycle but carry a wrong wall-clock time in
+both directions. Do not repair them and do not use them for any time-based validation — in particular
+not for the auto-clock-out window tests. Ignore or delete them.
 
-1. Change the timezone.
-2. Treat the three pre-change rows as **invalid fixtures** — ignore or delete them.
-3. Run a fresh controlled cycle and confirm the new rows show correct Central time.
+**Only rows written after the timezone change carry trustworthy timestamps.**
 
-Only rows written *after* the timezone change will carry trustworthy timestamps.
+### 4A.4 Post-change verification
 
-### 4A.4 Verification checklist — to complete after the change
-
-| # | Check | How |
+| # | Check | Result |
 |---|---|---|
-| 20 | TEST spreadsheet timezone = `America/Chicago` | File → Settings shows Central Time |
-| 21 | Existing TEST rows intact | Still 3 data rows, same actions, same order |
-| 22 | Row count unchanged | 3 data rows + 1 header = 4 |
-| 23 | No TEST punch duplicated | One `CLOCK_IN`, one `CLOCK_OUT`, one `CHECKLIST_REGISTER_DONE` |
-| 24 | New punch shows correct Central time | Fresh cycle after the change — this is the real proof |
-| 25 | LIVE spreadsheet still `America/Chicago` and untouched | Taylor-verified; I made no change to it (§8) |
+| 20 | TEST spreadsheet timezone = `America/Chicago` | ✅ **PASS** — Taylor-verified in Sheets UI |
+| 21 | Existing TEST rows intact | ✅ **PASS** — I re-read the sheet: same 3 rows, same actions, same order, header unchanged |
+| 22 | Row count unchanged | ✅ **PASS** — 3 data rows + 1 header, identical to pre-change |
+| 23 | No TEST punch duplicated | ✅ **PASS** — one `CLOCK_IN`, one `CLOCK_OUT`, one `CHECKLIST_REGISTER_DONE` |
+| 24 | New punch shows correct Central time | ⏳ **Open** — needs a fresh cycle after the change. This is the real proof that the fix works |
+| 25 | LIVE `EDP_MASTER_DATABASE` still `America/Chicago`, untouched | ✅ **PASS** — Taylor-verified; I made no change to LIVE or any LIVE setting |
 
-I can verify 21, 22 and 23 by reading the TEST sheet. Checks 20, 24 and 25 need the Sheets UI.
+Checks 21–23 verified by me directly against the sheet. Checks 20 and 25 are Taylor's UI
+verification — I have no tool that reads a spreadsheet's timezone. Check 24 needs a kiosk cycle.
 
 ---
 
@@ -309,15 +311,17 @@ isolation controls implemented and statically verified · LIVE verified unmodifi
 
 **Open before feature work:**
 
-1. **Change the TEST spreadsheet timezone to `America/Chicago`** (§4A) — Sheets UI, ~20 seconds,
-   no code change. Then re-run one cycle to confirm correct Central timestamps. The three existing
-   rows are invalid fixtures and should be ignored or deleted, not repaired.
-2. **Close execution tests 17–19** (§4.3) — photo path, email suppression, Pushover suppression.
-   Test 16 already passed.
-3. **Run `SETUP_TEST_PROPERTIES()`** once from the TEST editor (§3) — optional; isolation holds without it.
-4. **Decide on a synthetic punch fixture** (§5.1) — needed for the auto-clock-out tests. Build it
-   **after** the timezone fix, or its timestamps will be wrong too.
-5. *(Optional)* Tighten TEST web-app access from `ANYONE_ANONYMOUS` (§6.2).
+1. ✅ **Done** — TEST spreadsheet timezone corrected to `America/Chicago` (§4A).
+2. **Run one fresh cycle to close check 24** (§4A.4) — confirm a new punch records correct Central
+   time. This is the only remaining proof that the timezone fix works. The three pre-change rows
+   cannot demonstrate it.
+3. **Close execution tests 17–19** (§4.3) — photo path, email suppression, Pushover suppression.
+   Test 16 already passed. The photo path is worth exercising deliberately, since no photo was
+   captured in the first cycle.
+4. **Run `SETUP_TEST_PROPERTIES()`** once from the TEST editor (§3) — optional; isolation holds without it.
+5. **Decide on a synthetic punch fixture** (§5.1) — needed for the auto-clock-out tests. Now safe to
+   build: the timezone is corrected, so new fixture timestamps will be accurate.
+6. *(Optional)* Tighten TEST web-app access from `ANYONE_ANONYMOUS` (§6.2).
 
 **Not started, awaiting separate approval:** the EO-016 auto clock-out fix
 (`EO-016-AUTOCLOCKOUT-TEST-PLAN.md`) and all other EO-016 feature work.
