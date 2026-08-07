@@ -1,6 +1,22 @@
 # EO-016 — Emergency LIVE Schema Repair: Controlled Execution Plan
 
-**Status:** PLAN ONLY — AWAITING SEPARATE FINAL APPROVAL. Nothing has been modified.
+> # ⛔ WITHDRAWN — DO NOT EXECUTE
+>
+> **August 6, 2026.** This plan was written to fix an outage that did not exist. It is withdrawn in
+> full and retained only as a record.
+>
+> Punch logging has been working throughout. `TIME_LOGS` in `EDP_MASTER_DATABASE` extends to at
+> least row 1158 and contains August 5 and 6 records. My diagnosis came from a Drive export that
+> silently truncated the tab at row 414.
+>
+> **Do not add column G. Do not modify the LIVE spreadsheet.** The column-count root cause is
+> disproven — seven-value writes land in that tab every day, so its column count is already
+> sufficient. The 6-column header is cosmetic, not functional.
+>
+> The Step 0 diagnosis gate in §1 did its job: it stopped the change. Everything below is
+> superseded by `EO-016-AUTHORITATIVE-SOURCE-MAP.md` §13.
+
+**Status:** WITHDRAWN — never executed. Nothing was modified.
 **Date prepared:** August 6, 2026
 **Target:** `EDP_MASTER_DATABASE` (`117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI`) → tab `TIME_LOGS`
 **Goal:** restore punch logging with the smallest possible LIVE change.

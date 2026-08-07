@@ -9,11 +9,16 @@
 > clasp has since been authenticated and the blocked steps completed. Two conclusions below are
 > now corrected:
 >
-> **§3 — "today's punches are not in this Drive account."** Correct as far as it went, but the
-> inference was wrong. Punches are not missing from Drive — they are missing from the
-> **spreadsheet**. The kiosk has been uploading punch photos to Drive and then failing to write
-> the time record since **July 17, 2026**. At least 56 punch events are unlogged.
-> The photos are the surviving evidence.
+> **§3 — "today's punches are not in this Drive account."** **Wrong, and fully retracted.** The
+> punches were there all along, in `EDP_MASTER_DATABASE` → `TIME_LOGS`, the same spreadsheet §3
+> identified. The Drive text export silently truncated that tab at row 414 of 1158, and I treated
+> the cut as the end of the data. Every conclusion built on it — the April 9 cutoff, "Kenneth has
+> no punch record," the 19-day outage, and the 56 "lost" events — is void. **There is no outage
+> and no missing payroll.** Full analysis: source map §13.
+>
+> A specific caution from that mistake: §3 reported `KENNETH: 0` from a text search of the export
+> and presented it as a fact about the spreadsheet. A negative result from a source of unknown
+> completeness proves nothing.
 >
 > **§4 — spreadsheet binding "narrowed, unresolved."** Now resolved: **hardcoded** at
 > `Kiosk_Main.js` line 15 → `EDP_MASTER_DATABASE`, tab `TIME_LOGS`. Not a Script Property.
