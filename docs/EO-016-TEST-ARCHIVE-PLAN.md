@@ -1,6 +1,10 @@
 # EO-016 — EDP Kiosk TEST Build: Creation & Backup Plan
 
 **Status:** AWAITING TAYLOR APPROVAL — nothing has been created, copied, modified, or deployed.
+
+> **Reconciled August 6, 2026.** The drift check that this plan was gated on is complete. The LIVE
+> binding is confirmed (§5.1), so the conditional branches are resolved. Four design decisions have
+> been made by Taylor and are recorded in §11.
 **Date prepared:** August 6, 2026
 **Task:** EO-016 — Kiosk Attendance Compliance and Punch Exception Controls
 **Scope of this document:** Steps 1–9 of the approved architecture. Returns the exact creation and backup plan only.
@@ -292,13 +296,19 @@ TEST is not accepted until all five pass:
 
 Executed **before** step 4, and before any TEST implementation.
 
-### 5.1 Backup target is conditional on the §2.4 read
+### 5.1 Backup target — RESOLVED
 
-- If the drift check confirms `EDP_MASTER_DATABASE` is the LIVE kiosk target → back up that file.
-- If it resolves to a different spreadsheet → back up **that** file, and back up
-  `EDP_MASTER_DATABASE` as well, since it demonstrably holds historical punch records that are the
-  only surviving evidence of the 5:15 PM behavior.
-- If the binding cannot be resolved → **stop and report to Taylor.** Do not proceed to §4.
+> **Update, August 6, 2026.** This was conditional pending the drift check. **The drift check is
+> complete and the binding is confirmed.**
+
+**Back up `EDP_MASTER_DATABASE`** (`117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI`), the sole LIVE
+kiosk target. Confirmed by reading `Kiosk_Main.js` line 15 in the live project — hardcoded, log tab
+`TIME_LOGS`. No second spreadsheet needs archiving; `EDP_MASTER_OPS FOLDER 2026` was the @22 target
+and is superseded.
+
+**Caution — this file is shared.** `EDP_MASTER_DATABASE` also holds Register, AI-receptionist call
+log, Picker Portal, and audit tables. The archive copies the whole workbook, which is correct for
+backup purposes, but the TEST spreadsheet derived from it must be scrubbed accordingly (§4.2).
 
 ### 5.2 Archive location
 
@@ -358,3 +368,22 @@ Steps 5 onward do not begin until Taylor approves this document.
 4. **Confirm `EDP_MASTER_DATABASE` may be copied.** It is 367 KB and shared with Register, Make Ready,
    and accounting systems. The copy is read-only against the original, but Taylor should confirm that
    a full duplicate of that file into a TEST folder is acceptable.
+
+---
+
+## 11. Design decisions carried in — DECIDED August 6, 2026
+
+Recorded here as requirements for the TEST build. **Not yet implemented.**
+
+| # | Decision |
+|---|---|
+| 1 | **`LUNCH_OUT` at 5:15 PM = FLAG FOR OWNER REVIEW**, not a verified auto-close |
+| 2 | **Stale unclosed shifts = OWNER EXCEPTION**, not auto-closed and not ignored |
+| 3 | **Auto-close window = 45 minutes in TEST**, with idempotency, and rows marked **unverified / system-generated** |
+| 4 | **Historical July/August cleanup = READ-ONLY COUNT FIRST**; no retroactive correction without review |
+
+Implementation detail for all four: `docs/EO-016-AUTOCLOCKOUT-TEST-PLAN.md` §6.
+
+Decision 3 has a schema consequence for the TEST spreadsheet: system-generated closes must be
+distinguishable from employee-entered ones, so payroll never treats an unverified placeholder as a
+confirmed end time.

@@ -208,18 +208,49 @@ Fits inside the 6–10 hour EO-016 estimate in the Implementation Tracker.
 
 ---
 
-## 6. Decisions needed from Taylor before implementation
+## 6. Design decisions — DECIDED by Taylor, August 6, 2026
 
-1. **Employees on `LUNCH_OUT` at 5:15 PM** — auto clock-out them, or flag as an exception? Current
-   code treats `LUNCH_OUT` as "OUT", so they are skipped entirely and the shift stays open.
-   *Recommendation: flag as exception, do not auto-close* — the correct end time is unknown.
-2. **Stale unclosed shifts from prior days** (§2.3) — surface as owner exceptions rather than
-   ignoring? *Recommendation: yes*, built alongside the exception queue.
-3. **Window length** — 45 minutes proposed (17:15–18:00). Longer is more robust, but a very late
-   auto clock-out is a less accurate record.
-4. **Retroactive handling** — two months of shifts closed without auto clock-out. Identify and
-   correct them, or leave as-is? *Recommendation: run the read-only count first* (source map §18)
-   and decide once the size is known.
+Carried into this plan as requirements. **Not yet implemented.**
+
+| # | Decision | Status |
+|---|---|---|
+| 1 | **`LUNCH_OUT` at 5:15 PM → FLAG FOR OWNER REVIEW.** Not a verified auto-close. The employee's true end time is unknown, so no close is written; an owner exception is raised instead | **DECIDED** |
+| 2 | **Stale unclosed shifts → OWNER EXCEPTION.** Not silently ignored, not auto-closed. Surfaced for owner resolution | **DECIDED** |
+| 3 | **Auto-close window = 45 minutes in TEST** (17:15–18:00), with an idempotency guard, and every generated row marked **unverified / system-generated** | **DECIDED** |
+| 4 | **Historical July/August cleanup → READ-ONLY COUNT FIRST.** No retroactive correction without owner review | **DECIDED** |
+
+### 6.1 Consequence of decisions 1–3: auto-close rows must be labelled
+
+Decisions 1 and 3 together mean an `AUTO_CLOCKOUT` row is **not** an assertion that the employee
+stopped work at 5:15 PM. It is a system-generated placeholder that closes an open shift so payroll
+can be reviewed — its accuracy is unverified.
+
+The TEST implementation must therefore mark these rows explicitly, e.g. in the Notes field:
+
+```
+AUTO: System clock-out at 5:15 PM — UNVERIFIED, system-generated. Owner review required.
+```
+
+Downstream consumers — payroll totals, the owner dashboard, the exception queue — must be able to
+distinguish an employee-entered `CLOCK_OUT` from a system-generated one. This is what keeps the
+system from silently inventing paid time, which is EO-016's core requirement and the Kiosk &
+Dashboard plan's stated rule that no automatic paid-hours creation may occur.
+
+### 6.2 Three exception types this produces
+
+All three feed the owner exception queue rather than being resolved automatically:
+
+| Condition | Handling |
+|---|---|
+| Still `CLOCK_IN` at window | Auto-close written, marked unverified, exception raised for review |
+| On `LUNCH_OUT` at window | **No row written.** Exception raised — true end time unknown (decision 1) |
+| Unclosed shift from a prior day | **No row written.** Exception raised (decision 2) |
+
+### 6.3 Remaining open parameter
+
+**Window length in LIVE.** 45 minutes is decided for TEST. Whether LIVE uses the same is deferred to
+the separate LIVE-promotion approval, once TEST observation shows how often the window is actually
+needed.
 
 ---
 
