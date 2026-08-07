@@ -26,6 +26,13 @@
 > **§5.2 — 5:15 PM auto clock-out "not in this file."** Correct: it is in `EDP_Kiosk_V2`,
 > `_autoClockOut()` at line 329, fired by a one-minute `checkScheduleAlerts` trigger.
 >
+> **Now verified — status NEEDS CORRECTION / UNRELIABLE.** 26 `AUTO_CLOCKOUT` records exist:
+> Apr 11, May 13, Jun 2, Jul 0, Aug 0. **Last fired June 5, 2026.** It worked, degraded, then
+> stopped. The gradual decline points at trigger-quota exhaustion — the trigger opens a large
+> spreadsheet 1,440 times a day and re-reads all of `TIME_LOGS` on each closeout check — with the
+> exact-minute equality bug turning degradation into total failure. Source map §14; fix plan
+> `EO-016-AUTOCLOCKOUT-TEST-PLAN.md`, TEST only.
+>
 > Everything else below — the clasp blocker, the missing `142367e` baseline, the two-timeclock
 > finding — stands as written.
 

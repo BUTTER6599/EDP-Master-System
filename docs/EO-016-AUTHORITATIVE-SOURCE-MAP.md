@@ -259,11 +259,10 @@ entire day.** There is no catch-up, no retry, no missed-window alert.
 The same fragility applies to all four rungs — 4:55, 5:00, and 5:05 use identical exact-equality
 checks, so closeout alerts can vanish the same way.
 
-> **Retracted:** this section originally claimed "only 4 `AUTO_CLOCKOUT` events exist across the
-> whole log, on days where many more shifts ended without a clock-out." That count came from the
-> truncated export (rows 2–415 of 1158) and is **not evidence of anything**. The real frequency is
-> unverified — see §14.2. The code-level fragility described above stands on its own, from reading
-> the source.
+> **Corrected:** this section originally claimed "only 4 `AUTO_CLOCKOUT` events exist across the
+> whole log." That count came from the truncated export. **Verified figure: 26 events — Apr 11,
+> May 13, Jun 2, Jul 0, Aug 0; last on June 5, 2026.** Status is NEEDS CORRECTION / UNRELIABLE, and
+> the primary cause is trigger-quota exhaustion rather than the equality check. Full analysis: §14.
 
 **The EO-016 replacement should use a window plus an idempotency guard** — "if now ≥ 17:15 and no
 `AUTO_CLOCKOUT` row exists for this employee today, then act" — rather than an equality test, and
@@ -444,31 +443,118 @@ but it is not the sole record of anything.
 
 ---
 
-## 14. The 5:15 PM auto clock-out — reassessed, now UNVERIFIED
+## 14. The 5:15 PM auto clock-out — VERIFIED: NEEDS CORRECTION / UNRELIABLE
 
-Two claims must be separated, because only one was ever data-dependent.
+### 14.1 Verified data
 
-### 14.1 Code-level observation — still stands
+Taylor searched the authoritative `TIME_LOGS` for `AUTO_CLOCKOUT`. Read-only.
 
-Line 306 is unchanged:
+| Month | `AUTO_CLOCKOUT` records |
+|---|---|
+| April 2026 | 11 |
+| May 2026 | 13 |
+| June 2026 | **2** |
+| July 2026 | **0** |
+| August 2026 | **0** |
+| **Total** | **26** |
+
+**Most recent: June 5, 2026 — two months ago.**
+
+**Status: NEEDS CORRECTION / UNRELIABLE.** The function historically worked. It is not absent, not
+misconfigured from the start, and not never-installed. It **degraded and then stopped.**
+
+This supersedes the earlier "only 4 events" figure, which came from truncated data (§13).
+
+### 14.2 The decline shape is the diagnosis
+
+11 → 13 → 2 → 0 → 0 is not an on/off failure. A deleted trigger, a revoked authorization, or a
+disabled deployment would produce a clean stop. **This is gradual degradation**, which points at a
+resource limit being approached and then exceeded.
+
+Two code facts explain it, and together they are sufficient:
+
+**(a) The trigger runs 1,440 times a day and opens a large spreadsheet every time.**
+
+`checkScheduleAlerts` (line 279) begins:
+
+```js
+function checkScheduleAlerts() {
+  var ss = SpreadsheetApp.openById(KIOSK_SHEET_ID);   // ← every single minute
+  ...
+```
+
+`SETUP_SCHEDULE_TRIGGER` (line 439) installs it at `everyMinutes(1)`. So the script opens
+`EDP_MASTER_DATABASE` — a 367 KB, multi-tab workbook — **1,440 times per day**, whether or not
+anything needs doing. Nothing is cached and there is no early exit before the open.
+
+**(b) Every closeout check re-reads the entire punch history.**
+
+`_getStillClockedIn` (line 343):
+
+```js
+var rows = sh.getRange(2, 1, sh.getLastRow()-1, 7).getValues();   // ← ALL rows, every call
+```
+
+`TIME_LOGS` has grown from roughly 400 rows to **1,158**. Each call reads all of them and replays
+the whole history to derive current state.
+
+**Why that produces exactly this curve:** consumer Google accounts get a fixed daily trigger-runtime
+budget (90 minutes for `@gmail.com`). At 1,440 executions/day, an average of 2 seconds per run spends
+48 minutes; 4 seconds spends 96 and blows the budget. As the workbook and `TIME_LOGS` grew through
+the spring, per-execution cost rose. Once the daily budget is exhausted, Apps Script stops running
+the trigger **for the rest of that day** and resets at midnight — so the *latest* scheduled work is
+lost *first*.
+
+**5:15 PM is the last rung of the day.** It is precisely what a shrinking daily budget kills first,
+and the 4:55 / 5:00 / 5:05 alerts sit just ahead of it in the same window.
+
+Confidence: **strong but not proven.** The Executions panel would confirm it outright — look for
+`checkScheduleAlerts` runs stopping partway through the day, or "Service invoked too many times" /
+timeout errors. That check is read-only and needs no change.
+
+**Corroborating question for Taylor:** do the 4:55 / 5:00 / 5:05 Pushover alerts still arrive? If
+they stopped around the same time, the trigger is dying before the whole closeout window — which
+confirms the quota story and rules out anything specific to `_autoClockOut` itself.
+
+### 14.3 The exact-minute equality bug — still real, now secondary
 
 ```js
 if (nowMin === 17*60 + 15) _autoClockOut(ss, now);
 ```
 
-Exact equality on a single minute, driven by a trigger with no per-minute delivery guarantee. If
-`checkScheduleAlerts` does not execute during minute 1035, that day's auto clock-out never fires —
-no retry, no catch-up, no alert. The 4:55 / 5:00 / 5:05 rungs share the pattern. This is a fact about
-the code, verified by reading it, independent of any spreadsheet.
+Still a genuine defect: it requires an execution landing inside one specific minute, with no retry
+and no catch-up. But it is **not the primary cause** here. Equality alone would produce sporadic
+misses, not two consecutive months of zero. It is the reason a degraded trigger produces *total*
+failure rather than partial — the two faults compound.
 
-### 14.2 Real-world failure rate — retracted, unknown
+### 14.4 A third defect found while reading — no date scoping
 
-My earlier claim that "only 4 `AUTO_CLOCKOUT` events exist in five months, therefore it is broken"
-came from the truncated export. Rows 415–1158 were never examined. **There may be many
-`AUTO_CLOCKOUT` rows since April.**
+`_getStillClockedIn` derives each employee's state from their last matching row **across all
+history**, with no filter to today:
 
-**Current status: unverified.** The design fragility is real; whether it actually misfires is
-unknown, and I will not assert either way without the data. To settle it, see §18.
+```js
+rows.forEach(function(row){
+  var id=row[1], action=row[3];
+  if(action==="CLOCK_IN"||action==="LUNCH_IN") states[id]="IN";
+  if(action==="CLOCK_OUT"||action==="LUNCH_OUT"||action==="AUTO_CLOCKOUT") states[id]="OUT";
+});
+```
+
+An employee whose last recorded action was a `CLOCK_IN` on any prior day reads as `IN` indefinitely.
+If the trigger later fires, `_autoClockOut` would write an `AUTO_CLOCKOUT` **stamped with today's
+date** against a shift that ended days earlier — creating a phantom shift spanning the gap.
+
+This has not caused visible harm only because the trigger has not fired since June 5. **Fixing the
+trigger without fixing this would activate the bug.** Both must be corrected together.
+
+### 14.5 Consequence for the business
+
+No automatic clock-out has occurred since June 5. Any shift where an employee forgot to clock out
+has stayed open, with no auto-close and no owner alert. That is a payroll-accuracy exposure of
+roughly two months. Quantifying it means scanning `TIME_LOGS` since June 5 for `CLOCK_IN` rows with
+no matching `CLOCK_OUT` — a read-only query, not yet run.
+
+Fix plan: `docs/EO-016-AUTOCLOCKOUT-TEST-PLAN.md` — **TEST only, no LIVE change.**
 
 ## 15. Execution logs — not reachable read-only
 
@@ -507,9 +593,8 @@ withdrawn; no LIVE change is warranted or requested.
 - ~~Reconstruct 19 days of payroll from photos~~ — nothing is missing
 - ~~Treat `LOGIN_PHOTOS` as sole evidence~~ — it is corroborating, not primary
 
-**Read-only, to close the last open question (§18):**
-
-1. Confirm whether the 5:15 PM auto clock-out is actually firing. One filter on `TIME_LOGS`.
+**Auto clock-out is confirmed unreliable (§14) — last fired June 5, 2026.** Fix plan:
+`docs/EO-016-AUTOCLOCKOUT-TEST-PLAN.md`, TEST only.
 
 **Then EO-016 resumes as originally scoped** — build in TEST, no LIVE change:
 
@@ -524,25 +609,19 @@ withdrawn; no LIVE change is warranted or requested.
 
 ---
 
-## 18. The one open question — read-only
+## 18. Open read-only questions
 
-**Is the 5:15 PM auto clock-out firing?** Unverified since my count came from truncated data (§14.2).
+Both optional; neither blocks the TEST build.
 
-In `TIME_LOGS`, filter or search column **D** (`Action`) for **`AUTO_CLOCKOUT`** and report:
+1. **Do the 4:55 / 5:00 / 5:05 Pushover alerts still arrive?** If they stopped around June too, the
+   trigger is dying before the whole closeout window — confirming the quota diagnosis (§14.2) and
+   ruling out anything specific to `_autoClockOut`.
+2. **How many shifts since June 5 have a `CLOCK_IN` with no matching `CLOCK_OUT`?** Quantifies the
+   payroll exposure from two months without auto-close (§14.5).
 
-- how many rows match
-- the date of the most recent one
-- roughly how they distribute since April
-
-| Result | Interpretation |
-|---|---|
-| Regular entries through August | Trigger is firing reliably. The equality bug is a latent risk, not an active fault. Priority drops. |
-| Nothing since April 9 | Trigger has not fired in ~4 months. Real fault, and shifts have been closing without auto clock-out. Priority rises. |
-| Sporadic | Consistent with the equality bug — firing only when the trigger happens to land on minute 1035. |
-
-Useful alongside it: whether Taylor receives the 4:55 / 5:00 / 5:05 Pushover alerts on a normal
-workday. Those share the same exact-minute pattern, so if they arrive reliably the trigger is
-healthy and the risk is theoretical.
+Also available at zero risk: the Apps Script **Executions** panel, filtered to
+`checkScheduleAlerts`. Runs stopping partway through the day, or "Service invoked too many times"
+errors, would confirm quota exhaustion outright.
 
 ---
 
