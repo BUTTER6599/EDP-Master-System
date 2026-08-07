@@ -4,6 +4,9 @@
 **Authorization:** APPROVED — CREATE EO-016 TEST ENVIRONMENT AND ARCHIVE
 **Result:** TEST environment created and isolated. **LIVE not modified — verified by hash.**
 **Status:** Awaiting approval before any EO-016 feature coding.
+**Update Aug 6:** First controlled TEST clock-in/out cycle **completed successfully** — TEST punch
+writes verified (§4.3). One defect found: TEST spreadsheet timezone is `Etc/GMT`, not
+`America/Chicago` (§4A). Correction is a Sheets-UI setting change; **not yet applied.**
 
 ---
 
@@ -110,20 +113,93 @@ No LIVE Script Property was read or written.
 | 14 | No `clasp push` to LIVE | ✅ **PASS** — the only push targeted the TEST script ID |
 | 15 | Old `Copy of EDP_Kiosk_V2 TEST` untouched | ✅ **PASS** — `modifiedTime` still `2026-04-01T12:10:25.821Z`; its 2 deployments unchanged; never cloned into, pushed to, or executed |
 
-### 4.3 Requires execution — NOT yet verified
+### 4.3 Execution tests — FIRST CONTROLLED CYCLE COMPLETED August 6, 2026
 
-These need a real punch through the TEST URL, which I cannot perform.
+Taylor ran a controlled TEST clock-in / clock-out cycle through the TEST `/exec` URL. Verified
+contents of `EDP_Kiosk_TEST_DATA` afterwards:
+
+```
+Timestamp | EmployeeID | Name | Action | FacePhotoId | Notes | ShoesPhotoId
+8/6/2026 22:06:00 | TAYLOR | Taylor | CLOCK_IN
+8/6/2026 22:21:43 | TAYLOR | Taylor | CLOCK_OUT
+8/6/2026 22:21:57 | TAYLOR | Taylor | CHECKLIST_REGISTER_DONE
+```
 
 | # | Test | Status |
 |---|---|---|
-| 16 | TEST punch writes only to TEST data | ⏳ **Structurally guaranteed** (tests 1–2), **not executed** |
-| 17 | TEST photos land in `TEST_LOGIN_PHOTOS` | ⏳ Structurally guaranteed (test 3), not executed |
-| 18 | TEST emails reach nobody | ⏳ Structurally guaranteed (tests 5, 7), not executed |
-| 19 | TEST Pushover sends nothing | ⏳ Structurally guaranteed (tests 6, 7), not executed |
+| 16 | TEST punch writes only to TEST data | ✅ **PASS — EXECUTED.** Three rows in the TEST spreadsheet, `TAYLOR` only. No production write |
+| 17 | TEST photos land in `TEST_LOGIN_PHOTOS` | ⏳ **Still untested** — `FacePhotoId` is empty on all three rows, so no photo was captured this cycle. The photo path was never exercised |
+| 18 | TEST emails reach nobody | ⏳ Not confirmed — no report of an email arriving, but absence was not explicitly checked |
+| 19 | TEST Pushover sends nothing | ⏳ Not confirmed — same |
 
-**To close these:** open the TEST `/exec` URL, tap an employee, punch in with the default PIN, then
-confirm the row appears in `EDP_Kiosk_TEST_DATA`, the photo in `TEST_LOGIN_PHOTOS`, and that **no**
-Pushover or email arrives. Roughly two minutes.
+**Two structural confirmations from this cycle, both significant:**
+
+1. **`_getOrCreateLog` built the correct 7-column header** — `Timestamp | EmployeeID | Name | Action |
+   FacePhotoId | Notes | ShoesPhotoId`. This validates the blank-spreadsheet decision in §5.1: the
+   kiosk creates its own schema correctly, and it is the *proper* 7-column one rather than the
+   6-column legacy header LIVE inherited.
+2. **No duplicate punches.** Three actions, three rows, in correct sequence.
+
+## 4A. TEST timezone defect — FOUND, correction PENDING
+
+### 4A.1 The defect
+
+| Environment | Spreadsheet timezone |
+|---|---|
+| `EDP_MASTER_DATABASE` (LIVE) | `America/Chicago` — correct |
+| `EDP_Kiosk_TEST_DATA` (TEST) | **`Etc/GMT`** — wrong |
+
+A new Google spreadsheet inherits a default timezone; this one came out as `Etc/GMT`. The TEST
+*script* timezone is correct (`appsscript.json` = `America/Chicago`, byte-identical to LIVE), so the
+mismatch is spreadsheet-side only.
+
+**Effect:** `api_punch` writes `new Date()` — an absolute instant. Sheets converts that instant to a
+stored serial **using the spreadsheet's timezone**. With `Etc/GMT`, a punch at 5:06 PM Chicago is
+stored and displayed as `22:06`. The three rows from the first cycle are shifted by 5 hours.
+
+Confirmed by the data: the cycle was run in the Chicago evening and the rows read `22:06` / `22:21`,
+which is UTC, not Central.
+
+### 4A.2 I cannot make this change — it needs the Sheets UI
+
+Spreadsheet timezone lives in spreadsheet settings, reachable through the Sheets API
+(`updateSpreadsheetProperties`) or `SpreadsheetApp.setSpreadsheetTimeZone()`. This session has
+neither: the Drive connector exposes create/copy/read only, and running
+`setSpreadsheetTimeZone()` would require a TEST **code change**, which is explicitly deferred.
+
+**Taylor, in `EDP_Kiosk_TEST_DATA`:** File → Settings → Time zone →
+`(GMT-05:00) Central Time – Chicago` → Save settings. About 20 seconds. **No code change needed.**
+
+### 4A.3 Important — the existing three rows will NOT be corrected by this
+
+Google Sheets stores datetimes as **serial numbers with no timezone attached**. Changing the
+spreadsheet timezone does not rewrite existing serials.
+
+So after the change, the three existing rows will **still display `22:06` / `22:21`** — but that text
+will now mean 10:06 PM Central instead of 10:06 PM UTC. They move from "5 hours late" to "5 hours
+late in a different direction." They do not become correct.
+
+**They should not be repaired.** They are three throwaway test punches with no value. The correct
+sequence is:
+
+1. Change the timezone.
+2. Treat the three pre-change rows as **invalid fixtures** — ignore or delete them.
+3. Run a fresh controlled cycle and confirm the new rows show correct Central time.
+
+Only rows written *after* the timezone change will carry trustworthy timestamps.
+
+### 4A.4 Verification checklist — to complete after the change
+
+| # | Check | How |
+|---|---|---|
+| 20 | TEST spreadsheet timezone = `America/Chicago` | File → Settings shows Central Time |
+| 21 | Existing TEST rows intact | Still 3 data rows, same actions, same order |
+| 22 | Row count unchanged | 3 data rows + 1 header = 4 |
+| 23 | No TEST punch duplicated | One `CLOCK_IN`, one `CLOCK_OUT`, one `CHECKLIST_REGISTER_DONE` |
+| 24 | New punch shows correct Central time | Fresh cycle after the change — this is the real proof |
+| 25 | LIVE spreadsheet still `America/Chicago` and untouched | Taylor-verified; I made no change to it (§8) |
+
+I can verify 21, 22 and 23 by reading the TEST sheet. Checks 20, 24 and 25 need the Sheets UI.
 
 ---
 
@@ -176,7 +252,7 @@ Covered in §3. No capability; isolation does not depend on them; one-click help
 |---|---|---|
 | `EDP_MASTER_DATABASE` (LIVE) | 377,946 bytes at baseline | Not written by me. Size moves continuously — the kiosk is actively logging punches (§8) |
 | Archive copy | — | 381,601 bytes, full copy |
-| `EDP_Kiosk_TEST_DATA` | — | 1,024 bytes, empty |
+| `EDP_Kiosk_TEST_DATA` | — | 3 data rows + header after the first controlled cycle |
 | `TEST_LOGIN_PHOTOS` | — | 0 files |
 | LIVE deployments | 4 | **4** |
 | LIVE versions | 23 | **23** |
@@ -233,10 +309,15 @@ isolation controls implemented and statically verified · LIVE verified unmodifi
 
 **Open before feature work:**
 
-1. **Run the four execution tests** (§4.3) — one TEST punch, ~2 minutes.
-2. **Run `SETUP_TEST_PROPERTIES()`** once from the TEST editor (§3) — optional; isolation holds without it.
-3. **Decide on a synthetic punch fixture** (§5.1) — needed for the auto-clock-out tests.
-4. *(Optional)* Tighten TEST web-app access from `ANYONE_ANONYMOUS` (§6.2).
+1. **Change the TEST spreadsheet timezone to `America/Chicago`** (§4A) — Sheets UI, ~20 seconds,
+   no code change. Then re-run one cycle to confirm correct Central timestamps. The three existing
+   rows are invalid fixtures and should be ignored or deleted, not repaired.
+2. **Close execution tests 17–19** (§4.3) — photo path, email suppression, Pushover suppression.
+   Test 16 already passed.
+3. **Run `SETUP_TEST_PROPERTIES()`** once from the TEST editor (§3) — optional; isolation holds without it.
+4. **Decide on a synthetic punch fixture** (§5.1) — needed for the auto-clock-out tests. Build it
+   **after** the timezone fix, or its timestamps will be wrong too.
+5. *(Optional)* Tighten TEST web-app access from `ANYONE_ANONYMOUS` (§6.2).
 
 **Not started, awaiting separate approval:** the EO-016 auto clock-out fix
 (`EO-016-AUTOCLOCKOUT-TEST-PLAN.md`) and all other EO-016 feature work.
