@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="description" content="The Electronics Depot — used appliances, parts, repairs, warranty and delivery information." />
+  <title>The Electronics Depot</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">THE ELECTRONICS DEPOT LLC</p>
+      <h1>Appliances. Parts. Repairs.</h1>
+      <p class="subhead">Browse what’s available now. No account required.</p>
+    </div>
+    <a class="call-button" href="tel:+15047321233">Call</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span class="badge">Metairie, Louisiana</span>
+        <h2>Shop tested used appliances from your phone.</h2>
+        <p>See current inventory, ask about parts, request repair service, review warranty information, and contact EDP directly.</p>
+        <div class="hero-actions">
+          <a class="primary" href="#inventory">Shop Appliances</a>
+          <a class="secondary" href="#service">Repair / Service</a>
+        </div>
+      </div>
+    </section>
+
+    <nav class="quick-grid" aria-label="Customer services">
+      <a href="#inventory"><strong>Shop</strong><span>Available appliances</span></a>
+      <a href="#service"><strong>Repair</strong><span>Service information</span></a>
+      <a href="#parts"><strong>Parts</strong><span>Request a part</span></a>
+      <a href="#warranty"><strong>Warranty</strong><span>Coverage & process</span></a>
+      <a href="#delivery"><strong>Delivery</strong><span>Pickup & delivery info</span></a>
+      <a href="#contact"><strong>Contact</strong><span>Call or text EDP</span></a>
+    </nav>
+
+    <section id="inventory" class="section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">SHOP APPLIANCES</p>
+          <h2>Current inventory</h2>
+        </div>
+        <span id="inventory-status" class="status-pill">TEST DATA</span>
+      </div>
+
+      <div class="category-strip" role="group" aria-label="Inventory filters">
+        <button class="filter active" data-filter="all">All</button>
+        <button class="filter" data-filter="refrigerator">Refrigerators</button>
+        <button class="filter" data-filter="washer">Washers</button>
+        <button class="filter" data-filter="dryer">Dryers</button>
+        <button class="filter" data-filter="stove">Stoves</button>
+        <button class="filter" data-filter="set">Sets</button>
+      </div>
+
+      <div id="inventory-grid" class="inventory-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="service" class="section cards-two">
+      <article class="info-card">
+        <p class="eyebrow">REPAIR / SERVICE</p>
+        <h2>Need something checked?</h2>
+        <p>Start a repair request and tell us the brand, model, symptom, and best way to reach you.</p>
+        <a class="text-link" href="tel:+15047321233">Call EDP</a>
+      </article>
+      <article id="parts" class="info-card">
+        <p class="eyebrow">PARTS</p>
+        <h2>Looking for a part?</h2>
+        <p>Have your model number ready. Parts request forms will be connected during the next build step.</p>
+        <a class="text-link" href="sms:+15047321233">Text EDP</a>
+      </article>
+    </section>
+
+    <section class="section cards-two">
+      <article id="warranty" class="info-card">
+        <p class="eyebrow">WARRANTY</p>
+        <h2>Customer warranty</h2>
+        <p>Coverage and claim instructions will be published here using the approved EDP warranty policy.</p>
+      </article>
+      <article id="delivery" class="info-card">
+        <p class="eyebrow">DELIVERY</p>
+        <h2>Pickup & delivery</h2>
+        <p>Delivery availability, pricing, preparation instructions, and customer responsibilities will appear here.</p>
+      </article>
+    </section>
+
+    <section id="contact" class="section contact-card">
+      <p class="eyebrow">CONTACT EDP</p>
+      <h2>The Electronics Depot LLC</h2>
+      <p>7333 Airline Dr, Metairie, LA 70003</p>
+      <p>Monday–Saturday · 10:00 AM–5:00 PM · Closed Sunday</p>
+      <div class="hero-actions">
+        <a class="primary" href="tel:+15047321233">Call 504-732-1233</a>
+        <a class="secondary" href="sms:+15047321233">Text EDP</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© The Electronics Depot LLC</p>
+    <div>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/sms">SMS Terms</a>
+    </div>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
