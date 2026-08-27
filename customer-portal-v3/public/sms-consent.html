@@ -26,17 +26,17 @@
     <article class="policy-card">
       <p class="eyebrow">CUSTOMER CARE TEXT UPDATES</p>
       <h1 class="policy-title">SMS Updates</h1>
-      <p>Use this TEST form to review the customer-facing opt-in experience. Permanent consent storage is not enabled yet, so this form does not submit customer data.</p>
+      <p>Use this TEST form to review and test the customer-facing opt-in experience. Only TEST consent records are accepted during this phase.</p>
 
-      <form class="consent-form" id="sms-consent-form">
+      <form class="consent-form" id="sms-consent-form" novalidate>
         <div class="form-grid">
           <label>
             <span>Name</span>
-            <input type="text" name="name" autocomplete="name" placeholder="Your name">
+            <input type="text" name="name" autocomplete="name" maxlength="120" placeholder="Your name">
           </label>
           <label>
             <span>Mobile number</span>
-            <input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(504) 555-1234">
+            <input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(504) 555-1234" required>
           </label>
         </div>
 
@@ -49,8 +49,8 @@
           <strong>Optional consent:</strong> The checkbox is intentionally unchecked by default. Customers may contact or purchase from The Electronics Depot without agreeing to receive text messages.
         </div>
 
-        <button class="button primary" type="submit" disabled aria-disabled="true">TEST ONLY — SUBMISSION NOT ENABLED</button>
-        <p class="form-status">Permanent SMS-consent storage must be approved before this TEST form can accept submissions.</p>
+        <button class="button primary" id="sms-consent-submit" type="submit" disabled aria-disabled="true">TEST ONLY — STORAGE NOT CONNECTED</button>
+        <p class="form-status" id="sms-consent-status" aria-live="polite">Checking TEST consent storage…</p>
       </form>
     </article>
   </main>
@@ -59,5 +59,6 @@
     <p>© 2026 The Electronics Depot LLC</p>
     <p><a href="/privacy.html">Privacy Policy</a> · <a href="/sms-terms.html">SMS Terms</a> · <a href="/sms-consent.html">SMS Updates</a></p>
   </footer>
+  <script src="/consent.js" defer></script>
 </body>
 </html>
