@@ -77,9 +77,8 @@
 
       setStatus(`TEST consent recorded. ID: ${result.consent_id}. Time: ${result.timestamp}.`, 'success');
       form.reset();
-    } catch (err) {
-      const code = err && err.message ? err.message : 'unknown_error';
-      setStatus(`TEST diagnostic: ${code}. The opt-in was not recorded.`, 'error');
+    } catch (_err) {
+      setStatus('The TEST opt-in could not be recorded. Please try again after the connection is verified.', 'error');
     } finally {
       button.disabled = false;
       button.textContent = 'Submit SMS Opt-In — TEST';
