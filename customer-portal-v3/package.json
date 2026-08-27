@@ -1,0 +1,16 @@
+{
+  "name": "edp-customer-portal-v3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Clean TEST build for The Electronics Depot LLC Customer Portal V3",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
