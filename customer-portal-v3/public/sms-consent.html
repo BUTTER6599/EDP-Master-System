@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The Electronics Depot LLC customer-care SMS consent form.">
+  <title>SMS Updates | The Electronics Depot</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="test-banner">TEST ENVIRONMENT — NOT YET LIVE</div>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="The Electronics Depot home">
+      <span class="brand-mark">EDP</span>
+      <span><strong>The Electronics Depot</strong><small>Customer Portal V3</small></span>
+    </a>
+    <nav aria-label="SMS consent navigation">
+      <a href="/">Home</a>
+      <a href="/sms-consent.html" aria-current="page">SMS Updates</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/sms-terms.html">SMS Terms</a>
+    </nav>
+  </header>
+
+  <main class="policy-page">
+    <article class="policy-card">
+      <p class="eyebrow">CUSTOMER CARE TEXT UPDATES</p>
+      <h1 class="policy-title">SMS Updates</h1>
+      <p>Use this TEST form to review the customer-facing opt-in experience. Permanent consent storage is not enabled yet, so this form does not submit customer data.</p>
+
+      <form class="consent-form" id="sms-consent-form">
+        <div class="form-grid">
+          <label>
+            <span>Name</span>
+            <input type="text" name="name" autocomplete="name" placeholder="Your name">
+          </label>
+          <label>
+            <span>Mobile number</span>
+            <input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(504) 555-1234">
+          </label>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" name="sms_consent" value="yes">
+          <span>By checking this box, I agree to receive customer-care text messages from The Electronics Depot LLC at the mobile number provided, including appliance availability, purchase, pickup, delivery, repair, warranty, appointment, and callback updates. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. See our <a href="/privacy.html">Privacy Policy</a> and <a href="/sms-terms.html">SMS Terms</a>.</span>
+        </label>
+
+        <div class="consent-note" role="note">
+          <strong>Optional consent:</strong> The checkbox is intentionally unchecked by default. Customers may contact or purchase from The Electronics Depot without agreeing to receive text messages.
+        </div>
+
+        <button class="button primary" type="submit" disabled aria-disabled="true">TEST ONLY — SUBMISSION NOT ENABLED</button>
+        <p class="form-status">Permanent SMS-consent storage must be approved before this TEST form can accept submissions.</p>
+      </form>
+    </article>
+  </main>
+
+  <footer>
+    <p>© 2026 The Electronics Depot LLC</p>
+    <p><a href="/privacy.html">Privacy Policy</a> · <a href="/sms-terms.html">SMS Terms</a> · <a href="/sms-consent.html">SMS Updates</a></p>
+  </footer>
+</body>
+</html>
