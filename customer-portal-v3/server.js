@@ -68,11 +68,14 @@ app.post('/api/sms-consent', async (req, res) => {
     try {
       result = JSON.parse(text);
     } catch (_err) {
+      console.error('SMS consent gateway returned non-JSON response. HTTP status:', response.status);
       return res.status(502).json({ ok: false, error: 'invalid_gateway_response' });
     }
 
     if (!response.ok || !result.ok) {
-      return res.status(502).json({ ok: false, error: result.error || 'consent_gateway_error' });
+      const safeError = result && result.error ? String(result.error) : 'consent_gateway_error';
+      console.error('SMS consent gateway rejected TEST request:', safeError, 'HTTP status:', response.status);
+      return res.status(502).json({ ok: false, error: safeError });
     }
 
     return res.status(201).json({
