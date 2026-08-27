@@ -7,6 +7,7 @@ const consentGatewayUrl = process.env.CONSENT_GATEWAY_URL || '';
 const consentGatewaySecret = process.env.CONSENT_GATEWAY_SECRET || '';
 
 app.disable('x-powered-by');
+app.set('trust proxy', true);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
