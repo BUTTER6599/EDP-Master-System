@@ -32,6 +32,11 @@ p { line-height: 1.65; color: #4b5563; }
 .split, .contact { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: center; }
 .placeholder { min-height: 180px; display: grid; place-items: center; padding: 28px; text-align: center; color: #6b7280; font-weight: 700; border-style: dashed; box-shadow: none; }
 .contact .button { justify-self: end; }
+.policy-page { width: min(900px, calc(100% - 32px)); padding: 56px 0 72px; }
+.policy-card { padding: clamp(24px, 5vw, 54px); background: white; border: 1px solid #e5e7eb; border-radius: 22px; box-shadow: 0 14px 40px rgba(17,24,39,.06); }
+.policy-title { margin-bottom: 16px; font-size: clamp(40px, 6vw, 64px); }
+.policy-card h2 { margin-top: 38px; font-size: clamp(24px, 3vw, 32px); }
+.policy-card a, footer a { color: #0f3c8a; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 footer { display: flex; justify-content: space-between; gap: 20px; width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 34px 0 48px; border-top: 1px solid #e5e7eb; font-size: 13px; }
 @media (max-width: 820px) {
   .site-header { align-items: flex-start; flex-direction: column; }
@@ -40,4 +45,5 @@ footer { display: flex; justify-content: space-between; gap: 20px; width: min(11
   .grid { grid-template-columns: 1fr; }
   .contact .button { justify-self: start; }
   nav { gap: 12px; }
+  footer { flex-direction: column; }
 }
