@@ -18,7 +18,8 @@ h3 { margin: 10px 0 8px; font-size: 22px; }
 p { line-height: 1.65; color: #4b5563; }
 .hero-copy { max-width: 720px; font-size: 18px; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 12px; font-weight: 800; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; font: inherit; font-weight: 800; cursor: pointer; }
+.button[disabled] { cursor: not-allowed; opacity: .58; }
 .primary { background: #0f3c8a; color: white; }
 .secondary { background: white; border: 1px solid #d1d5db; }
 .store-card, .feature-card, .placeholder { border: 1px solid #e5e7eb; background: white; border-radius: 22px; box-shadow: 0 14px 40px rgba(17,24,39,.06); }
@@ -37,12 +38,23 @@ p { line-height: 1.65; color: #4b5563; }
 .policy-title { margin-bottom: 16px; font-size: clamp(40px, 6vw, 64px); }
 .policy-card h2 { margin-top: 38px; font-size: clamp(24px, 3vw, 32px); }
 .policy-card a, footer a { color: #0f3c8a; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.consent-form { display: grid; gap: 22px; margin-top: 32px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.consent-form label > span:first-child { display: block; margin-bottom: 8px; font-weight: 800; color: #111827; }
+.consent-form input[type="text"], .consent-form input[type="tel"] { width: 100%; min-height: 50px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; color: #111827; font: inherit; font-size: 16px; }
+.consent-form input:focus { outline: 3px solid rgba(15,60,138,.18); border-color: #0f3c8a; }
+.checkbox-row { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; padding: 18px; border: 1px solid #cbd5e1; border-radius: 14px; background: #f8fafc; }
+.checkbox-row input { width: 20px; height: 20px; margin-top: 3px; }
+.checkbox-row span { margin: 0 !important; font-weight: 500 !important; line-height: 1.55; color: #334155 !important; }
+.checkbox-row a { color: #0f3c8a; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.consent-note { padding: 16px 18px; border-radius: 12px; background: #eef4ff; color: #334155; line-height: 1.55; }
+.form-status { margin: -10px 0 0; font-size: 13px; }
 footer { display: flex; justify-content: space-between; gap: 20px; width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 34px 0 48px; border-top: 1px solid #e5e7eb; font-size: 13px; }
 @media (max-width: 820px) {
   .site-header { align-items: flex-start; flex-direction: column; }
   .hero, .split, .contact { grid-template-columns: 1fr; }
   .hero { padding-top: 54px; }
-  .grid { grid-template-columns: 1fr; }
+  .grid, .form-grid { grid-template-columns: 1fr; }
   .contact .button { justify-self: start; }
   nav { gap: 12px; }
   footer { flex-direction: column; }
