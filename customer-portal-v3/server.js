@@ -5,6 +5,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const consentGatewayUrl = process.env.CONSENT_GATEWAY_URL || '';
 const consentGatewaySecret = process.env.CONSENT_GATEWAY_SECRET || '';
+const requestedPortalEnvironment = String(process.env.PORTAL_ENV || 'TEST').trim().toUpperCase();
+const portalEnvironment = requestedPortalEnvironment === 'LIVE' ? 'LIVE' : 'TEST';
 
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -15,14 +17,14 @@ app.get('/health', (_req, res) => {
   res.status(200).json({
     ok: true,
     service: 'EDP Customer Portal V3',
-    environment: 'TEST'
+    environment: portalEnvironment
   });
 });
 
 app.get('/api/sms-consent/status', (_req, res) => {
   res.status(200).json({
     ready: Boolean(consentGatewayUrl && consentGatewaySecret),
-    environment: 'TEST'
+    environment: portalEnvironment
   });
 });
 
@@ -47,7 +49,7 @@ app.post('/api/sms-consent', async (req, res) => {
   const origin = `${req.protocol}://${req.get('host')}`;
   const gatewayPayload = {
     secret: consentGatewaySecret,
-    environment: 'TEST',
+    environment: portalEnvironment,
     customer_name: customerName,
     mobile_number: mobileNumber,
     disclosure_version: 'EDP-SMS-CONSENT-2026-08-26-v1',
@@ -75,7 +77,7 @@ app.post('/api/sms-consent', async (req, res) => {
 
     if (!response.ok || !result.ok) {
       const safeError = result && result.error ? String(result.error) : 'consent_gateway_error';
-      console.error('SMS consent gateway rejected TEST request:', safeError, 'HTTP status:', response.status);
+      console.error(`SMS consent gateway rejected ${portalEnvironment} request:`, safeError, 'HTTP status:', response.status);
       return res.status(502).json({ ok: false, error: safeError });
     }
 
@@ -95,7 +97,7 @@ app.get('*', (_req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`EDP Customer Portal V3 TEST listening on port ${port}`);
+  console.log(`EDP Customer Portal V3 ${portalEnvironment} listening on port ${port}`);
 });
 
 function cleanText(value, maxLength) {
