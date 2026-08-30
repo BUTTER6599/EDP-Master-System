@@ -1,0 +1,938 @@
+<script>
+/* ==========================================================================
+   Scripts.html — EDP OS Register client behavior (TEST shell, pass 1)
+
+   SAFETY CONTRACT FOR THIS FILE:
+     - No fetch/XHR/WebSocket. No external requests of any kind.
+     - The only server calls are google.script.run to READ-ONLY functions.
+     - Every "action" below mutates local page state only.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var BOOT = window.EDP_BOOT || {};
+  var CFG = BOOT.config || {};
+
+  /* ---------------------------------------------------------------------- */
+  /* State (page-local only — nothing persists anywhere)                     */
+  /* ---------------------------------------------------------------------- */
+  var state = {
+    view: 'register',
+    search: '',
+    category: 'ALL',
+    custSearch: '',
+    inventory: BOOT.inventory || [],
+    customers: BOOT.customers || [],
+    activity: BOOT.activity || [],
+    cart: [],                 // { itemId, qty, unitPrice, listPrice, warrantyId }
+    customerId: null,
+    paymentMethodId: 'CASH',
+    ticketId: 'TXN-MOCK-0000',
+    conn: {
+      online: true,
+      queue: 0,
+      sync: 'SYNCED',         // SYNCED | SYNCING | PENDING
+      printer: 'READY'        // READY | UNAVAILABLE
+    }
+  };
+
+  /* ---------------------------------------------------------------------- */
+  /* Small helpers                                                          */
+  /* ---------------------------------------------------------------------- */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function money(n) {
+    return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString(CFG.locale || 'en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function initials(name) {
+    return String(name || '?').trim().split(/\s+/).slice(0, 2)
+      .map(function (w) { return w.charAt(0).toUpperCase(); }).join('');
+  }
+
+  function icon(id, style) {
+    return '<svg viewBox="0 0 24 24"' + (style ? ' style="' + style + '"' : '') +
+           '><use href="#' + id + '"></use></svg>';
+  }
+
+  function hashOf(str) {
+    var h = 0;
+    for (var i = 0; i < String(str).length; i++) { h = (h * 31 + String(str).charCodeAt(i)) | 0; }
+    return Math.abs(h);
+  }
+
+  function findItem(itemId) {
+    for (var i = 0; i < state.inventory.length; i++) {
+      if (state.inventory[i].itemId === itemId) { return state.inventory[i]; }
+    }
+    return null;
+  }
+
+  function findCustomer(id) {
+    for (var i = 0; i < state.customers.length; i++) {
+      if (state.customers[i].customerId === id) { return state.customers[i]; }
+    }
+    return null;
+  }
+
+  function warrantyById(id) {
+    var list = CFG.warrantyOptions || [];
+    for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } }
+    return list[0] || { id: 'W-ASIS', label: 'As-Is / No Warranty', price: 0 };
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Product imagery                                                         */
+  /* Locally generated SVG placeholders — deliberately NOT network images.   */
+  /* When real photos land, swap photoUri() for the stored image URL.        */
+  /* ---------------------------------------------------------------------- */
+  var HUE = {
+    refrigerator: 208, washer: 192, dryer: 264, range: 18,
+    dishwasher: 162, freezer: 200, microwave: 34, television: 238
+  };
+
+  var SHAPES = {
+    refrigerator:
+      '<rect x="140" y="46" width="120" height="208" rx="12"/>' +
+      '<path d="M140 132 H260"/>' +
+      '<path d="M246 96 V118" stroke-width="6"/><path d="M246 152 V196" stroke-width="6"/>',
+    freezer:
+      '<rect x="146" y="42" width="108" height="216" rx="12"/>' +
+      '<path d="M240 110 V190" stroke-width="6"/>' +
+      '<path d="M146 96 H254" opacity=".45"/><path d="M146 150 H254" opacity=".45"/><path d="M146 204 H254" opacity=".45"/>',
+    washer:
+      '<rect x="126" y="58" width="148" height="184" rx="14"/>' +
+      '<path d="M126 100 H274"/>' +
+      '<circle cx="200" cy="176" r="44"/><circle cx="200" cy="176" r="30" opacity=".5"/>' +
+      '<circle cx="152" cy="79" r="6"/><circle cx="172" cy="79" r="6"/>',
+    dryer:
+      '<rect x="126" y="58" width="148" height="184" rx="14"/>' +
+      '<path d="M126 100 H274"/>' +
+      '<circle cx="200" cy="176" r="46"/>' +
+      '<path d="M172 176 H228 M200 148 V204" opacity=".5"/>' +
+      '<circle cx="250" cy="79" r="8"/>',
+    range:
+      '<rect x="122" y="86" width="156" height="168" rx="10"/>' +
+      '<path d="M122 128 H278"/>' +
+      '<rect x="146" y="150" width="108" height="86" rx="8" opacity=".55"/>' +
+      '<circle cx="160" cy="66" r="17"/><circle cx="240" cy="66" r="17"/>' +
+      '<path d="M122 86 H278" stroke-width="5"/>',
+    dishwasher:
+      '<rect x="128" y="62" width="144" height="180" rx="10"/>' +
+      '<path d="M128 96 H272"/>' +
+      '<path d="M152 118 H248" stroke-width="7"/>' +
+      '<circle cx="156" cy="79" r="5"/><circle cx="174" cy="79" r="5"/><circle cx="192" cy="79" r="5"/>' +
+      '<rect x="152" y="146" width="96" height="70" rx="6" opacity=".4"/>',
+    microwave:
+      '<rect x="96" y="104" width="208" height="104" rx="10"/>' +
+      '<rect x="112" y="120" width="130" height="72" rx="6" opacity=".55"/>' +
+      '<path d="M258 124 V188" stroke-width="5" opacity=".8"/>' +
+      '<circle cx="280" cy="136" r="7"/><circle cx="280" cy="160" r="7"/>',
+    television:
+      '<rect x="76" y="72" width="248" height="140" rx="8"/>' +
+      '<rect x="90" y="86" width="220" height="112" rx="4" opacity=".5"/>' +
+      '<path d="M200 212 V238 M158 244 H242" stroke-width="7"/>'
+  };
+
+  /**
+   * Returns a data: URI for a locally drawn placeholder image.
+   * No network involved.
+   */
+  function photoUri(item, w, h) {
+    var key = String(item.photoKey || 'box').toLowerCase();
+    var hue = HUE[key] == null ? 214 : HUE[key];
+    var shape = SHAPES[key] || SHAPES.refrigerator;
+    var seed = hashOf(item.itemId);
+    var tilt = 20 + (seed % 40);          // slight per-item gradient variation
+    var light = 92 - (seed % 6);
+
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="' + (w || 400) + '" height="' + (h || 300) + '">' +
+        '<defs>' +
+          '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(' + tilt + ' .5 .5)">' +
+            '<stop offset="0" stop-color="hsl(' + hue + ',34%,' + light + '%)"/>' +
+            '<stop offset="1" stop-color="hsl(' + (hue + 14) + ',30%,' + (light - 14) + '%)"/>' +
+          '</linearGradient>' +
+        '</defs>' +
+        '<rect width="400" height="300" fill="url(#g)"/>' +
+        '<ellipse cx="200" cy="262" rx="104" ry="15" fill="hsl(' + hue + ',26%,' + (light - 22) + '%)" opacity=".55"/>' +
+        '<g fill="none" stroke="hsl(' + hue + ',30%,30%)" stroke-width="9" ' +
+           'stroke-linecap="round" stroke-linejoin="round" opacity=".85">' + shape + '</g>' +
+      '</svg>';
+
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 7. Live clock — America/Chicago, time first then full date             */
+  /* ---------------------------------------------------------------------- */
+  var timeFmt, dateFmt;
+  try {
+    timeFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: CFG.timezone || 'America/Chicago',
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+    });
+    dateFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: CFG.timezone || 'America/Chicago',
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+  } catch (e) {
+    timeFmt = null; dateFmt = null;
+  }
+
+  function tickClock() {
+    var now = new Date();
+    var timeEl = $('#clockTime');
+    var dateEl = $('#clockDate');
+    if (!timeEl || !dateEl) { return; }
+
+    if (timeFmt && dateFmt) {
+      // Split the meridiem out so it can be styled smaller.
+      var t = timeFmt.format(now);                       // e.g. "3:07:22 PM"
+      var m = t.match(/^(.*?)\s*([AP]M)$/i);
+      var clock = m ? m[1] : t;
+      var mer = m ? m[2].toUpperCase() : '';
+      timeEl.innerHTML = esc(clock) + '<span class="mer">' + esc(mer) + '</span>';
+      dateEl.textContent = dateFmt.format(now);          // "Sunday, August 30, 2026"
+    } else {
+      timeEl.textContent = now.toLocaleTimeString();
+      dateEl.textContent = now.toDateString();
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 1. Register / POS home                                                  */
+  /* ---------------------------------------------------------------------- */
+  var AVAIL = {
+    AVAILABLE: { label: 'Available', cls: 'is-ok',     sellable: true,  bg: 'rgba(230,245,239,.94)', fg: '#12805c' },
+    LOW_STOCK: { label: 'Low stock', cls: 'is-warn',   sellable: true,  bg: 'rgba(253,243,227,.94)', fg: '#b45309' },
+    ON_HOLD:   { label: 'On hold',   cls: 'is-warn',   sellable: false, bg: 'rgba(253,243,227,.94)', fg: '#b45309' },
+    SOLD:      { label: 'Sold',      cls: 'is-danger', sellable: false, bg: 'rgba(253,236,235,.94)', fg: '#b42318' }
+  };
+  function availMeta(code) { return AVAIL[code] || AVAIL.AVAILABLE; }
+
+  function renderCategories() {
+    var wrap = $('#catFilters');
+    if (!wrap) { return; }
+    var cats = ['ALL'].concat(BOOT.categories || []);
+    wrap.innerHTML = cats.map(function (c) {
+      return '<button type="button" data-cat="' + esc(c) + '"' +
+             (state.category === c ? ' class="active"' : '') + '>' +
+             esc(c === 'ALL' ? 'All items' : c) + '</button>';
+    }).join('');
+  }
+
+  function filteredInventory() {
+    var q = state.search.trim().toLowerCase();
+    return state.inventory.filter(function (it) {
+      if (state.category !== 'ALL' && it.category !== state.category) { return false; }
+      if (!q) { return true; }
+      return [it.itemId, it.brand, it.model, it.category, it.description, it.condition]
+        .join(' ').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function renderGrid() {
+    var grid = $('#prodGrid');
+    var empty = $('#prodEmpty');
+    if (!grid) { return; }
+
+    var items = filteredInventory();
+    empty.hidden = items.length > 0;
+
+    grid.innerHTML = items.map(function (it) {
+      var a = availMeta(it.availability);
+      var inCart = state.cart.some(function (l) { return l.itemId === it.itemId; });
+      return '' +
+        '<article class="prod" data-sellable="' + a.sellable + '">' +
+          '<div class="photo">' +
+            '<img src="' + photoUri(it, 400, 300) + '" alt="' + esc(it.brand + ' ' + it.model) + '" loading="lazy">' +
+            '<span class="avail" style="background:' + a.bg + ';color:' + a.fg + '">' + esc(a.label) + '</span>' +
+            '<span class="ph">Photo placeholder</span>' +
+          '</div>' +
+          '<div class="info">' +
+            '<div class="cat">' + esc(it.category) + '</div>' +
+            '<div class="title">' + esc(it.brand + ' ' + it.model) + '</div>' +
+            '<div class="desc">' + esc(it.description) + '</div>' +
+            '<div class="idline">' + esc(it.itemId) + ' · ' + esc(it.location) + '</div>' +
+            '<div class="foot">' +
+              '<span class="price">' + money(it.price) + '</span>' +
+              '<span class="cond">' + esc(it.condition) + '<br>Qty ' + esc(it.qty) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<button class="add" type="button" data-add="' + esc(it.itemId) + '"' +
+            (a.sellable ? '' : ' disabled') + '>' +
+            (a.sellable ? (inCart ? 'In cart · Add another' : 'Add to sale') : esc(a.label)) +
+          '</button>' +
+        '</article>';
+    }).join('');
+
+    var summary = $('#stockSummary');
+    if (summary) {
+      summary.textContent = items.length + ' of ' + state.inventory.length +
+        ' mock items shown · tap a card to add it to the sale';
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 2. Cart / checkout                                                      */
+  /* ---------------------------------------------------------------------- */
+  function cartTotals() {
+    var sub = 0, warr = 0, count = 0;
+    state.cart.forEach(function (l) {
+      sub += l.unitPrice * l.qty;
+      warr += warrantyById(l.warrantyId).price * l.qty;
+      count += l.qty;
+    });
+    var taxable = sub + warr;
+    var tax = Math.round(taxable * (CFG.taxRate || 0) * 100) / 100;
+    return { sub: sub, warr: warr, tax: tax, total: taxable + tax, count: count };
+  }
+
+  function renderCart() {
+    var wrap = $('#cartLines');
+    if (!wrap) { return; }
+
+    if (!state.cart.length) {
+      wrap.innerHTML = '<div class="empty"><div class="big">No items yet</div>' +
+        '<div>Add an appliance from the Register tab.</div></div>';
+    } else {
+      var opts = CFG.warrantyOptions || [];
+      wrap.innerHTML = state.cart.map(function (l, idx) {
+        var it = findItem(l.itemId) || {};
+        var changed = l.listPrice != null && l.unitPrice !== l.listPrice;
+        return '' +
+          '<div class="line">' +
+            '<div class="thumb"><img src="' + photoUri(it, 120, 120) + '" alt=""></div>' +
+            '<div class="mid">' +
+              '<div class="nm">' + esc((it.brand || '') + ' ' + (it.model || '')) + '</div>' +
+              '<div class="meta">' + esc(l.itemId) + ' · qty ' + l.qty + '</div>' +
+              '<select class="warr" data-warr="' + idx + '" aria-label="Warranty for ' + esc(l.itemId) + '">' +
+                opts.map(function (w) {
+                  return '<option value="' + esc(w.id) + '"' + (w.id === l.warrantyId ? ' selected' : '') + '>' +
+                    esc(w.label) + (w.price ? ' (+' + money(w.price) + ')' : '') + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+            '<div class="rt">' +
+              (changed ? '<span class="was">' + money(l.listPrice) + '</span>' : '') +
+              '<span class="amt">' + money(l.unitPrice * l.qty) + '</span>' +
+              '<button class="rm" type="button" data-rm="' + idx + '">Remove</button>' +
+            '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    var t = cartTotals();
+    $('#subLabel').textContent = 'Subtotal (' + t.count + (t.count === 1 ? ' item)' : ' items)');
+    $('#subTotal').textContent = money(t.sub);
+    $('#warrTotal').textContent = money(t.warr);
+    $('#taxLabel').textContent = (CFG.taxLabel || 'Sales Tax (MOCK)') +
+      ' · ' + ((CFG.taxRate || 0) * 100).toFixed(2) + '%';
+    $('#taxTotal').textContent = money(t.tax);
+    $('#grandTotal').textContent = money(t.total);
+    $('#cartFabCount').textContent = String(t.count);
+
+    // The Complete Sale button stays disabled for the whole of pass 1.
+    var btn = $('#btnCompleteSale');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+  }
+
+  function renderCartCustomer() {
+    var c = findCustomer(state.customerId);
+    $('#cartCustAv').textContent = c ? initials(c.name) : '—';
+    $('#cartCustName').textContent = c ? c.name : 'Walk-in customer';
+    $('#cartCustPhone').textContent = c ? (c.phone + ' · ' + c.customerId) : 'No customer linked';
+    $('#cartCustChange').textContent = c ? 'Change' : 'Link';
+  }
+
+  function renderPayments() {
+    var grid = $('#payGrid');
+    if (!grid) { return; }
+    grid.innerHTML = (CFG.paymentMethods || []).map(function (p) {
+      return '<button type="button" data-pay="' + esc(p.id) + '"' +
+             (state.paymentMethodId === p.id ? ' class="active"' : '') + '>' +
+             esc(p.label) + '</button>';
+    }).join('');
+  }
+
+  function addToCart(itemId) {
+    var it = findItem(itemId);
+    if (!it || !availMeta(it.availability).sellable) { return; }
+
+    var existing = null;
+    state.cart.forEach(function (l) { if (l.itemId === itemId) { existing = l; } });
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      state.cart.push({
+        itemId: itemId, qty: 1,
+        unitPrice: it.price, listPrice: it.price,
+        warrantyId: 'W-30'
+      });
+    }
+
+    logLocalEvent('ITEM_ADDED', 'Item added to cart',
+      { detail: it.itemId + ' — ' + it.brand + ' ' + it.model + ' @ ' + money(it.price), status: 'OK' });
+
+    renderCart(); renderGrid(); renderReceipt();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 3. Customer                                                             */
+  /* ---------------------------------------------------------------------- */
+  function renderCustomerList() {
+    var list = $('#custList');
+    if (!list) { return; }
+    var q = state.custSearch.trim().toLowerCase();
+    var rows = state.customers.filter(function (c) {
+      if (!q) { return true; }
+      return (c.name + ' ' + c.phone + ' ' + c.customerId).toLowerCase().indexOf(q) !== -1;
+    });
+
+    if (!rows.length) {
+      list.innerHTML = '<div class="empty"><div class="big">No matching customers</div>' +
+        '<div>Mock directory holds ' + state.customers.length + ' demo records.</div></div>';
+      return;
+    }
+
+    list.innerHTML = rows.map(function (c) {
+      return '<button class="custrow' + (c.customerId === state.customerId ? ' active' : '') +
+             '" type="button" data-cust="' + esc(c.customerId) + '">' +
+        '<span class="av">' + esc(initials(c.name)) + '</span>' +
+        '<span><span class="nm">' + esc(c.name) + '</span><br>' +
+          '<span class="ph">' + esc(c.phone) + '</span></span>' +
+        '<span class="rt">' + esc(c.customerId) + '<br>' + c.history.length + ' purchase' +
+          (c.history.length === 1 ? '' : 's') + '</span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function renderCustomerDetail() {
+    var c = findCustomer(state.customerId);
+    var nameEl = $('#custDetailName');
+    var kv = $('#custDetailKv');
+    var hist = $('#custHistory');
+    var warr = $('#custWarranty');
+
+    if (!c) {
+      nameEl.textContent = 'No customer selected';
+      kv.innerHTML = '<dt>Status</dt><dd>Walk-in — no customer linked to this ticket</dd>';
+      hist.innerHTML = phBlock('Purchase history placeholder',
+        'Select a mock customer to preview the history layout.');
+      warr.innerHTML = phBlock('Warranty / service history placeholder',
+        'Claim records will render here once the real data layer is connected.');
+      return;
+    }
+
+    nameEl.textContent = c.name;
+    kv.innerHTML =
+      '<dt>Customer ID</dt><dd>' + esc(c.customerId) + '</dd>' +
+      '<dt>Phone</dt><dd>' + esc(c.phone) + '</dd>' +
+      '<dt>Email</dt><dd>' + esc(c.email) + '</dd>' +
+      '<dt>Customer since</dt><dd>' + esc(c.since) + '</dd>' +
+      '<dt>Notes</dt><dd>' + esc(c.notes) + '</dd>';
+
+    hist.innerHTML = c.history.length
+      ? c.history.map(function (h) {
+          return '<div class="histrow">' +
+            '<span class="d">' + esc(h.date) + '</span>' +
+            '<span class="s">' + esc(h.summary) +
+              '<br><span class="w">' + esc(h.itemId) + ' · ' + esc(h.warranty) + '</span></span>' +
+            '<span class="t">' + money(h.total) + '</span>' +
+          '</div>';
+        }).join('')
+      : phBlock('Purchase history placeholder', 'No mock purchases on file for this customer.');
+
+    warr.innerHTML = c.warrantyClaims.length
+      ? c.warrantyClaims.map(function (w) {
+          return '<div class="histrow">' +
+            '<span class="d">' + esc(w.date) + '</span>' +
+            '<span class="s">' + esc(w.detail) +
+              '<br><span class="w">' + esc(w.itemId) + '</span></span>' +
+            '<span class="tag s-ok">' + esc(w.status) + '</span>' +
+          '</div>';
+        }).join('')
+      : phBlock('Warranty / service history placeholder', 'No mock claims on file for this customer.');
+  }
+
+  function phBlock(title, sub) {
+    return '<div class="ph-block"><div class="t">' + esc(title) + '</div>' + esc(sub) + '</div>';
+  }
+
+  function linkCustomer(id) {
+    var before = state.customerId ? (findCustomer(state.customerId) || {}).name : 'Walk-in (unassigned)';
+    state.customerId = id;
+    var c = findCustomer(id);
+    logLocalEvent('CUSTOMER_LINKED', 'Customer linked',
+      { before: before, after: c ? (c.name + ' — ' + c.customerId) : 'Walk-in', status: 'OK' });
+    renderCustomerList(); renderCustomerDetail(); renderCartCustomer(); renderReceipt();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 4. Receipt / invoice preview                                            */
+  /* ---------------------------------------------------------------------- */
+  function renderReceipt() {
+    var el = $('#receipt');
+    if (!el) { return; }
+    var c = findCustomer(state.customerId);
+    var t = cartTotals();
+    var pm = (CFG.paymentMethods || []).filter(function (p) { return p.id === state.paymentMethodId; })[0];
+
+    var lines = state.cart.length
+      ? state.cart.map(function (l) {
+          var it = findItem(l.itemId) || {};
+          var w = warrantyById(l.warrantyId);
+          return '<div class="ritem">' +
+            '<div class="thumb"><img src="' + photoUri(it, 160, 160) + '" alt=""></div>' +
+            '<div class="mid">' +
+              '<div class="nm">' + esc((it.brand || '') + ' ' + (it.model || '')) + '</div>' +
+              '<div class="sm">' +
+                'ITEM ID: ' + esc(l.itemId) + '<br>' +
+                'BRAND: ' + esc(it.brand || '—') + ' · MODEL: ' + esc(it.model || '—') + '<br>' +
+                'SERIAL: ' + esc(it.serialPlaceholder || '[ SERIAL PLACEHOLDER ]') + '<br>' +
+                'CONDITION: ' + esc(it.condition || '—') +
+              '</div>' +
+              '<span class="warr">' + esc(w.label) + (w.price ? ' · +' + money(w.price) : '') + '</span>' +
+            '</div>' +
+            '<div class="amt">' + money(l.unitPrice * l.qty) + '</div>' +
+          '</div>';
+        }).join('')
+      : '<div class="empty" style="padding:28px 0"><div class="big">No line items</div>' +
+        '<div>Add an item on the Register tab to populate this preview.</div></div>';
+
+    el.innerHTML =
+      '<div class="rhead">' +
+        '<div class="mark">EDP</div>' +
+        '<h3>' + esc(CFG.companyShort || 'Electronics Depot') + '</h3>' +
+        '<div class="co">' + esc(CFG.companyName || '') + '</div>' +
+        '<div class="ph">' + esc(CFG.storeAddress || '') + '<br>' + esc(CFG.storePhone || '') + '</div>' +
+      '</div>' +
+
+      '<div class="rmeta">' +
+        '<div><div class="lbl">Ticket</div>' + esc(state.ticketId) + '</div>' +
+        '<div><div class="lbl">Customer</div>' + esc(c ? c.name : 'Walk-in') +
+          (c ? '<br><span style="color:var(--muted)">' + esc(c.phone) + '</span>' : '') + '</div>' +
+        '<div><div class="lbl">Payment</div>' + esc(pm ? pm.label : 'Cash') + '</div>' +
+        '<div><div class="lbl">Date</div><span id="receiptDate">—</span></div>' +
+      '</div>' +
+
+      lines +
+
+      '<div class="rtot">' +
+        '<div class="trow"><span>Subtotal</span><span>' + money(t.sub) + '</span></div>' +
+        '<div class="trow"><span>Warranty coverage</span><span>' + money(t.warr) + '</span></div>' +
+        '<div class="trow"><span>' + esc(CFG.taxLabel || 'Sales Tax (MOCK)') + '</span><span>' + money(t.tax) + '</span></div>' +
+        '<div class="trow grand"><span>Total</span><span>' + money(t.total) + '</span></div>' +
+      '</div>' +
+
+      '<div class="rfoot">' +
+        esc(CFG.storeFooter || '') + '<br>' +
+        'PREVIEW ONLY — NOT A VALID RECEIPT · ' + esc(CFG.environment || 'TEST') + ' BUILD ' + esc(CFG.buildVersion || '') +
+      '</div>';
+
+    var d = $('#receiptDate');
+    if (d && dateFmt) { d.textContent = dateFmt.format(new Date()); }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 5. Activity timeline                                                    */
+  /* ---------------------------------------------------------------------- */
+  var KIND = {
+    TRANSACTION_CREATED: { icon: 'i-register', tone: 'info' },
+    CUSTOMER_LINKED:     { icon: 'i-link',     tone: 'info' },
+    ITEM_ADDED:          { icon: 'i-plus',     tone: 'ok' },
+    ITEM_REMOVED:        { icon: 'i-x',        tone: 'warn' },
+    PRICE_CHANGED:       { icon: 'i-tag',      tone: 'warn' },
+    WARRANTY_SELECTED:   { icon: 'i-shield',   tone: 'ok' },
+    PAYMENT_RECORDED:    { icon: 'i-cash',     tone: 'ok' },
+    PAYMENT_METHOD:      { icon: 'i-cash',     tone: 'info' },
+    RECEIPT_EMAILED:     { icon: 'i-mail',     tone: 'info' },
+    RECEIPT_PRINTED:     { icon: 'i-print',    tone: 'info' },
+    INVENTORY_SOLD:      { icon: 'i-box',      tone: 'ok' },
+    OFFLINE_QUEUED:      { icon: 'i-cloudoff', tone: 'warn' },
+    SYNC_COMPLETED:      { icon: 'i-sync',     tone: 'ok' },
+    PRINTER_STATUS:      { icon: 'i-print',    tone: 'danger' },
+    CONNECTION_CHANGED:  { icon: 'i-cloudoff', tone: 'warn' }
+  };
+
+  function relTime(minutesAgo) {
+    if (minutesAgo < 1) { return 'just now'; }
+    if (minutesAgo < 60) { return minutesAgo + ' min ago'; }
+    var h = Math.floor(minutesAgo / 60);
+    return h + (h === 1 ? ' hr ago' : ' hrs ago');
+  }
+
+  function clockAt(minutesAgo) {
+    var d = new Date(Date.now() - minutesAgo * 60000);
+    return timeFmt ? timeFmt.format(d) : d.toLocaleTimeString();
+  }
+
+  function statusTone(s) {
+    if (!s) { return ''; }
+    if (['OK', 'SYNCED', 'SENT', 'APPROVED'].indexOf(s) !== -1) { return 's-ok'; }
+    if (['QUEUED', 'ATTENTION', 'PENDING'].indexOf(s) !== -1) { return 's-warn'; }
+    return 's-info';
+  }
+
+  function renderTimeline() {
+    var el = $('#timeline');
+    if (!el) { return; }
+
+    // Newest first: ascending minutesAgo, tie-broken by insertion order
+    // descending so same-minute local events stack newest-on-top.
+    var events = state.activity.slice().sort(function (a, b) {
+      if (a.minutesAgo !== b.minutesAgo) { return a.minutesAgo - b.minutesAgo; }
+      return (b.seq || 0) - (a.seq || 0);
+    });
+
+    el.innerHTML = events.map(function (ev) {
+      var k = KIND[ev.kind] || { icon: 'i-activity', tone: 'info' };
+
+      var delta = '';
+      if (ev.before != null || ev.after != null) {
+        delta = '<div class="delta">' +
+          (ev.before != null ? '<span class="b4">' + esc(ev.before) + '</span><span class="ar">→</span>' : '') +
+          '<span class="af">' + esc(ev.after == null ? '—' : ev.after) + '</span>' +
+        '</div>';
+      }
+
+      var tags = '';
+      if (ev.status || ev.reason) {
+        tags = '<div class="tags">' +
+          (ev.status ? '<span class="tag ' + statusTone(ev.status) + '">' + esc(ev.status) + '</span>' : '') +
+          (ev.reason ? '<span class="tag reason">Reason: ' + esc(ev.reason) + '</span>' : '') +
+        '</div>';
+      }
+
+      return '<div class="tl k-' + k.tone + '">' +
+        '<div class="spine"><span class="ico">' + icon(k.icon) + '</span></div>' +
+        '<div class="content">' +
+          '<div class="row1">' +
+            '<span class="act">' + esc(ev.action) + '</span>' +
+            '<span class="by">by <b>' + esc(ev.user) + '</b></span>' +
+            '<span class="ts">' + esc(clockAt(ev.minutesAgo)) + ' · ' + esc(relTime(ev.minutesAgo)) + '</span>' +
+          '</div>' +
+          (ev.detail ? '<div class="detail">' + esc(ev.detail) + '</div>' : '') +
+          delta + tags +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  /** Appends a page-local event. Nothing is persisted or transmitted. */
+  var localSeq = 0;
+  function logLocalEvent(kind, action, opts) {
+    opts = opts || {};
+    localSeq += 1;
+    state.activity.push({
+      id: 'EV-LOCAL-' + localSeq,
+      kind: kind, minutesAgo: 0, seq: localSeq,
+      user: 'Taylor D. (this session)',
+      action: action,
+      detail: opts.detail, before: opts.before, after: opts.after,
+      status: opts.status, reason: opts.reason
+    });
+    renderTimeline();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 6. Offline / connection / printer status (simulation only)             */
+  /* ---------------------------------------------------------------------- */
+  function setChip(id, cls, text, busy) {
+    var el = $(id);
+    if (!el) { return; }
+    el.className = 'chip ' + cls + (busy ? ' is-busy' : '');
+    $('.t', el).textContent = text;
+  }
+
+  function renderStatus() {
+    var c = state.conn;
+
+    setChip('#chipNet',
+      c.online ? 'is-ok' : 'is-danger',
+      c.online ? 'ONLINE' : 'OFFLINE');
+
+    setChip('#chipQueue',
+      c.queue > 0 ? 'is-warn' : '',
+      'LOCAL QUEUE: ' + c.queue);
+
+    if (c.sync === 'SYNCING') {
+      setChip('#chipSync', 'is-info', 'SYNCING…', true);
+    } else if (c.sync === 'PENDING') {
+      setChip('#chipSync', 'is-warn', 'SYNC PENDING');
+    } else {
+      setChip('#chipSync', 'is-ok', 'SYNCED');
+    }
+
+    setChip('#chipPrinter',
+      c.printer === 'READY' ? 'is-ok' : 'is-danger',
+      c.printer === 'READY' ? 'PRINTER READY' : 'PRINTER UNAVAILABLE');
+
+    setChip('#chipEnv', 'is-warn', (CFG.environment || 'TEST') + ' · MOCK DATA');
+
+    $('#simNet').textContent = c.online ? 'Go Offline' : 'Go Online';
+  }
+
+  function simulateOffline() {
+    state.conn.online = false;
+    state.conn.queue += 2;
+    state.conn.sync = 'PENDING';
+    renderStatus();
+    logLocalEvent('OFFLINE_QUEUED', 'Offline queue engaged', {
+      detail: state.conn.queue + ' pending writes held locally (simulated)',
+      status: 'QUEUED', reason: 'Connection simulated offline'
+    });
+  }
+
+  function simulateOnline() {
+    state.conn.online = true;
+    renderStatus();
+    logLocalEvent('CONNECTION_CHANGED', 'Connection restored',
+      { before: 'OFFLINE', after: 'ONLINE', status: 'OK' });
+  }
+
+  function simulateSync() {
+    if (!state.conn.online) {
+      logLocalEvent('SYNC_COMPLETED', 'Sync blocked',
+        { detail: 'Device is offline — queue held', status: 'QUEUED', reason: 'No connection' });
+      return;
+    }
+    var was = state.conn.queue;
+    state.conn.sync = 'SYNCING';
+    renderStatus();
+    window.setTimeout(function () {
+      state.conn.queue = 0;
+      state.conn.sync = 'SYNCED';
+      renderStatus();
+      logLocalEvent('SYNC_COMPLETED', 'Sync completed',
+        { before: was + ' queued', after: '0 queued', status: 'SYNCED' });
+    }, 1400);
+  }
+
+  function simulatePrinter() {
+    var before = state.conn.printer;
+    state.conn.printer = before === 'READY' ? 'UNAVAILABLE' : 'READY';
+    renderStatus();
+    logLocalEvent('PRINTER_STATUS', 'Printer status changed', {
+      before: before, after: state.conn.printer,
+      status: state.conn.printer === 'READY' ? 'OK' : 'ATTENTION',
+      reason: state.conn.printer === 'READY' ? 'Reconnected (simulated)' : 'Simulated paper out'
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* View switching + cart sheet                                             */
+  /* ---------------------------------------------------------------------- */
+  function setView(name) {
+    state.view = name;
+    $$('.view').forEach(function (v) { v.classList.toggle('active', v.id === 'view-' + name); });
+    $$('[data-view]').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === name); });
+    var main = $('#main');
+    if (main) { main.scrollTop = 0; }
+  }
+
+  function openCart(open) {
+    $('#cartPanel').classList.toggle('open', open);
+    $('#scrim').classList.toggle('show', open);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Events                                                                  */
+  /* ---------------------------------------------------------------------- */
+  function wire() {
+    // Navigation (rail + bottom bar)
+    document.addEventListener('click', function (e) {
+      var nav = e.target.closest ? e.target.closest('[data-view]') : null;
+      if (nav) { setView(nav.getAttribute('data-view')); }
+    });
+
+    // Search
+    $('#prodSearch').addEventListener('input', function (e) {
+      state.search = e.target.value; renderGrid();
+    });
+    $('#prodSearchClear').addEventListener('click', function () {
+      state.search = ''; $('#prodSearch').value = ''; renderGrid();
+    });
+    $('#custSearch').addEventListener('input', function (e) {
+      state.custSearch = e.target.value; renderCustomerList();
+    });
+    $('#custSearchClear').addEventListener('click', function () {
+      state.custSearch = ''; $('#custSearch').value = ''; renderCustomerList();
+    });
+
+    // Category filters
+    $('#catFilters').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cat]');
+      if (!b) { return; }
+      state.category = b.getAttribute('data-cat');
+      renderCategories(); renderGrid();
+    });
+
+    // Product grid — add to sale
+    $('#prodGrid').addEventListener('click', function (e) {
+      var card = e.target.closest('.prod');
+      if (!card) { return; }
+      var btn = card.querySelector('[data-add]');
+      if (!btn || btn.disabled) { return; }
+      addToCart(btn.getAttribute('data-add'));
+    });
+
+    // Cart line actions
+    $('#cartLines').addEventListener('click', function (e) {
+      var rm = e.target.closest('[data-rm]');
+      if (!rm) { return; }
+      var idx = parseInt(rm.getAttribute('data-rm'), 10);
+      var line = state.cart[idx];
+      var it = line ? findItem(line.itemId) : null;
+      state.cart.splice(idx, 1);
+      if (it) {
+        logLocalEvent('ITEM_REMOVED', 'Item removed from cart',
+          { detail: it.itemId + ' — ' + it.brand + ' ' + it.model, status: 'OK' });
+      }
+      renderCart(); renderGrid(); renderReceipt();
+    });
+
+    $('#cartLines').addEventListener('change', function (e) {
+      var sel = e.target.closest('[data-warr]');
+      if (!sel) { return; }
+      var idx = parseInt(sel.getAttribute('data-warr'), 10);
+      var line = state.cart[idx];
+      if (!line) { return; }
+      var before = warrantyById(line.warrantyId);
+      line.warrantyId = sel.value;
+      var after = warrantyById(line.warrantyId);
+      logLocalEvent('WARRANTY_SELECTED', 'Warranty selected', {
+        before: before.label,
+        after: after.label + (after.price ? ' (+' + money(after.price) + ')' : ''),
+        detail: line.itemId, status: 'OK'
+      });
+      renderCart(); renderReceipt();
+    });
+
+    // Payment method
+    $('#payGrid').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-pay]');
+      if (!b) { return; }
+      var before = state.paymentMethodId;
+      state.paymentMethodId = b.getAttribute('data-pay');
+      renderPayments(); renderReceipt();
+      logLocalEvent('PAYMENT_METHOD', 'Payment method changed',
+        { before: before, after: state.paymentMethodId, status: 'OK' });
+    });
+
+    // Customer selection
+    $('#custList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cust]');
+      if (b) { linkCustomer(b.getAttribute('data-cust')); }
+    });
+    $('#cartCustChange').addEventListener('click', function () {
+      setView('customer'); openCart(false);
+    });
+
+    // Cart sheet (phone)
+    $('#cartFab').addEventListener('click', function () { openCart(true); });
+    $('#cartClose').addEventListener('click', function () { openCart(false); });
+    $('#scrim').addEventListener('click', function () { openCart(false); });
+
+    // Status simulation
+    $('#simNet').addEventListener('click', function () {
+      state.conn.online ? simulateOffline() : simulateOnline();
+    });
+    $('#simSync').addEventListener('click', simulateSync);
+    $('#simPrinter').addEventListener('click', simulatePrinter);
+
+    // Receipt action placeholders — intentionally inert
+    ['#btnPrint', '#btnEmail', '#btnReprint'].forEach(function (sel) {
+      $(sel).addEventListener('click', function () {
+        var label = sel === '#btnPrint' ? 'Print' : (sel === '#btnEmail' ? 'Email Receipt' : 'Reprint');
+        logLocalEvent('RECEIPT_PRINTED', label + ' pressed (placeholder)', {
+          detail: 'No printer bridge and no mail sender exist in this build. Nothing was sent.',
+          status: 'PENDING', reason: 'Not implemented in TEST shell pass 1'
+        });
+        setView('activity');
+      });
+    });
+
+    // Read-only server round trip — proves the wiring without any writes.
+    $('#btnReloadActivity').addEventListener('click', function () {
+      var btn = this;
+      btn.disabled = true;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        btn.disabled = false;
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (fresh) {
+          state.activity = (fresh && fresh.activity) || state.activity;
+          renderTimeline();
+          btn.disabled = false;
+        })
+        .withFailureHandler(function () { btn.disabled = false; })
+        .getBootstrap();
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Boot                                                                    */
+  /* ---------------------------------------------------------------------- */
+  function applyOpenTicket() {
+    var t = BOOT.openTicket;
+    if (!t) { return; }
+    state.ticketId = t.ticketId || state.ticketId;
+    state.customerId = t.customerId || null;
+    state.paymentMethodId = t.paymentMethodId || 'CASH';
+    state.cart = (t.lines || []).map(function (l) {
+      var it = findItem(l.itemId) || {};
+      return {
+        itemId: l.itemId,
+        qty: l.qty || 1,
+        unitPrice: l.priceOverride != null ? l.priceOverride : (it.price || 0),
+        listPrice: it.price || 0,
+        warrantyId: l.warrantyId || 'W-30'
+      };
+    });
+    $('#ticketId').textContent = state.ticketId;
+  }
+
+  function init() {
+    if (CFG.appName) { $('#brandName').textContent = CFG.appName; }
+    if (CFG.companyName) { $('#brandCo').textContent = CFG.companyName; }
+    $('#clockTz').textContent = 'CENTRAL · ' + (CFG.timezone || 'America/Chicago').toUpperCase();
+
+    applyOpenTicket();
+
+    renderCategories();
+    renderGrid();
+    renderCart();
+    renderCartCustomer();
+    renderPayments();
+    renderCustomerList();
+    renderCustomerDetail();
+    renderReceipt();
+    renderTimeline();
+    renderStatus();
+
+    tickClock();
+    window.setInterval(tickClock, 1000);
+
+    wire();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
