@@ -11,25 +11,36 @@
     status.dataset.state = state;
   };
 
+  const getEnvironment = () => String(form.dataset.environment || '').toUpperCase();
+  const isTestEnvironment = () => getEnvironment() === 'TEST';
+  const submitLabel = () => isTestEnvironment() ? 'Submit SMS Opt-In — TEST' : 'Submit SMS Opt-In';
+
   async function checkGateway() {
     try {
       const response = await fetch('/api/sms-consent/status', { headers: { accept: 'application/json' } });
       const result = await response.json();
-      if (result.ready === true && result.environment === 'TEST') {
+      const environment = String(result.environment || '').toUpperCase();
+      if (result.ready === true && (environment === 'TEST' || environment === 'LIVE')) {
+        form.dataset.environment = environment;
         button.disabled = false;
         button.removeAttribute('aria-disabled');
-        button.textContent = 'Submit SMS Opt-In — TEST';
-        setStatus('TEST consent storage is connected. Submit only test information during this phase.', 'ready');
+        button.textContent = submitLabel();
+        if (environment === 'TEST') {
+          setStatus('TEST consent storage is connected. Submit only test information during this phase.', 'ready');
+        } else {
+          setStatus('SMS consent storage is connected. You may submit your opt-in.', 'ready');
+        }
         return;
       }
     } catch (_err) {
       // Keep the safe disabled state below.
     }
 
+    form.dataset.environment = '';
     button.disabled = true;
     button.setAttribute('aria-disabled', 'true');
-    button.textContent = 'TEST ONLY — STORAGE NOT CONNECTED';
-    setStatus('Permanent SMS-consent storage is not connected yet. No information can be submitted.', 'disabled');
+    button.textContent = 'SMS STORAGE NOT CONNECTED';
+    setStatus('SMS-consent storage is not connected yet. No information can be submitted.', 'disabled');
   }
 
   form.addEventListener('submit', async (event) => {
@@ -52,9 +63,10 @@
       return;
     }
 
+    const testMode = isTestEnvironment();
     button.disabled = true;
-    button.textContent = 'Submitting TEST opt-in…';
-    setStatus('Recording TEST consent…', 'working');
+    button.textContent = testMode ? 'Submitting TEST opt-in…' : 'Submitting opt-in…';
+    setStatus(testMode ? 'Recording TEST consent…' : 'Recording consent…', 'working');
 
     try {
       const response = await fetch('/api/sms-consent', {
@@ -75,13 +87,13 @@
         throw new Error(result.error || 'submission_failed');
       }
 
-      setStatus(`TEST consent recorded. ID: ${result.consent_id}. Time: ${result.timestamp}.`, 'success');
+      setStatus(`${testMode ? 'TEST consent' : 'Consent'} recorded. ID: ${result.consent_id}. Time: ${result.timestamp}.`, 'success');
       form.reset();
     } catch (_err) {
-      setStatus('The TEST opt-in could not be recorded. Please try again after the connection is verified.', 'error');
+      setStatus(testMode ? 'The TEST opt-in could not be recorded. Please try again after the connection is verified.' : 'The opt-in could not be recorded. Please try again after the connection is verified.', 'error');
     } finally {
       button.disabled = false;
-      button.textContent = 'Submit SMS Opt-In — TEST';
+      button.textContent = submitLabel();
     }
   });
 
