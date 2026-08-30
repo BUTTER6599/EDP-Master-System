@@ -1,14 +1,15 @@
 const EDP_MASTER_SPREADSHEET_ID = '117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI';
 const SMS_CONSENT_SHEET = 'SMS_CONSENT_LOG';
 const CUSTOMERS_SHEET = 'CUSTOMERS';
-const ALLOWED_ENVIRONMENT = 'TEST';
 const PORTAL_SECRET_PROPERTY = 'PORTAL_SHARED_SECRET';
+const PORTAL_ENVIRONMENT_PROPERTY = 'PORTAL_ENVIRONMENT';
+const DEFAULT_ENVIRONMENT = 'TEST';
 
 function doGet() {
   return jsonResponse_({
     ok: true,
     service: 'EDP SMS Consent Gateway',
-    environment: ALLOWED_ENVIRONMENT
+    environment: getAllowedEnvironment_()
   });
 }
 
@@ -16,12 +17,13 @@ function doPost(e) {
   try {
     const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     const expectedSecret = PropertiesService.getScriptProperties().getProperty(PORTAL_SECRET_PROPERTY);
+    const allowedEnvironment = getAllowedEnvironment_();
 
     if (!expectedSecret || payload.secret !== expectedSecret) {
       return jsonResponse_({ ok: false, error: 'unauthorized' });
     }
 
-    if (payload.environment !== ALLOWED_ENVIRONMENT) {
+    if (payload.environment !== allowedEnvironment) {
       return jsonResponse_({ ok: false, error: 'environment_not_allowed' });
     }
 
@@ -55,7 +57,7 @@ function doPost(e) {
       const record = {
         consent_id: consentId,
         timestamp: timestamp,
-        environment: ALLOWED_ENVIRONMENT,
+        environment: allowedEnvironment,
         cust_id: customerMatch.custId,
         customer_name: customerName,
         mobile_number: mobileNumber,
@@ -67,7 +69,7 @@ function doPost(e) {
         disclosure_version: disclosureVersion,
         privacy_url: cleanUrl_(payload.privacy_url),
         sms_terms_url: cleanUrl_(payload.sms_terms_url),
-        recorded_by: 'EDP Customer Portal V3 / Railway TEST',
+        recorded_by: 'EDP Customer Portal V3 / Railway ' + allowedEnvironment,
         evidence_url: '',
         notes: customerMatch.matchStatus
       };
@@ -87,6 +89,13 @@ function doPost(e) {
     console.error(err && err.stack ? err.stack : err);
     return jsonResponse_({ ok: false, error: 'gateway_error' });
   }
+}
+
+function getAllowedEnvironment_() {
+  const configured = String(
+    PropertiesService.getScriptProperties().getProperty(PORTAL_ENVIRONMENT_PROPERTY) || DEFAULT_ENVIRONMENT
+  ).trim().toUpperCase();
+  return configured === 'LIVE' ? 'LIVE' : 'TEST';
 }
 
 function appendByHeader_(sheet, record) {
