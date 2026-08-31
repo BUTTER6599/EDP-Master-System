@@ -8,6 +8,7 @@
 !Config.gs
 !DataSource.gs
 !MockData.gs
+!Validation.gs
 !Index.html
 !Styles.html
 !Scripts.html

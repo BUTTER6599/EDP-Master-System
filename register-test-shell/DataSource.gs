@@ -16,6 +16,8 @@
  *     and none may be added without a separate, reviewed decision.
  *   - No SpreadsheetApp, DriveApp, PropertiesService, MailApp, GmailApp,
  *     UrlFetchApp or ScriptApp. Not yet. Not in this pass.
+ *   - Every read is shape-checked by Validation.gs before it is returned.
+ *     Bad data fails closed at this boundary; it never reaches the UI.
  *   - No spreadsheet IDs of any kind appear in this file. When a real
  *     adapter is built, its file ID must come from Script Properties at
  *     runtime, never from source.
@@ -103,10 +105,20 @@ function getDataSource() {
  * and nothing else.
  * ------------------------------------------------------------------------ */
 
-function readInventory()  { return getDataSource().readInventory(); }
-function readCustomers()  { return getDataSource().readCustomers(); }
-function readActivity()   { return getDataSource().readActivity(); }
-function readOpenTicket() { return getDataSource().readOpenTicket(); }
+/*
+ * Every read passes through the shape validator in Validation.gs before the
+ * data leaves this file. The validators fail closed: they throw on a bad
+ * record rather than repairing, defaulting or dropping it, so malformed data
+ * can never reach getBootstrap() or the client.
+ *
+ * On success the validator returns the source's own value unchanged — it
+ * does not copy, normalise or mutate anything.
+ */
+
+function readInventory()  { return validateInventory(getDataSource().readInventory()); }
+function readCustomers()  { return validateCustomers(getDataSource().readCustomers()); }
+function readActivity()   { return validateActivity(getDataSource().readActivity()); }
+function readOpenTicket() { return validateOpenTicket(getDataSource().readOpenTicket()); }
 
 /* --------------------------------------------------------------------------
  * Derived views.
