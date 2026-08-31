@@ -6,6 +6,7 @@
 !appsscript.json
 !Code.gs
 !Config.gs
+!DataSource.gs
 !MockData.gs
 !Index.html
 !Styles.html

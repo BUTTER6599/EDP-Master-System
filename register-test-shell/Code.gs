@@ -7,7 +7,9 @@
  *     PropertiesService calls anywhere in this build.
  *   - doGet() performs no mutation of any kind. Nothing is created,
  *     migrated, or repaired on page load.
- *   - Every exported function below is READ-ONLY and returns mock data.
+ *   - Every exported function below is READ-ONLY.
+ *   - Data is read through DataSource.gs (currently backed by MockData.gs).
+ *     Code.gs does not call MockData.gs directly.
  *   - There is no sales writer, no inventory mutation, no printer bridge,
  *     and no mail sender in this pass. Those are deliberate omissions.
  */
@@ -44,16 +46,23 @@ function include(filename) {
 
 /**
  * Single read-only payload the client boots from.
- * Everything in here comes from Config.gs and MockData.gs. No I/O.
+ *
+ * Data is read through DataSource.gs, never from MockData.gs directly. That
+ * indirection is the whole point: replacing the mock source with an approved
+ * read-only TEST spreadsheet adapter is a change to DataSource.gs alone, and
+ * this function does not move.
+ *
+ * Config comes from Config.gs and the clock from getServerTimeInfo(); neither
+ * is data-source concern. No I/O happens here.
  */
 function getBootstrap() {
   return {
     config: getClientConfig(),
-    inventory: getMockInventory(),
-    categories: getMockCategories(),
-    customers: getMockCustomers(),
-    activity: getMockActivity(),
-    openTicket: getMockOpenTicket(),
+    inventory: readInventory(),
+    categories: readCategories(),
+    customers: readCustomers(),
+    activity: readActivity(),
+    openTicket: readOpenTicket(),
     serverTime: getServerTimeInfo()
   };
 }
