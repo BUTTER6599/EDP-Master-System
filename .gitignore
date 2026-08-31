@@ -5,3 +5,10 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+
+# clasp OAuth credentials — never commit. The token lives in ~/.clasprc.json
+# (outside this repo); these patterns are a belt-and-braces guard in case a
+# future clasp invocation writes a project-local copy.
+.clasprc.json
+**/.clasprc.json
+.clasp.json.backup-*
