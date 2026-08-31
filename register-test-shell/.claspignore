@@ -1,0 +1,12 @@
+# Allowlist: ignore everything, then re-include ONLY the files that belong in
+# the Apps Script project. This guarantees README.md, .clasp.json.example, and
+# anything else sitting in the local folder can never be pushed.
+**/**
+
+!appsscript.json
+!Code.gs
+!Config.gs
+!MockData.gs
+!Index.html
+!Styles.html
+!Scripts.html

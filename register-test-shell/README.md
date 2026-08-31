@@ -30,11 +30,35 @@ or mailbox.
 | `Index.html` | Page structure + inline SVG icon sprite. |
 | `Styles.html` | All CSS. Responsive, light/dark, print rules for the receipt. |
 | `Scripts.html` | All client behavior. |
+| `.claspignore` | Allowlist. Ignores everything, then re-includes only the seven files above, so nothing else in the local folder can be pushed. |
 | `.clasp.json.example` | Reference copy of the intended TEST config. Not used by clasp. |
+| `Deploy-TestShell.ps1` | Guarded copy-and-push script for Windows. Refuses to run unless the target Script ID matches exactly. |
 
 ## Pushing to the TEST project (run locally)
 
-From `C:\Users\Owner\EDP_Register_TEST_Clean`, copy these files in, then:
+### Option A — the guarded script
+
+From a clone of this branch, run:
+
+```powershell
+.\register-test-shell\Deploy-TestShell.ps1 -Source ".\register-test-shell"
+```
+
+It verifies the Script ID before touching anything, backs up and preserves your
+existing `.clasp.json`, copies the shell files, runs a read-only status check,
+asks you to confirm, pushes, then reads the project back to confirm what landed.
+It aborts on any Script ID that is not the TEST project, and aborts outright if
+it sees the old Register ID. It creates no deployment.
+
+The script has **not** been executed or tested — it was authored in a Linux
+container with no PowerShell, no clasp, and no Google credentials. The two
+embedded Script IDs were verified byte-for-byte against the intended values.
+Read it before running it.
+
+### Option B — by hand
+
+From `C:\Users\Owner\EDP_Register_TEST_Clean`, copy the seven Apps Script
+files plus `.claspignore` in, then:
 
 ```powershell
 # 1. VERIFY the target. Must print the TEST id, NOT 1VeOcKP...
@@ -46,6 +70,8 @@ npx clasp status
 # 3. Push (no deployment is created by this)
 npx clasp push
 ```
+
+Do not copy `.clasp.json.example` over your working `.clasp.json`.
 
 If `.clasp.json` shows any Script ID other than
 `1Yk4bjqt8PXV7GCLwzJgdhtPQAiNTAwUtun3S865i67OOxnIKnmc_n87f`, **stop** and do not
