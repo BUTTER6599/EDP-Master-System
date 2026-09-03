@@ -5,3 +5,7 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+
+# clasp (Google Apps Script) — keep auth token and per-project Script IDs out of git
+.clasprc.json
+apps-script/**/.clasp.json
