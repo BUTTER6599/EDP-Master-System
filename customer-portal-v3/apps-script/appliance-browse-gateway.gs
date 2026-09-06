@@ -76,6 +76,14 @@ const APPLIANCE_TEST_MARKERS = {
   DUMMY: true
 };
 
+// Customer-facing warranty text must never expose internal review markers.
+// These are hygiene markers only; they do not decide the actual warranty.
+const APPLIANCE_UNAPPROVED_WARRANTY_MARKERS = [
+  'NEEDS VERIFICATION',
+  'NOT YET APPROVED',
+  'UNAPPROVED'
+];
+
 /**
  * Public endpoint. Anonymous callers receive only the allowlisted
  * projection. Errors are converted to a safe "unavailable" code so
@@ -151,10 +159,16 @@ function applianceProjectPublic_(row) {
     brand: brand,
     model: model,
     list_price: priceNum,
-    warranty_tier: warrantyTier,
     fuel_type: fuelType,
     photo_links: photoLinks
   };
+
+  // Warranty — include only clean customer-facing values. Internal
+  // review/verification markers remain in the authoritative Sheet
+  // but are suppressed from the public projection.
+  if (applianceWarrantyIsPublicSafe_(warrantyTier)) {
+    out.warranty_tier = warrantyTier;
+  }
 
   // Condition — omit unless in the safe set.
   const conditionRaw = String(row[APPLIANCE_COL.condition] || '').trim();
@@ -212,6 +226,20 @@ function applianceHasTestMarker_(value) {
     if (APPLIANCE_TEST_MARKERS[tokens[i]]) return true;
   }
   return false;
+}
+
+/**
+ * Returns true only for non-empty warranty text that does not contain
+ * an internal review/approval marker. Matching is case-insensitive.
+ */
+function applianceWarrantyIsPublicSafe_(value) {
+  const s = String(value == null ? '' : value).trim();
+  if (!s) return false;
+  const upper = s.toUpperCase();
+  for (let i = 0; i < APPLIANCE_UNAPPROVED_WARRANTY_MARKERS.length; i += 1) {
+    if (upper.indexOf(APPLIANCE_UNAPPROVED_WARRANTY_MARKERS[i]) !== -1) return false;
+  }
+  return true;
 }
 
 /**
