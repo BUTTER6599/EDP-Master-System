@@ -5,6 +5,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const consentGatewayUrl = process.env.CONSENT_GATEWAY_URL || '';
 const consentGatewaySecret = process.env.CONSENT_GATEWAY_SECRET || '';
+const applianceGatewayUrl = process.env.APPLIANCE_GATEWAY_URL || '';
 
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -24,6 +25,62 @@ app.get('/api/sms-consent/status', (_req, res) => {
     ready: Boolean(consentGatewayUrl && consentGatewaySecret),
     environment: 'TEST'
   });
+});
+
+// Public appliance browse. Read-only proxy to the TEST Apps Script
+// gateway. Returns HTTP 200 in every branch so the client can render
+// a friendly fallback instead of a network error; error responses
+// carry only a short opaque code, never a stack trace or internal
+// detail.
+app.get('/api/appliances', async (_req, res) => {
+  if (!applianceGatewayUrl) {
+    return res.status(200).json({ ok: false, error: 'appliance_gateway_not_configured' });
+  }
+
+  try {
+    const response = await fetch(applianceGatewayUrl, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      console.error('Appliance gateway returned HTTP', response.status);
+      return res.status(200).json({ ok: false, error: 'unavailable' });
+    }
+
+    const text = await response.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (_err) {
+      console.error('Appliance gateway returned non-JSON. HTTP status:', response.status);
+      return res.status(200).json({ ok: false, error: 'unavailable' });
+    }
+
+    if (!result || result.ok !== true || !Array.isArray(result.data)) {
+      return res.status(200).json({ ok: false, error: 'unavailable' });
+    }
+
+    // Second, independent security boundary. Even if the upstream
+    // Apps Script gateway drifts and starts emitting internal fields
+    // (serial, cost_basis, notes, added_by, etc.) or unknown keys,
+    // this rebuild guarantees only the public-safe allowlist can
+    // reach the customer.
+    const safeItems = result.data
+      .map(sanitizeApplianceForCustomer)
+      .filter(Boolean);
+
+    return res.status(200).json({
+      ok: true,
+      count: safeItems.length,
+      data: safeItems
+    });
+  } catch (err) {
+    console.error('Appliance gateway request failed:', err && err.message ? err.message : err);
+    return res.status(200).json({ ok: false, error: 'unavailable' });
+  }
 });
 
 app.post('/api/sms-consent', async (req, res) => {
@@ -97,6 +154,37 @@ app.get('*', (_req, res) => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`EDP Customer Portal V3 TEST listening on port ${port}`);
 });
+
+// Public-safe field allowlist for /api/appliances. Any key not in
+// this array is dropped from the customer response, regardless of
+// what the upstream Apps Script gateway sent.
+const PUBLIC_APPLIANCE_FIELDS = [
+  'item_id',
+  'category',
+  'brand',
+  'model',
+  'condition',
+  'list_price',
+  'warranty_tier',
+  'fuel_type',
+  'photo_links',
+  'width_in',
+  'height_in',
+  'depth_in',
+  'capacity_cu_ft',
+  'dimensions_display'
+];
+
+function sanitizeApplianceForCustomer(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const key of PUBLIC_APPLIANCE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(raw, key)) {
+      out[key] = raw[key];
+    }
+  }
+  return out;
+}
 
 function cleanText(value, maxLength) {
   return String(value == null ? '' : value).trim().slice(0, maxLength || 500);
