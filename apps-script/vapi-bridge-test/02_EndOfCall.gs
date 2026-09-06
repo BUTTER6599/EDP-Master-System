@@ -77,15 +77,13 @@ function handleEndOfCall(msg) {
 
     var driveRecordingUrl = '';
     var recordingSaveFailed = false;
-    if (rawRecordingUrl) {
-      try {
-        var recordingResult = saveRecordingToDrive(callId, caller, timestamp, assistant);
-        driveRecordingUrl = recordingResult.url;
-        createdDriveFileIds.push(recordingResult.fileId);
-      } catch (err) {
-        recordingSaveFailed = true;
-        Logger.log('Recording save failed for call ' + callId + ': ' + err.toString());
-      }
+    try {
+      var recordingResult = saveRecordingToDrive(callId, caller, timestamp, assistant);
+      driveRecordingUrl = recordingResult.url;
+      createdDriveFileIds.push(recordingResult.fileId);
+    } catch (err) {
+      recordingSaveFailed = true;
+      Logger.log('Recording save failed for call ' + callId + ': ' + err.toString());
     }
 
     var driveTranscriptUrl = '';
