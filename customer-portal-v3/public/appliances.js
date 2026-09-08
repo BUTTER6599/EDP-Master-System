@@ -200,6 +200,7 @@
     if (n === 0) {
       gallery.mainImg.hidden = true;
       gallery.mainImg.removeAttribute('src');
+      gallery.mainEmpty.textContent = 'No photo';
       gallery.mainEmpty.hidden = false;
       gallery.prev.hidden = true;
       gallery.next.hidden = true;
@@ -208,10 +209,20 @@
     }
     galleryState.index = ((i % n) + n) % n;
     const url = galleryState.photos[galleryState.index];
-    gallery.mainEmpty.hidden = true;
-    gallery.mainImg.hidden = false;
-    gallery.mainImg.src = url;
+    // Show a "Loading photo…" state until the image actually loads (or
+    // errors). This prevents the container from ever presenting as an
+    // unexplained blank gray rectangle while the image is in flight.
+    gallery.mainImg.hidden = true;
+    gallery.mainEmpty.textContent = 'Loading photo…';
+    gallery.mainEmpty.hidden = false;
     gallery.mainImg.alt = `${gallery.title.textContent} (photo ${galleryState.index + 1} of ${n})`;
+    gallery.mainImg.src = url;
+    // Some browsers fire neither load nor error if the src was already
+    // fully cached; check .complete after assignment.
+    if (gallery.mainImg.complete && gallery.mainImg.naturalWidth > 0) {
+      gallery.mainImg.hidden = false;
+      gallery.mainEmpty.hidden = true;
+    }
     gallery.prev.hidden = n < 2;
     gallery.next.hidden = n < 2;
     gallery.counter.textContent = n < 2 ? '' : `Photo ${galleryState.index + 1} of ${n}`;
@@ -227,11 +238,27 @@
     }
   }
 
-  // Wire gallery events once
-  gallery.close.addEventListener('click', closeGallery);
-  gallery.prev.addEventListener('click', () => setIndex(galleryState.index - 1));
-  gallery.next.addEventListener('click', () => setIndex(galleryState.index + 1));
+  // Wire gallery events once.
+  // stopPropagation on close/prev/next is defensive against any parent
+  // click delegate that might reopen or interfere with the modal.
+  gallery.close.addEventListener('click', (e) => { e.stopPropagation(); closeGallery(); });
+  gallery.prev.addEventListener('click', (e) => { e.stopPropagation(); setIndex(galleryState.index - 1); });
+  gallery.next.addEventListener('click', (e) => { e.stopPropagation(); setIndex(galleryState.index + 1); });
   gallery.root.addEventListener('click', (e) => { if (e.target === gallery.root) closeGallery(); });
+
+  // Main image load / error handlers. Preserve galleryState so
+  // Prev/Next stay functional even if a specific photo fails.
+  gallery.mainImg.addEventListener('load', () => {
+    if (gallery.root.hidden) return;
+    gallery.mainImg.hidden = false;
+    gallery.mainEmpty.hidden = true;
+  });
+  gallery.mainImg.addEventListener('error', () => {
+    if (gallery.root.hidden) return;
+    gallery.mainImg.hidden = true;
+    gallery.mainEmpty.textContent = 'Photo unavailable';
+    gallery.mainEmpty.hidden = false;
+  });
   document.addEventListener('keydown', (e) => {
     if (gallery.root.hidden) return;
     if (e.key === 'Escape') { closeGallery(); e.preventDefault(); }

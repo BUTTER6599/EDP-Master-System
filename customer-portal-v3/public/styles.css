@@ -82,6 +82,12 @@ footer { display: flex; justify-content: space-between; gap: 20px; width: min(11
 }
 
 /* Gallery / detail modal (Portal V3 TEST). */
+/* Guarantee the HTML `hidden` attribute wins over any author `display`
+ * rule below (.gallery-overlay, .gallery-main-img, .gallery-thumbs, the
+ * nav buttons, etc. all set explicit display, which in some browsers /
+ * with certain CSS resets can defeat the UA `[hidden]` rule). This one
+ * line makes `element.hidden = true` reliably hide any modal element. */
+[hidden] { display: none !important; }
 body.gallery-open { overflow: hidden; }
 .gallery-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,42,.85); overflow-y: auto; }
 .gallery-panel { position: relative; width: min(1024px, 100%); max-height: calc(100vh - 40px); background: #fff; border-radius: 18px; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.4); overflow-y: auto; }
@@ -90,7 +96,7 @@ body.gallery-open { overflow: hidden; }
 .gallery-main { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .gallery-main-media { position: relative; flex: 1 1 auto; min-height: 260px; max-height: 70vh; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 12px; overflow: hidden; touch-action: pan-y; }
 .gallery-main-img { max-width: 100%; max-height: 70vh; object-fit: contain; display: block; }
-.gallery-main-empty { color: #9ca3af; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 14px; }
+.gallery-main-empty { color: #9ca3af; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 14px; text-align: center; padding: 20px; }
 .gallery-nav { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(15,23,42,.06); font: inherit; font-size: 26px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .gallery-nav:hover { background: rgba(15,23,42,.18); }
 .gallery-nav:focus-visible { outline: 3px solid rgba(15,60,138,.35); outline-offset: 2px; }
