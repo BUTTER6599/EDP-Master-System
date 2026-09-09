@@ -1,0 +1,146 @@
+/* EDP Customer Portal V3 — Policy Gate visual polish (TEST ONLY)
+   Loaded after styles.css so these overrides remain isolated and reversible. */
+.policy-panel {
+  width: min(1040px, 100%);
+  border: 1px solid rgba(148,163,184,.28);
+  box-shadow: 0 32px 90px rgba(0,0,0,.46);
+}
+
+.policy-header {
+  gap: 20px;
+  padding-bottom: 4px;
+}
+
+.policy-header-text .eyebrow {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.policy-title {
+  font-size: clamp(34px, 4.2vw, 50px);
+  line-height: 1.02;
+  font-weight: 900;
+  letter-spacing: -.035em;
+}
+
+.policy-version {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 750;
+  color: #94a3b8;
+}
+
+.policy-header-actions .button {
+  min-height: 48px;
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 850;
+  border-radius: 12px;
+}
+
+.policy-body {
+  min-height: 260px;
+  max-height: 42vh;
+  padding: 22px 24px;
+  border-width: 1.5px;
+  border-radius: 14px;
+  font-size: 18px;
+  line-height: 1.72;
+  font-weight: 560;
+  letter-spacing: .002em;
+}
+
+.policy-body p {
+  margin: 0 0 16px;
+}
+
+.policy-scroll-hint {
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .055em;
+}
+
+.policy-choice {
+  padding: 16px 18px;
+  border-radius: 14px;
+}
+
+.policy-choice-row {
+  gap: 14px;
+  padding: 11px 4px;
+}
+
+.policy-choice-row input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+}
+
+.policy-choice-row span {
+  font-size: 17px;
+  line-height: 1.52;
+  font-weight: 650;
+}
+
+.policy-choice-row span strong {
+  font-weight: 900;
+}
+
+.policy-field > span {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.policy-field input[type="text"] {
+  min-height: 52px;
+  padding: 12px 14px;
+  font-size: 17px;
+  border-radius: 12px;
+}
+
+.policy-sig-wrap canvas {
+  height: 180px;
+  border-width: 1.5px;
+  border-radius: 12px;
+}
+
+.policy-final {
+  padding: 16px 18px;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 650;
+}
+
+.policy-actions .button {
+  min-height: 50px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+.policy-message {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.policy-header-actions .button[data-speaking="true"] {
+  background: #0f3c8a;
+  color: #fff;
+  border-color: #0f3c8a;
+}
+
+@media (max-width: 640px) {
+  .policy-panel { padding: 18px 16px; }
+  .policy-title { font-size: 34px; }
+  .policy-version { font-size: 14px; }
+  .policy-body {
+    min-height: 240px;
+    max-height: 43vh;
+    padding: 18px;
+    font-size: 17px;
+    line-height: 1.68;
+  }
+  .policy-choice-row span { font-size: 16px; }
+  .policy-final { font-size: 15.5px; }
+}
