@@ -122,3 +122,60 @@ body.gallery-open { overflow: hidden; }
   .gallery-title { font-size: 18px; }
   .gallery-price { font-size: 20px; }
 }
+
+/* ---- Shop gate CTA (visible until policies acknowledged) ---- */
+.shop-gate-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 22px; border: 1px dashed #94a3b8; border-radius: 16px; background: #f8fafc; margin-top: 8px; }
+.shop-gate-cta > p { margin: 0; font-weight: 700; color: #1f2937; font-size: 16px; }
+.shop-gate-cta .actions { margin-top: 0; }
+
+/* ---- Policy acknowledgment gate (Portal V3 TEST) ---- */
+body.policy-gate-open { overflow: hidden; }
+.policy-gate { position: fixed; inset: 0; z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15,23,42,.85); overflow-y: auto; }
+.policy-panel { position: relative; width: min(760px, 100%); max-height: calc(100vh - 40px); background: #fff; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 30px 80px rgba(0,0,0,.4); overflow-y: auto; }
+.policy-header { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+.policy-header-text .eyebrow { margin: 0 0 4px; }
+.policy-title { margin: 0 0 6px; font-size: clamp(22px, 3vw, 28px); line-height: 1.2; color: #0f172a; }
+.policy-version { font-size: 12px; color: #6b7280; font-weight: 700; letter-spacing: .02em; }
+.policy-header-actions { flex: 0 0 auto; }
+.policy-header-actions .button { min-height: 40px; padding: 0 14px; font-size: 14px; }
+.policy-body { min-height: 220px; max-height: 40vh; padding: 16px 18px; border: 1px solid #cbd5e1; border-radius: 12px; background: #f8fafc; overflow-y: auto; scroll-behavior: smooth; font-size: 15px; line-height: 1.6; color: #1f2937; }
+.policy-body p { margin: 0 0 10px; color: inherit; }
+.policy-body:focus { outline: 3px solid rgba(15,60,138,.25); outline-offset: 2px; }
+.policy-scroll-hint { font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #b45309; }
+.policy-scroll-hint.ready { color: #0f766e; }
+.policy-choice { border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px 14px; margin: 0; }
+.policy-choice-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 8px 0; cursor: pointer; }
+.policy-choice-row input { width: 18px; height: 18px; margin-top: 3px; }
+.policy-choice-row input:disabled + span { color: #94a3b8; }
+.policy-choice-row input:disabled { cursor: not-allowed; }
+.policy-choice-row span { color: #1f2937; font-size: 15px; line-height: 1.5; }
+.policy-field { display: block; }
+.policy-field > span { display: block; margin-bottom: 6px; font-weight: 800; color: #111827; font-size: 14px; }
+.policy-field input[type="text"] { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; font-size: 16px; color: #111827; background: #fff; }
+.policy-field input[type="text"]:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+.policy-sig-wrap { display: flex; flex-direction: column; gap: 8px; }
+.policy-sig-wrap canvas { width: 100%; max-width: 100%; height: 160px; border: 1px dashed #94a3b8; border-radius: 10px; background: #fff; touch-action: none; }
+.policy-sig-wrap .button { align-self: flex-start; min-height: 36px; padding: 0 14px; font-size: 13px; }
+.policy-final { margin: 0; padding: 12px 14px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px; font-size: 14px; line-height: 1.55; color: #1e3a8a; }
+.policy-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.policy-actions .button.ghost { background: transparent; color: #6b7280; border: 0; box-shadow: none; }
+.policy-actions .button.ghost:hover { color: #111827; text-decoration: underline; }
+.policy-message { padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.5; background: #fef3c7; color: #78350f; }
+.policy-message[data-kind="info"] { background: #e0e7ff; color: #1e3a8a; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+
+/* Agree button: gray by default; EDP-blue when all inputs valid */
+.button.policy-agree { background: #e2e8f0; color: #64748b; }
+.button.policy-agree:disabled { opacity: 1; }
+.button.policy-agree.ready { background: #0f3c8a; color: #fff; }
+.button.policy-agree.ready:hover { background: #0b2f6d; }
+
+@media (max-width: 640px) {
+  .policy-gate { padding: 0; }
+  .policy-panel { border-radius: 0; padding: 16px; max-height: 100vh; height: 100vh; }
+  .policy-header { flex-direction: column; align-items: stretch; gap: 8px; }
+  .policy-header-actions .button { width: 100%; }
+  .policy-actions { flex-direction: column-reverse; align-items: stretch; }
+  .policy-actions .button { width: 100%; }
+  .policy-sig-wrap .button { align-self: stretch; }
+}

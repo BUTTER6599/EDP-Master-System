@@ -391,5 +391,19 @@
     }
   };
 
-  load();
+  // ---- Policy gate integration ----
+  // Only fetch inventory once the customer has acknowledged the policy
+  // gate in this browser tab. If they already acknowledged earlier in
+  // this session, load immediately. Otherwise wait for the gate to
+  // dispatch its acknowledgment event.
+  const POLICY_ACK_KEY = 'edp.portal.v3.policyAck';
+  let hasAck = false;
+  try { hasAck = !!(window.sessionStorage && sessionStorage.getItem(POLICY_ACK_KEY)); }
+  catch (_) { hasAck = false; }
+
+  if (hasAck) {
+    load();
+  } else {
+    document.addEventListener('edp:policy-acknowledged', () => load(), { once: true });
+  }
 })();

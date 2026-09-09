@@ -51,7 +51,13 @@
         <h2>Appliances</h2>
         <p id="appliance-status" data-state="loading">Loading inventory…</p>
       </div>
-      <div id="appliance-grid" class="appliance-grid" aria-live="polite"></div>
+      <div id="shop-gate-cta" class="shop-gate-cta">
+        <p>Please review our customer policies before browsing appliance inventory.</p>
+        <div class="actions">
+          <button type="button" class="button primary" id="open-policy-gate">Review Policies</button>
+        </div>
+      </div>
+      <div id="appliance-grid" class="appliance-grid" aria-live="polite" hidden></div>
     </section>
 
     <section class="section split" id="parts">
@@ -92,6 +98,7 @@
     <p>© 2026 The Electronics Depot LLC</p>
     <p><a href="/privacy.html">Privacy Policy</a> · <a href="/sms-terms.html">SMS Terms</a> · <a href="/sms-consent.html">SMS Updates</a> · Customer Portal V3 — TEST build</p>
   </footer>
+  <script defer src="/policy-gate.js"></script>
   <script defer src="/appliances.js"></script>
 </body>
 </html>
