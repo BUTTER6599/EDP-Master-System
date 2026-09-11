@@ -42,16 +42,14 @@
 var SUPPORTED_EVENT_TYPES_ = ['end-of-call-report', 'tool-calls', 'function-call', 'tool_calls'];
 
 // ============================================================
-// TEST DATA RESOURCE CONFIGURATION (Spreadsheet / Drive folder / tab)
+// TEST CALL-LOG CONFIGURATION (Spreadsheet / tab)
 // ============================================================
-// These three values live only in Script Properties, never in source, so
-// this TEST bridge can never accidentally target the live production
-// spreadsheet or an unverified Drive folder. isTestResourceConfigComplete_()
-// is a fail-closed presence/blank check only - it never logs or returns the
-// property values themselves. Functions that actually need a value
-// (openCallLogSheet_, saveRecordingToDrive, saveTranscriptToDrive,
-// handleUnansweredQuestion) read it directly via getTrimmedProperty_().
-var TEST_RESOURCE_PROPERTY_NAMES_ = ['VAPI_TEST_SPREADSHEET_ID', 'VAPI_TEST_DRIVE_FOLDER_ID', 'VAPI_TEST_CALLS_TAB'];
+// Call logging depends only on the TEST Spreadsheet ID and call-log tab.
+// The Drive folder remains a separate Script Property used by recording /
+// transcript storage. A missing or invalid Drive folder must not suppress
+// the durable TEST_CALLS row; artifact-save functions handle that failure
+// independently and best-effort in handleEndOfCall().
+var TEST_RESOURCE_PROPERTY_NAMES_ = ['VAPI_TEST_SPREADSHEET_ID', 'VAPI_TEST_CALLS_TAB'];
 
 function getTrimmedProperty_(name) {
   var raw = PropertiesService.getScriptProperties().getProperty(name);
