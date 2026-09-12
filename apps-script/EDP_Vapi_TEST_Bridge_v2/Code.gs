@@ -1,100 +1,112 @@
-/**
- * Code.gs — the only entry points for the TEST bridge.
- *
- * Flow: Vapi end-of-call-report -> shared-secret check -> assistant check
- * -> normalize -> one row in TEST_CALLS -> one Pushover notification.
- *
- * Response policy is deliberate, because Vapi retries any non-2xx:
- *   - rejected or ignored requests answer 200, so they are not retried;
- *   - a genuine failure to write the row throws, producing a 500 so that
- *     Vapi does retry. The duplicate check in SheetLog.gs is what makes
- *     that retry safe.
- */
-
-var SUPPORTED_EVENT = 'end-of-call-report';
-var LOCK_TIMEOUT_MS = 30000;
-
-function jsonOut_(payload) {
-  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
-    ContentService.MimeType.JSON
-  );
-}
-
-/** Length-safe comparison so a wrong key cannot be probed by timing. */
-function secretMatches_(supplied, expected) {
-  if (!expected) return false;
-  supplied = String(supplied || '');
-  if (supplied.length !== expected.length) return false;
-  var diff = 0;
-  for (var i = 0; i < expected.length; i++) {
-    diff |= supplied.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return diff === 0;
-}
-
-/** Health check. Never reveals configuration values, only whether they exist. */
-function doGet() {
-  return jsonOut_({
-    ok: true,
-    service: 'EDP Vapi TEST Bridge v2',
-    environment: 'TEST',
-    configured: cfgMissing().length === 0
-  });
-}
+// EDP AI Receptionist - TEST Webhook Bridge (Clean Rebuild)
+// Purpose: Vapi end-of-call-report -> TEST_CALLS row -> Pushover
+// ES5 only. Complete file - Code.gs
 
 function doPost(e) {
-  // Fail closed: without a configured secret the endpoint accepts nothing.
-  var missing = cfgMissing();
-  if (missing.length) {
-    console.error('Refusing request; unset Script Properties: ' + missing.join(', '));
-    return jsonOut_({ ok: false, error: 'not_configured' });
-  }
-
-  if (!secretMatches_(e && e.parameter && e.parameter.key, cfgWebhookKey())) {
-    console.warn('Rejected a request with a missing or invalid key.');
-    return jsonOut_({ ok: false, error: 'unauthorized' });
-  }
-
-  var message;
   try {
-    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    message = body.message || body;
-  } catch (err) {
-    console.warn('Rejected a request with an unparseable body.');
-    return jsonOut_({ ok: false, error: 'bad_request' });
-  }
-
-  if (message.type !== SUPPORTED_EVENT) {
-    return jsonOut_({ ok: true, ignored: true, type: String(message.type || '') });
-  }
-
-  var allowedAssistant = cfgAssistantId();
-  var record = buildCallRecord(message);
-  if (allowedAssistant && record.assistant_id !== allowedAssistant) {
-    console.warn('Rejected an end-of-call-report from a non-allowlisted assistant.');
-    return jsonOut_({ ok: false, error: 'assistant_not_allowed' });
-  }
-
-  // Serialize deliveries so two concurrent retries cannot both pass the
-  // duplicate check and write two rows for one call.
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(LOCK_TIMEOUT_MS)) {
-    throw new Error('Timed out waiting for the script lock; Vapi should retry.');
-  }
-
-  try {
-    var wrote = logCallRow(record); // throws on a real failure -> 500 -> retry
-    if (!wrote) {
-      return jsonOut_({ ok: true, duplicate: true, call_id: record.call_id });
+    if (!e || !e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput('No body').setMimeType(ContentService.MimeType.TEXT);
     }
-    var notified = sendCallNotification(record);
-    return jsonOut_({
-      ok: true,
-      logged: true,
-      notified: notified,
-      call_id: record.call_id
-    });
-  } finally {
-    lock.releaseLock();
+
+    var data = JSON.parse(e.postData.contents);
+    var message = data.message || {};
+
+    if (message.type !== 'end-of-call-report') {
+      return ContentService.createTextOutput('Ignored: ' + message.type).setMimeType(ContentService.MimeType.TEXT);
+    }
+
+    var call = message.call || {};
+    var callId = call.id || 'unknown';
+
+    var assistantName = 'unknown';
+    if (message.assistant && message.assistant.name) {
+      assistantName = message.assistant.name;
+    } else if (call.assistant && call.assistant.name) {
+      assistantName = call.assistant.name;
+    }
+
+    var callerNumber = 'unknown';
+    if (call.customer && call.customer.number) {
+      callerNumber = call.customer.number;
+    } else if (message.customer && message.customer.number) {
+      callerNumber = message.customer.number;
+    }
+
+    var durationSeconds = '';
+    if (typeof message.durationSeconds !== 'undefined') {
+      durationSeconds = message.durationSeconds;
+    } else if (call.startedAt && call.endedAt) {
+      var startMs = new Date(call.startedAt).getTime();
+      var endMs = new Date(call.endedAt).getTime();
+      if (!isNaN(startMs) && !isNaN(endMs)) {
+        durationSeconds = Math.round((endMs - startMs) / 1000);
+      }
+    }
+
+    var timestamp = new Date();
+
+    writeTestCallRow(timestamp, callId, assistantName, callerNumber, durationSeconds);
+    sendPushoverNotification(assistantName, callerNumber, durationSeconds, callId);
+
+    return ContentService.createTextOutput('OK').setMimeType(ContentService.MimeType.TEXT);
+
+  } catch (err) {
+    Logger.log('doPost error: ' + err.message);
+    return ContentService.createTextOutput('Error logged').setMimeType(ContentService.MimeType.TEXT);
   }
+}
+
+function writeTestCallRow(timestamp, callId, assistantName, callerNumber, durationSeconds) {
+  var props = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty('TEST_SPREADSHEET_ID');
+  var tabName = props.getProperty('TEST_CALLS_TAB_NAME') || 'TEST_CALLS';
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(tabName);
+
+  if (!sheet) {
+    throw new Error('Sheet tab not found: ' + tabName);
+  }
+
+  sheet.appendRow([timestamp, callId, assistantName, callerNumber, durationSeconds]);
+}
+
+function sendPushoverNotification(assistantName, callerNumber, durationSeconds, callId) {
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty('PUSHOVER_TOKEN');
+  var user = props.getProperty('PUSHOVER_USER');
+
+  if (!token || !user) {
+    Logger.log('Pushover credentials missing, skipping notification');
+    return;
+  }
+
+  var message = 'Call ended: ' + assistantName +
+    '\nCaller: ' + callerNumber +
+    '\nDuration: ' + durationSeconds + 's' +
+    '\nCall ID: ' + callId;
+
+  var payload = {
+    token: token,
+    user: user,
+    message: message,
+    title: 'EDP TEST Call Logged'
+  };
+
+  var options = {
+    method: 'post',
+    payload: payload,
+    muteHttpExceptions: true
+  };
+
+  UrlFetchApp.fetch('https://api.pushover.net/1/messages.json', options);
+}
+
+// Run this manually from the Apps Script editor FIRST, before touching Vapi.
+// Confirms Sheet + Pushover work on their own.
+function testHarness() {
+  var timestamp = new Date();
+  writeTestCallRow(timestamp, 'TEST-CALL-ID-123', 'LO_TEST', '+15551234567', 42);
+  sendPushoverNotification('LO_TEST', '+15551234567', 42, 'TEST-CALL-ID-123');
+  Logger.log('Test harness complete - check TEST_CALLS and Pushover');
 }
