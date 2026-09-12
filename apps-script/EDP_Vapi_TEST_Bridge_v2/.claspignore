@@ -1,0 +1,6 @@
+# The Node verification harness must never be pushed to Apps Script.
+test/**
+README.md
+.clasp.json.example
+.gitignore
+.claspignore

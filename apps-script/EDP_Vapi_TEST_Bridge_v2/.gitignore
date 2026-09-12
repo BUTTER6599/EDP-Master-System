@@ -1,0 +1,3 @@
+# Never commit the clasp project binding or credentials.
+.clasp.json
+.clasprc.json
