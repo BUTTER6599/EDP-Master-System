@@ -13,3 +13,4 @@ creds.json
 client_secret*.json
 *.oauth.json
 service-account*.json
+clasprc.json

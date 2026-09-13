@@ -121,6 +121,28 @@ jobs:
           echo "::add-mask::$SCRIPT_ID"
           echo "Credentials staged on runner only."
 
+      # The credential itself should be incapable of deploying. Fail loudly
+      # if a broader token was pasted into the secret than the design calls for.
+      - name: Assert credential carries no deploy scope
+        if: inputs.mode == 'push'
+        run: |
+          python3 - <<'EOF'
+          import json, os, sys
+          scope = json.load(open(os.path.expanduser('~/.clasprc.json')))['token'].get('scope','')
+          print('token scopes:')
+          for s in scope.split():
+              print('   ' + s)
+          bad = [s for s in ('script.deployments','script.webapp.deploy') if s in scope]
+          if bad:
+              print(f'::error::Credential carries deploy scope(s): {bad}. '
+                    'Re-mint with scripts/mint_clasp_token.py (push-only preset).')
+              sys.exit(1)
+          if 'script.projects' not in scope:
+              print('::error::Credential lacks script.projects — clasp push will fail.')
+              sys.exit(1)
+          print('OK - token can push, cannot deploy.')
+          EOF
+
       - name: clasp push
         if: inputs.mode == 'push'
         working-directory: ${{ env.SOURCE_DIR }}
