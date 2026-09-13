@@ -1,0 +1,174 @@
+# Manual-only clasp push to the EDP_Vapi_Bridge_CLEAN_TEST Apps Script
+# project, run from a GitHub-hosted runner so no single laptop is the
+# source of truth.
+#
+# This workflow NEVER runs clasp deploy and never runs on push/PR.
+# Deployments stay exactly as they are; only project content changes.
+
+name: Apps Script — manual push (TEST)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Apps Script project to push'
+        type: choice
+        options:
+          - CLEAN_TEST
+        default: CLEAN_TEST
+      confirm:
+        description: 'Type PUSH to confirm (anything else aborts)'
+        type: string
+        required: true
+      mode:
+        description: 'verify-only = run checks and stop; push = verify then push'
+        type: choice
+        options:
+          - verify-only
+          - push
+        default: verify-only
+
+# Read-only token. This job never writes to the repository.
+permissions:
+  contents: read
+
+# Never let two pushes race the same Apps Script project.
+concurrency:
+  group: appsscript-push-${{ inputs.target }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_DIR: apps-script/EDP_Vapi_Bridge_CLEAN_TEST
+  CLASP_VERSION: 2.4.2
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+
+    # Gate 2: this GitHub Environment should carry a required reviewer.
+    # Secrets below are scoped to it, so nothing else in the repo can
+    # read the clasp credentials.
+    environment: appsscript-test
+
+    steps:
+      - name: Confirm intent
+        run: |
+          if [ "${{ inputs.confirm }}" != "PUSH" ]; then
+            echo "::error::Confirmation text was not PUSH. Aborting."
+            exit 1
+          fi
+          echo "Target : ${{ inputs.target }}"
+          echo "Mode   : ${{ inputs.mode }}"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2          # need HEAD~1 for the rollback hint
+          persist-credentials: false
+
+      - name: Record commit under push
+        id: rev
+        run: |
+          echo "sha=$(git rev-parse HEAD)"        >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "prev=$(git rev-parse HEAD~1)"     >> "$GITHUB_OUTPUT"
+          echo "prev_short=$(git rev-parse --short HEAD~1)" >> "$GITHUB_OUTPUT"
+
+      # Guard: this workflow must never gain a deploy step.
+      - name: Assert no deploy command anywhere in workflows
+        run: |
+          # ^[^#]* keeps the match off comment lines, including this file's
+          # own "never runs clasp deploy" note.
+          if grep -rnE '^[^#]*clasp[[:space:]]+(deploy|undeploy|redeploy|version)' .github/workflows/; then
+            echo "::error::A deploy-class clasp command is present in a workflow. Refusing to run."
+            exit 1
+          fi
+          echo "OK — no deploy-class clasp command in .github/workflows/"
+
+      - name: Assert .claspignore present and pins the payload
+        run: |
+          cd "$SOURCE_DIR"
+          test -f .claspignore || { echo "::error::.claspignore missing"; exit 1; }
+          echo "--- .claspignore ---"; cat .claspignore
+          echo "--- files that will be sent ---"; ls -1 appsscript.json *.gs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp (pinned)
+        run: npm install -g "@google/clasp@${CLASP_VERSION}"
+
+      # Requirement 9: verification happens BEFORE the push.
+      - name: Verify payload before push
+        run: python3 scripts/verify_project.py --dir "$SOURCE_DIR" --label "pre-push payload"
+
+      - name: Write clasp credentials (runner-only, never committed)
+        if: inputs.mode == 'push'
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.CLASP_SCRIPT_ID_CLEAN_TEST }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$SCRIPT_ID" ]; then
+            echo "::error::CLASPRC_JSON or CLASP_SCRIPT_ID_CLEAN_TEST is not set."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$HOME/.clasprc.json" \
+            || { echo "::error::CLASPRC_JSON is not valid JSON."; exit 1; }
+          # Script ID comes from a secret, not from the repo copy.
+          printf '{\n  "scriptId": "%s",\n  "rootDir": "."\n}\n' "$SCRIPT_ID" > "$SOURCE_DIR/.clasp.json"
+          echo "::add-mask::$SCRIPT_ID"
+          echo "Credentials staged on runner only."
+
+      - name: clasp push
+        if: inputs.mode == 'push'
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          clasp push --force
+          echo "Pushed. No deployment was created or updated."
+
+      # Requirement 9 again, from the other side: confirm what landed.
+      - name: Pull back and verify the project
+        if: inputs.mode == 'push'
+        run: |
+          mkdir -p /tmp/pullback && cd /tmp/pullback
+          cp "$GITHUB_WORKSPACE/$SOURCE_DIR/.clasp.json" .
+          clasp pull
+          rm -f .clasp.json
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/verify_project.py --dir /tmp/pullback --label "post-push project state"
+
+      - name: Shred credentials
+        if: always()
+        run: |
+          shred -u "$HOME/.clasprc.json" 2>/dev/null || rm -f "$HOME/.clasprc.json"
+          rm -f "$SOURCE_DIR/.clasp.json"
+          test ! -f "$HOME/.clasprc.json" && echo "Credentials removed from runner."
+
+      - name: Report + rollback instructions
+        if: always()
+        run: |
+          {
+            echo "## Apps Script — ${{ inputs.mode }} (${{ inputs.target }})"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit pushed | \`${{ steps.rev.outputs.short }}\` |"
+            echo "| Previous commit | \`${{ steps.rev.outputs.prev_short }}\` |"
+            echo "| clasp | \`${CLASP_VERSION}\` |"
+            echo "| Deployment | untouched — no deploy command runs in this workflow |"
+            echo ""
+            echo "### Rollback"
+            echo ""
+            echo "Re-run this workflow from the previous commit:"
+            echo ""
+            echo '```bash'
+            echo "git checkout -b rollback/${{ steps.rev.outputs.prev_short }} ${{ steps.rev.outputs.prev }}"
+            echo "git push -u origin rollback/${{ steps.rev.outputs.prev_short }}"
+            echo '```'
+            echo ""
+            echo "Then: Actions → this workflow → Run workflow → pick that branch,"
+            echo "mode \`push\`, confirm \`PUSH\`. The runner pushes the older source"
+            echo "and the pull-back verification proves what landed."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,90 @@
+# Second, independent backup. GitHub is the source of truth and version
+# history; this drops periodic source snapshots into the approved EDP
+# Google Drive backup folder so a GitHub outage or repo mistake is not a
+# single point of failure.
+#
+# Touches Drive only. Never contacts Apps Script, never runs clasp.
+
+name: Drive backup — source snapshot
+
+on:
+  schedule:
+    # 08:17 UTC every Monday. Off-the-hour to dodge scheduler congestion.
+    - cron: '17 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'Snapshots to retain in the Drive folder (0 = keep all)'
+        type: string
+        default: '26'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-backup
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    environment: drive-backup     # scopes the Drive secrets away from the push job
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build snapshot
+        id: pack
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          NAME="EDP_Vapi_Bridge_CLEAN_TEST_${STAMP}_${SHA}.zip"
+
+          # Provenance travels with the archive so a restored snapshot is
+          # traceable back to an exact commit.
+          cat > SNAPSHOT.txt <<EOF
+          EDP_Vapi_Bridge_CLEAN_TEST source snapshot
+          taken            : ${STAMP}
+          repository       : ${GITHUB_REPOSITORY}
+          ref              : ${GITHUB_REF}
+          commit           : $(git rev-parse HEAD)
+          commit subject   : $(git log -1 --pretty=%s)
+          workflow run     : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          apps script proj : EDP_Vapi_Bridge_CLEAN_TEST
+
+          Restore: check out the commit above, or unzip and compare against
+          apps-script/EDP_Vapi_Bridge_CLEAN_TEST. This archive contains SOURCE
+          ONLY — no OAuth credentials, no Script Properties, no secrets.
+          EOF
+
+          zip -q -r "$NAME" apps-script scripts docs SNAPSHOT.txt
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$NAME"
+
+      - name: Assert snapshot carries no credentials
+        run: |
+          if unzip -l "${{ steps.pack.outputs.name }}" \
+             | grep -EI 'clasprc|client_secret|service-account|\.env$|creds\.json'; then
+            echo "::error::Snapshot contains a credential-shaped file. Refusing to upload."
+            exit 1
+          fi
+          echo "OK — snapshot is source only."
+
+      - name: Upload to EDP Drive backup folder
+        env:
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_BACKUP_FOLDER_ID: ${{ secrets.GDRIVE_BACKUP_FOLDER_ID }}
+        run: |
+          python3 scripts/drive_snapshot.py "${{ steps.pack.outputs.name }}" \
+            --keep "${{ inputs.keep || '26' }}"
+
+      # Third copy, free: GitHub keeps the archive too.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.name }}
+          retention-days: 90

@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Post-push verification for EDP_Vapi_Bridge_CLEAN_TEST.
+Verification for the EDP_Vapi_Bridge_CLEAN_TEST Apps Script project.
 
-Input: the Drive export of the live project, i.e. the decoded
-application/vnd.google-apps.script+json payload.
+Runs against either a source directory or a project JSON payload, so
+the identical checks gate the payload BEFORE a push and confirm the
+project AFTER one.
 
-    python3 verify_pushed_project.py <exported.json>
+    python3 scripts/verify_project.py --dir apps-script/EDP_Vapi_Bridge_CLEAN_TEST
+    python3 scripts/verify_project.py --json exported.json
+
+--json accepts the decoded application/vnd.google-apps.script+json
+payload (a Drive export, or what `clasp pull` was built from).
 
 Checks, in the order requested:
   1. the project contains the 10 modular .gs files
@@ -14,7 +19,7 @@ Checks, in the order requested:
   4. all 19 functions exist exactly once
   5. TEST IDs / Script Property names / endpoints unchanged
 """
-import json, re, sys, collections
+import argparse, glob, json, os, re, sys, collections
 
 EXPECTED_GS = [
     '00_Config', '01_Webhook', '02_VapiApi', '03_Artifacts',
@@ -44,7 +49,24 @@ EXPECTED_IDS = ['1ronx5A0l_v4lJTw19e5VrcnL4FUXDvgUjsEbxWJYx_c',
                 '1yEKM5Sztz_2vJm5GOoW51AseKgE6Ts5K']
 EXPECTED_PROPS = ['PUSHOVER_APP_TOKEN', 'PUSHOVER_USER_KEY', 'VAPI_PRIVATE_API_KEY']
 
-proj = json.load(open(sys.argv[1]))
+ap = argparse.ArgumentParser()
+g = ap.add_mutually_exclusive_group(required=True)
+g.add_argument('--dir', help='source directory holding appsscript.json + *.gs')
+g.add_argument('--json', help='project JSON payload')
+ap.add_argument('--label', default='', help='text for the report header')
+args = ap.parse_args()
+
+if args.json:
+    proj = json.load(open(args.json))
+else:
+    entries = [{'name': 'appsscript', 'type': 'json',
+                'source': open(os.path.join(args.dir, 'appsscript.json')).read()}]
+    for path in sorted(glob.glob(os.path.join(args.dir, '*.gs'))):
+        entries.append({'name': os.path.basename(path)[:-3], 'type': 'server_js',
+                        'source': open(path).read()})
+    proj = {'files': entries}
+
+print(f'\nVERIFYING: {args.label or args.json or args.dir}')
 files = {f['name']: f for f in proj['files']}
 gs = sorted(n for n, f in files.items() if f['type'] == 'server_js')
 code = '\n'.join(f['source'] for f in proj['files'] if f['type'] == 'server_js')
@@ -87,5 +109,11 @@ check('endpoints', sorted(set(re.findall(r"'(https://api\.[^']*)'", code)))
 check('08_RealtimeAlerts still a placeholder',
       not re.search(r'^(function|const|let|var)\s', files['08_RealtimeAlerts']['source'], re.M))
 
-print('\n' + ('ALL CHECKS PASSED' if not fails else f'{len(fails)} FAILED: {fails}'))
+summary = 'ALL CHECKS PASSED' if not fails else f'{len(fails)} FAILED: {fails}'
+print('\n' + summary)
+
+step_summary = os.environ.get('GITHUB_STEP_SUMMARY')
+if step_summary:
+    with open(step_summary, 'a') as fh:
+        fh.write(f'\n**{args.label or "verification"}** — {summary}\n')
 sys.exit(1 if fails else 0)

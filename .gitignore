@@ -5,3 +5,11 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+
+# clasp / Google OAuth — never commit credentials
+.clasprc.json
+**/.clasprc.json
+creds.json
+client_secret*.json
+*.oauth.json
+service-account*.json
