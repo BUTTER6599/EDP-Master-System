@@ -217,6 +217,14 @@ function saveTranscript_(
     callId +
     '.txt';
 
+  // Presentation formatting is applied HERE ONLY, so the
+  // Drive artifact is readable while classification, the
+  // TEST_CALLS preview and Pushover keep the raw transcript.
+  const displayText =
+    formatTranscriptForDisplay_(
+      transcript
+    );
+
   const files =
     folder.getFilesByName(
       fileName
@@ -227,7 +235,7 @@ function saveTranscript_(
       files.next();
 
     existing.setContent(
-      String(transcript)
+      displayText
     );
 
     return existing;
@@ -235,7 +243,7 @@ function saveTranscript_(
 
   return folder.createFile(
     fileName,
-    String(transcript),
+    displayText,
     MimeType.PLAIN_TEXT
   );
 }
