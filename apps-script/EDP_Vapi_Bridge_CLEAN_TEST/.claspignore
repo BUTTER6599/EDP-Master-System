@@ -1,0 +1,14 @@
+# Only the manifest and the 10 modular .gs files belong in the
+# Apps Script project. Everything else stays repo-side.
+**/**
+!appsscript.json
+!00_Config.gs
+!01_Webhook.gs
+!02_VapiApi.gs
+!03_Artifacts.gs
+!04_TranscriptFormat.gs
+!05_Classification.gs
+!06_TestCalls.gs
+!07_Pushover.gs
+!08_RealtimeAlerts.gs
+!99_TestHelpers.gs
