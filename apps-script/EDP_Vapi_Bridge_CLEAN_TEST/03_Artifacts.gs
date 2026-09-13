@@ -1,6 +1,6 @@
 // ============================================================
 // AUTHENTICATED VAPI RECORDING DOWNLOAD
-// 
+//
 // Reads Script Property: VAPI_PRIVATE_API_KEY
 // ============================================================
 

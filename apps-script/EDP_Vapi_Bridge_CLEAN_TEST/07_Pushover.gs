@@ -1,6 +1,6 @@
 // ============================================================
 // PUSHOVER
-// 
+//
 // Reads Script Properties:
 //   PUSHOVER_USER_KEY
 //   PUSHOVER_APP_TOKEN

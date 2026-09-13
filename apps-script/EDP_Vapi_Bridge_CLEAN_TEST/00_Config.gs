@@ -34,7 +34,7 @@
 
 // ============================================================
 // CONFIG — TEST TARGETS
-// 
+//
 // These point at TEST resources only. Never repoint these
 // at LIVE Sheets or LIVE Drive folders.
 // ============================================================
