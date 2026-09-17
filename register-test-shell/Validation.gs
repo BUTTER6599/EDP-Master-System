@@ -25,6 +25,7 @@
  *   derived by auditing field access in Scripts.html, not from assumption.
  *   Fields the shell never reads are accepted but not required, so the
  *   validator cannot reject legitimate data over something unused:
+ *     - inventory `location`     (no authoritative source; Package 7)
  *     - activity `id`            (never read by the client)
  *     - openTicket `register`    (never read by the client)
  *     - openTicket `cashier`     (never read by the client)
@@ -162,7 +163,11 @@ function validateInventory(rows) {
     requireString_(ds, i, rid, it, 'model');
     requireString_(ds, i, rid, it, 'description');
     requireString_(ds, i, rid, it, 'condition');
-    requireString_(ds, i, rid, it, 'location');
+    // OPTIONAL (owner decision, Package 7): APPLIANCES has no authoritative
+    // location column, and inventing one was forbidden. Typed if present,
+    // empty string accepted. This relaxation applies to `location` ONLY —
+    // every other inventory field below remains hard-required.
+    requireString_(ds, i, rid, it, 'location', { optional: true, allowEmpty: true });
     requireString_(ds, i, rid, it, 'serialPlaceholder');
     requireString_(ds, i, rid, it, 'photoKey');
 

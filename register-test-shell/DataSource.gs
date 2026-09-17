@@ -193,17 +193,16 @@ var CATEGORY_PHOTO_KEYS = {
 };
 
 /**
- * location — UNRESOLVED, BY OWNER INSTRUCTION.
+ * location — OPTIONAL, BY OWNER DECISION (Package 7).
  *
- * APPLIANCES has no location column, and Package 6 forbids deriving one from
- * stage or inventing "Floor"/aisle/bay values. Until an authoritative source
- * is identified this stays null and mapping FAILS LOUDLY.
+ * APPLIANCES has no authoritative location column. Deriving one from stage or
+ * inventing "Floor"/aisle/bay values is forbidden, and adding a production
+ * column merely to satisfy the Register was rejected. So location is simply
+ * not required: it resolves to an explicitly empty string and no row is ever
+ * withheld for lacking one.
  *
- * This is a CONTRACT gap, not a per-row data gap, so it throws once rather
- * than withholding all rows: a silent empty catalog would look like the store
- * is out of stock.
- *
- * To resolve: set this to the authoritative source column name.
+ * If an authoritative column is approved later, set this to its name — that
+ * one change is the whole cutover for this field.
  */
 var LOCATION_SOURCE_COLUMN = null;
 
@@ -310,15 +309,12 @@ function mapApplianceRow_(row) {
     return { ok: false, itemId: id, reason: 'no valid photo_links' };
   }
 
-  if (LOCATION_SOURCE_COLUMN === null) {
-    throwMapping_('location has no authoritative source column in ' +
-      APPLIANCES_SHEET_NAME + '. Package 6 forbids deriving it from stage or ' +
-      'inventing a floor/aisle/bay value, so mapping stops here rather than ' +
-      'fabricating one. Set LOCATION_SOURCE_COLUMN once an authoritative ' +
-      'source is approved.');
-  }
-  var location = String(row[LOCATION_SOURCE_COLUMN] == null ? '' : row[LOCATION_SOURCE_COLUMN]).trim();
-  if (location === '') { return { ok: false, itemId: id, reason: 'missing location' }; }
+  // location is OPTIONAL (owner decision, Package 7). With no authoritative
+  // source column it resolves to an explicitly empty string. Nothing is
+  // derived from stage and no floor/aisle/bay value is ever fabricated.
+  // A row is NEVER withheld for lacking a location.
+  var location = LOCATION_SOURCE_COLUMN === null ? ''
+    : String(row[LOCATION_SOURCE_COLUMN] == null ? '' : row[LOCATION_SOURCE_COLUMN]).trim();
 
   return {
     ok: true,

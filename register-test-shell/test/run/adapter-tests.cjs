@@ -85,10 +85,60 @@ console.log('\nSHIPPED DEFAULTS (what actually goes to Apps Script)');
   const S = sandbox();
   ok('ACTIVE_DATA_SOURCE ships as MOCK (adapter inert)', run(S, 'ACTIVE_DATA_SOURCE') === 'MOCK');
   ok('LOCATION_SOURCE_COLUMN ships unresolved (null)', run(S, 'LOCATION_SOURCE_COLUMN') === null);
-  const m = threw(() => mapped(S));
-  ok('6. unresolved location FAILS LOUDLY, does not fabricate',
-    !!m && /\[EDP mapping error\] location has no authoritative source/.test(m));
   ok('mock inventory still served while inert', run(S, 'readInventory().length') === 12);
+}
+
+// --- location contract (Package 7) ---------------------------------------
+console.log('\nLOCATION IS OPTIONAL (Package 7 owner decision)');
+{
+  const S = sandbox();                       // shipped default: no location column
+  const r = mapped(S);
+  ok('6a. unresolved location no longer throws', r && Array.isArray(r.items));
+  ok('6b. rows are accepted with no location at all', r.items.length === 3,
+    r.items.map(i => i.itemId).join(','));
+  ok('6c. location resolves to an explicitly empty string',
+    r.items.every(i => i.location === ''));
+  ok('6d. NO row is withheld for lacking a location',
+    !r.withheld.some(w => /location/i.test(w.reason)));
+  ok('6e. nothing is derived from stage and no bay/floor value is fabricated',
+    r.items.every(i => i.location === '' &&
+      !/floor|aisle|bay|FLOOR_READY/i.test(String(i.location))));
+  ok('6f. mapped records with empty location PASS the real validator',
+    run(S, 'validateInventory(__items)', (S.__items = r.items)) === r.items ||
+    (() => { S.__items = r.items; return run(S, 'validateInventory(__items).length') === 3; })());
+  const S2 = sandbox({ location: 'bay' });   // if a column is ever approved
+  const r2 = mapped(S2);
+  ok('6g. an approved location column is still honoured when set',
+    r2.items.every(i => /^Floor /.test(i.location)),
+    r2.items.map(i => i.location).join(' | '));
+}
+
+// --- proof that nothing else was weakened --------------------------------
+console.log('\nNO OTHER FIELD WAS WEAKENED');
+{
+  const S = sandbox();
+  const base = () => ({ itemId: 'X-1', category: 'Washer', brand: 'B', model: 'M',
+    description: 'd', price: 10, condition: 'USED', availability: 'AVAILABLE',
+    qty: 1, location: 'Floor A-1', serialPlaceholder: '[ SERIAL PLACEHOLDER ]',
+    photoKey: 'washer' });
+  function rejects(field, value) {
+    const rec = base();
+    if (value === undefined) { delete rec[field]; } else { rec[field] = value; }
+    S.__r = [rec];
+    return threw(() => run(S, 'validateInventory(__r)'));
+  }
+  [['itemId'], ['category'], ['brand'], ['model'], ['description'], ['condition'],
+   ['serialPlaceholder'], ['photoKey']].forEach(([f]) =>
+    ok('   required string "' + f + '" still rejected when missing', !!rejects(f, undefined)));
+  ok('   required number "price" still rejected when missing', !!rejects('price', undefined));
+  ok('   required number "qty" still rejected when missing', !!rejects('qty', undefined));
+  ok('   price still rejected when a numeric-looking STRING', !!rejects('price', '10.00'));
+  ok('   availability still rejected when not an approved literal',
+    !!rejects('availability', 'ON_THE_FLOOR'));
+  ok('   location is the ONLY field now accepted as absent',
+    rejects('location', undefined) === null && rejects('location', '') === null);
+  ok('   location still rejected when present but a NON-string',
+    !!rejects('location', 42));
 }
 
 // --- mapping --------------------------------------------------------------
