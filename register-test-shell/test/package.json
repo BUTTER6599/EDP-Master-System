@@ -1,0 +1,18 @@
+{
+  "name": "edp-register-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-only test harness for the EDP OS Register TEST shell. No Google, no Apps Script, no network.",
+  "scripts": {
+    "test": "node run-all.cjs",
+    "test:validator": "node run/validator-tests.cjs",
+    "test:query": "node run/query-tests.cjs",
+    "test:parity": "node run/ordered-parity.cjs",
+    "test:browser": "node run/build-preview.cjs && node run/browser-regression.cjs",
+    "build:preview": "node run/build-preview.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  },
+  "engines": { "node": ">=20" }
+}
