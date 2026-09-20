@@ -6,22 +6,24 @@
 2. Replace `Code.gs` with `apps-script/Code.gs`.
 3. Replace the manifest with `apps-script/appsscript.json` if manifest editing is enabled.
 4. Confirm project timezone is America/Chicago.
-5. Run `buildPayload_` once from the editor and approve read access to the Master Sheet.
-6. Inspect the execution log. It must complete without write operations.
-7. Deploy > New deployment > Web app.
-8. Execute as: Me.
-9. Access: Anyone. This TEST endpoint is intentionally privacy-reduced; it does not return customer contact data, payroll rates/pay, or bill amounts.
-10. Copy the generated `/exec` URL.
-11. Open that URL in a private browser window. Expected JSON includes `"status":"TEST"` and `"schema_version":"1.0.0"`.
+5. Project Settings > Script Properties: add `EDP_BRIDGE_KEY` with a long random value (32+ random characters).
+6. Run `buildPayload_` once from the editor and approve read access to the Master Sheet.
+7. Inspect the execution. It must complete without write operations.
+8. Deploy > New deployment > Web app.
+9. Execute as: Me.
+10. Access: Anyone. The endpoint still requires the secret `key` query value and returns `UNAUTHORIZED` without it.
+11. Copy the generated `/exec` URL.
+12. Test `/exec?key=YOUR_KEY` in a private browser window. Expected JSON includes `"status":"TEST"` and `"schema_version":"1.0.0"`.
+13. Test the same URL without `?key=` and confirm the JSON status is BLOCKED with `UNAUTHORIZED`.
 
-Do not promote to a sensitive owner-data endpoint without authentication design review.
+The TEST bridge is read-only and privacy-reduced. It omits customer phone/email, payroll rates/pay, bill amounts, and kiosk message bodies.
 
 ## B. Home Assistant REST sensors
 
-1. Back up `configuration.yaml` and any existing Lovelace dashboard configuration.
+1. Back up `configuration.yaml`, `secrets.yaml`, and the existing Lovelace dashboard configuration.
 2. Copy `ha-rest-sensors.yaml` into the HA config area.
-3. Put the Apps Script `/exec` URL into `secrets.yaml` as:
-   `edp_ha_bridge_url: "https://script.google.com/macros/s/.../exec"`
+3. Put the Apps Script URL plus the key into `secrets.yaml`:
+   `edp_ha_bridge_url: "https://script.google.com/macros/s/.../exec?key=LONG_RANDOM_KEY"`
 4. Include the sensor file from `configuration.yaml`, or merge its `rest:` and `template:` blocks carefully with existing configuration.
 5. Run Home Assistant configuration validation before restart.
 6. Restart Home Assistant only if validation passes.
