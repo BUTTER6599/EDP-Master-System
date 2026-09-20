@@ -52,7 +52,7 @@ action.
 
 | Section | Status | Why |
 |---|---|---|
-| Tasks, Bills, Schedule, Kiosk, Restocking | TEST | bridge built and unit-tested; not verified against the live Sheet yet |
+| Tasks, Bills, Schedule, Kiosk, Restocking | TEST | auth/health, TASKS and BILLS runtime checks passed; remaining endpoints still being validated |
 | Shopping list | TEST | the one confirmed live entity — `todo`, 1 entity, 0 items |
 | Doors / windows / motion | TEST | 39 binary sensors read live; no alerting wired |
 | Locks | BLOCKED | `lock` domain empty on 2026-09-02 and 2026-09-20 |
@@ -86,8 +86,9 @@ verification checklist proves it works.
 - Two tokens, two scopes. The token presented decides the scope; a public
   caller cannot request private data. Fields are allowlisted per tab, so a
   new column in the Sheet cannot silently publish itself.
-- Bill *names* are private, not just amounts — the tab carries a health
-  insurance line, and the name alone discloses coverage.
+- Detailed BILLS data is private, including bill IDs, due dates, statuses,
+  names, amounts, notes, and updater names. Shared/shop views must use only
+  a separately approved generic aggregate.
 - Payroll has no public projection at all.
 - No customer PII tab is served.
 - No automatic lock, unlock, arm or disarm exists, and no card calls a
@@ -103,3 +104,20 @@ Runs the real `Code.gs` against fixture rows copied from the live Sheet.
 22 checks: auth, blank-row filtering, priority sort, and the scope rules
 that keep payroll, bill amounts and the insurer name off a public screen.
 Run it after any edit to `TABS`.
+
+
+## Dashboard continuity / Apps Script fallback
+
+Home Assistant is the preferred operating dashboard, but it is not a
+single point of business failure. EDP's existing Apps Script/EDP OS apps
+remain authoritative and usable independently.
+
+The portable rebuild specification lives in
+`docs/DATA-CONTRACT.md`. Every material Home Assistant dashboard change
+must preserve enough source mapping, privacy rules, status logic,
+navigation, refresh behavior, and failure behavior to reproduce the same
+business meaning in the Apps Script owner dashboard later.
+
+The Apps Script fallback is **planned architecture**, not part of the
+current TEST deployment. Do not create a duplicate business database or
+silently build a second set of business rules.
