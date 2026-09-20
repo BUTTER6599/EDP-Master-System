@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Check out TEST source
         uses: actions/checkout@v4
-      - name: Use Node.js 20
+      - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Check out TEST source
         uses: actions/checkout@v4
-      - name: Use Node.js 20
+      - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -79,3 +79,8 @@ jobs:
           npx -y @google/clasp@3.4.1 create-deployment
           --deploymentId "$APPS_SCRIPT_DEPLOYMENT_ID"
           --description "EDP HA Bridge TEST ${GITHUB_SHA::7}"
+      - name: Run deployed runtime smoke checks
+        env:
+          EDP_BRIDGE_BASE_URL: https://script.google.com/macros/s/AKfycby6eIy_gQfNZpG7BE0zVtrjWDNivnKe6t3qLhE9ihB5pT_roG0h2sKLGseV8z-M3U8X/exec
+          BRIDGE_PUBLIC_TOKEN: ${{ secrets.BRIDGE_PUBLIC_TOKEN }}
+        run: node home-assistant/bridge/test/runtime_smoke.mjs
