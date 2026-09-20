@@ -144,3 +144,26 @@ node home-assistant/bridge/test/bridge_test.mjs
 22 checks, no network and no Google account needed. Run it after any edit
 to `TABS` — it is what proves a public caller cannot see payroll, bill
 amounts or the insurer's name.
+
+
+## Cloud-only operator policy
+
+Approved 2026-09-20: routine EDP Apps Script bridge development and deployment
+must not depend on Taylor's current Windows computer. GitHub is the
+version-controlled source and GitHub Actions is the preferred automated TEST
+runner/deployer.
+
+Taylor's computer is not a required build host. Do not require local Node.js,
+local clasp, or a local checkout for normal operation.
+
+The one-time Google authorization may be completed in a browser-hosted cloud
+environment such as GitHub Codespaces or Google Cloud Shell. The resulting
+clasp authorization material belongs in GitHub Actions secrets, never in the
+repository, Drive documents, chat, screenshots, or source files.
+
+After the one-time cloud authorization:
+GitHub TEST source -> automated tests -> clasp push to the existing Apps Script
+TEST project -> update the existing TEST deployment -> verification.
+
+LIVE deployment remains separately approved and is never automatic from this
+TEST workflow.
