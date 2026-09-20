@@ -6,15 +6,14 @@ fine and needs no local tooling.
 
 ## 1. Create the project (5 min)
 
-1. Open the Sheet:
-   <https://docs.google.com/spreadsheets/d/117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI>
-2. **Extensions → Apps Script**. A bound project opens.
-3. Delete the stub in `Code.gs` and paste the whole of
-   `home-assistant/bridge/Code.gs`.
-4. **Project Settings** (gear) → tick *Show "appsscript.json" manifest file
-   in editor*. Open `appsscript.json` in the editor and replace it with
-   `home-assistant/bridge/appsscript.json`.
-5. Save.
+1. Use the existing standalone TEST Apps Script project
+   `EDP_HA_COMMAND_CENTER_BRIDGE_TEST`. Do not create another bridge project.
+2. Open `Code.gs` and replace it only from the version-controlled
+   `home-assistant/bridge/Code.gs` source when a controlled TEST update is
+   required.
+3. **Project Settings** (gear) → show the `appsscript.json` manifest if it
+   is hidden. Keep it aligned with `home-assistant/bridge/appsscript.json`.
+4. Save.
 
 ## 2. Set the tokens (3 min)
 
@@ -89,9 +88,10 @@ Then:
 <web app url>?tab=BILLS&key=<BRIDGE_TOKEN>
 ```
 
-The response must contain no dollar amounts and no bill names. That is
-the check that matters most — it is what keeps health and financial
-detail off a shop-floor screen.
+The public response must contain no detailed bill rows:
+`"count":0,"rows":[]`. Bill IDs, due dates, statuses, priority, names,
+amounts, notes and updater names are all private. That is the check that
+keeps financial and health-related detail off a shop-floor screen.
 
 ## Updating later
 
@@ -107,7 +107,18 @@ the previous version → **Deploy**. The URL is unchanged and Home Assistant
 picks up the old behaviour within one poll (≤5 min). Nothing in the Sheet
 is touched by a rollback, because the bridge never writes.
 
-## Optional: clasp
+## Automation target: clasp
+
+Manual browser editing is temporary. The approved target is GitHub TEST
+source → tests → clasp push → update the existing TEST deployment. LIVE
+promotion remains separately approved and is never performed by this TEST
+workflow.
+
+A GitHub Actions scaffold is stored at
+`.github/workflows/edp-ha-bridge-test.yml`. It stays deployment-disabled
+until the one-time Google/clasp credentials and Script ID are configured.
+
+### Local / operator setup
 
 ```bash
 npm i -g @google/clasp
@@ -115,7 +126,7 @@ clasp login
 cp home-assistant/bridge/.clasp.json.example .clasp.json
 # paste the Script ID from Project Settings
 clasp push
-clasp deploy -i <DEPLOYMENT_ID> -d "EDP HA bridge v2"
+clasp create-deployment --deploymentId <DEPLOYMENT_ID> -d "EDP HA bridge TEST update"
 ```
 
 Keep `.clasp.json` out of git — it is already covered by the ignore rule
