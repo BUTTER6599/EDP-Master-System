@@ -54,9 +54,11 @@ jobs:
           APPS_SCRIPT_DEPLOYMENT_ID: ${{ secrets.APPS_SCRIPT_DEPLOYMENT_ID }}
           CLASP_TOKEN_JSON: ${{ secrets.CLASP_TOKEN_JSON }}
         run: |
-          test -n "$APPS_SCRIPT_SCRIPT_ID"
-          test -n "$APPS_SCRIPT_DEPLOYMENT_ID"
-          test -n "$CLASP_TOKEN_JSON"
+          missing=0
+          if [ -z "$APPS_SCRIPT_SCRIPT_ID" ]; then echo "Missing GitHub secret: APPS_SCRIPT_SCRIPT_ID"; missing=1; fi
+          if [ -z "$APPS_SCRIPT_DEPLOYMENT_ID" ]; then echo "Missing GitHub secret: APPS_SCRIPT_DEPLOYMENT_ID"; missing=1; fi
+          if [ -z "$CLASP_TOKEN_JSON" ]; then echo "Missing GitHub secret: CLASP_TOKEN_JSON"; missing=1; fi
+          exit "$missing"
       - name: Configure clasp authentication
         env:
           APPS_SCRIPT_SCRIPT_ID: ${{ secrets.APPS_SCRIPT_SCRIPT_ID }}
