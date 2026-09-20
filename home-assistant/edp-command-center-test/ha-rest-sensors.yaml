@@ -1,0 +1,111 @@
+# Merge this into configuration.yaml or include it as a package.
+# The Apps Script URL is intentionally stored in secrets.yaml.
+rest:
+  - resource: !secret edp_ha_bridge_url
+    scan_interval: 60
+    timeout: 15
+    sensor:
+      - name: EDP Bridge Health
+        unique_id: edp_bridge_health
+        value_template: "{{ value_json.status | default('BLOCKED') }}"
+        json_attributes:
+          - generated_at
+          - schema_version
+          - mode
+          - source
+      - name: EDP Data Staleness
+        unique_id: edp_data_staleness
+        unit_of_measurement: min
+        value_template: >
+          {% set g = value_json.generated_at | default(None) %}
+          {% if g %}
+            {{ ((as_timestamp(now()) - as_timestamp(g)) / 60) | round(1) }}
+          {% else %} 9999 {% endif %}
+      - name: EDP Open Tasks
+        unique_id: edp_open_tasks
+        value_template: "{{ value_json.tasks.open_count | default(0) }}"
+        json_attributes_path: "$.tasks"
+        json_attributes:
+          - urgent_count
+          - items
+          - source_status
+      - name: EDP Bills Due
+        unique_id: edp_bills_due
+        value_template: "{{ value_json.bills.attention_count | default(0) }}"
+        json_attributes_path: "$.bills"
+        json_attributes:
+          - items
+          - source_status
+      - name: EDP Schedule Today
+        unique_id: edp_schedule_today
+        value_template: "{{ value_json.schedule.today_count | default(0) }}"
+        json_attributes_path: "$.schedule"
+        json_attributes:
+          - items
+          - source_status
+          - source_quality
+      - name: EDP Team Clocked In
+        unique_id: edp_team_clocked_in
+        value_template: "{{ value_json.team.clocked_in_count | default(0) }}"
+        json_attributes_path: "$.team"
+        json_attributes:
+          - names
+          - source_status
+      - name: EDP Kiosk Unread
+        unique_id: edp_kiosk_unread
+        value_template: "{{ value_json.kiosk.unread_count | default(0) }}"
+        json_attributes_path: "$.kiosk"
+        json_attributes:
+          - items
+          - source_status
+      - name: EDP Sales 7d
+        unique_id: edp_sales_7d
+        unit_of_measurement: sales
+        value_template: "{{ value_json.sales.count_7d | default(0) }}"
+        json_attributes_path: "$.sales"
+        json_attributes:
+          - amount_7d
+          - source_status
+      - name: EDP Purchases 7d
+        unique_id: edp_purchases_7d
+        unit_of_measurement: purchases
+        value_template: "{{ value_json.purchases.count_7d | default(0) }}"
+        json_attributes_path: "$.purchases"
+        json_attributes:
+          - amount_7d
+          - unpaid_count
+          - source_status
+      - name: EDP Inventory Available
+        unique_id: edp_inventory_available
+        unit_of_measurement: items
+        value_template: "{{ value_json.inventory.available_count | default(0) }}"
+        json_attributes_path: "$.inventory"
+        json_attributes:
+          - floor_ready_count
+          - not_ready_count
+          - source_status
+      - name: EDP Repairs Open
+        unique_id: edp_repairs_open
+        unit_of_measurement: repairs
+        value_template: "{{ value_json.repairs.open_count | default(0) }}"
+        json_attributes_path: "$.repairs"
+        json_attributes:
+          - diagnosing_count
+          - overdue_count
+          - source_status
+      - name: EDP Parts Low Stock
+        unique_id: edp_parts_low_stock
+        unit_of_measurement: parts
+        value_template: "{{ value_json.parts.low_stock_count | default(0) }}"
+        json_attributes_path: "$.parts"
+        json_attributes:
+          - items
+          - source_status
+
+template:
+  - binary_sensor:
+      - name: EDP Bridge Stale
+        unique_id: edp_bridge_stale
+        state: "{{ states('sensor.edp_data_staleness') | float(9999) > 5 }}"
+        device_class: problem
+        availability: "{{ states('sensor.edp_bridge_health') not in ['unknown','unavailable'] }}"
