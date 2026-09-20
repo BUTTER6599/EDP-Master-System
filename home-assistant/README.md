@@ -121,3 +121,8 @@ business meaning in the Apps Script owner dashboard later.
 The Apps Script fallback is **planned architecture**, not part of the
 current TEST deployment. Do not create a duplicate business database or
 silently build a second set of business rules.
+
+
+## Cloud automation authentication checkpoint — 2026-09-20
+
+The one-time Google/clasp authorization was completed in a GitHub Codespace under the EDP account. GitHub Actions TEST deployment secrets/variable were configured. This commit intentionally triggers the TEST workflow so automated validation and redeployment can be verified. LIVE remains blocked pending separate approval.
