@@ -132,6 +132,6 @@ it is not a promotion.
 | Phone battery | BLOCKED | no battery sensors returned | |
 | Presence | BLOCKED | no `person` entities returned | |
 | Sales / spending | BLOCKED | weekly rollup tab empty in the Sheet | |
-| Inventory | BLOCKED | tab name unconfirmed | |
-| Repairs | BLOCKED | ticket tab name unconfirmed | |
+| Inventory | BLOCKED | source verified as `APPLIANCES`; aggregate sensor/display still pending | |
+| Repairs | BLOCKED | source verified as `REPAIR_TICKETS`; aggregate sensor/display still pending | |
 | Notifications | BLOCKED | not built | |
