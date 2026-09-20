@@ -30,12 +30,9 @@ const CACHE_TTL = 60;
 /**
  * Tab registry.
  *
- * `sheet` names are the ones Taylor listed in the brief and are NOT yet
- * confirmed against the live spreadsheet - the Drive export this was built
- * from carries header rows but no tab names. Call ?list=1 after deploying
- * to get the real names, then correct any mismatch here. Every tab reports
- * `missing` rather than throwing, so a wrong name degrades one card instead
- * of the whole bridge.
+ * Core sheet names below were verified against EDP_MASTER_DATABASE on
+ * 2026-09-19/20. The ?list=1 endpoint remains as a deployment-time
+ * verification check so a later rename degrades visibly instead of silently.
  *
  * `status` mirrors the EDP LIVE/TEST/BLOCKED convention and is passed
  * through to the dashboard so a card can label itself honestly.
@@ -140,8 +137,8 @@ const TABS = {
   },
 
   INVENTORY: {
-    sheet: 'INVENTORY',
-    status: 'BLOCKED',
+    sheet: 'APPLIANCES',
+    status: 'TEST',
     fields: {
       item_id: 'public', category: 'public', brand: 'public',
       stage: 'public', status: 'public', days_on_hand: 'public',
@@ -152,17 +149,25 @@ const TABS = {
   },
 
   REPAIRS: {
-    sheet: 'REPAIR_PARTS',
-    status: 'BLOCKED',
+    sheet: 'REPAIR_TICKETS',
+    status: 'TEST',
     fields: {
-      'Repair Part ID': 'public', 'Date': 'public',
-      'Appliance Type': 'public', 'Brand': 'public',
-      'Part Name': 'public',
-      'Unit ID': 'private', 'What Was Wrong': 'private',
-      'Vendor Name': 'private', 'Our Cost': 'private',
-      'Part Cost': 'private', 'Installed By': 'private'
+      ticket_id: 'public', created_at: 'public', intake_type: 'public',
+      category: 'public', brand: 'public', drop_off_date: 'public',
+      status: 'public', expected_out_date: 'public',
+      model: 'private', serial: 'private',
+      problem_description: 'private', diagnostic_notes: 'private',
+      notes: 'private', diagnostic_quote: 'private', final_cost: 'private',
+      completed_at: 'private', completed_by: 'private',
+      expected_repair_hours: 'private', first_photo_url: 'private'
     },
-    where: function (r) { return r['Repair Part ID']; }
+    // Customer name, phones, email and photo-folder IDs are intentionally
+    // not declared at either scope and therefore never leave the Sheet.
+    where: function (r) {
+      if (!r.ticket_id) return false;
+      const s = String(r.status || '').toLowerCase();
+      return !['completed','complete','closed','cancelled','canceled'].includes(s);
+    }
   },
 
   // Payroll is never exposed at public scope, at any field.
@@ -225,8 +230,8 @@ function doGet(e) {
   return json(readTab(name, cfg, scope));
 }
 
-/** Tab names are the one thing this build could not verify. Deploy, then
- *  hit ?list=1 with the private token to get them straight from the file. */
+/** Deployment-time verification: hit ?list=1 with the private token to
+ * confirm the currently configured tab names still exist in the live file. */
 function listSheets() {
   const ss = SpreadsheetApp.openById(spreadsheetId());
   const sheets = ss.getSheets().map(function (s) {
