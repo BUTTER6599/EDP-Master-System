@@ -1,0 +1,183 @@
+title: EDP Command Center — TEST
+views:
+  - title: Command Center
+    path: edp-command-center-test
+    icon: mdi:view-dashboard
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: EDP Command Center
+            icon: mdi:store-cog
+          - type: markdown
+            content: |
+              ## TEST MODE
+              **Command center only — authoritative data stays in EDP systems.**
+
+              Bridge: **{{ states('sensor.edp_bridge_health') }}**
+              Last refresh: **{{ state_attr('sensor.edp_bridge_health','generated_at') or 'not yet received' }}**
+
+              Status rule: LIVE = verified • TEST = validating • BLOCKED = needs access/action.
+          - type: entities
+            title: System Status
+            show_header_toggle: false
+            entities:
+              - entity: sensor.edp_bridge_health
+                name: Master Sheet bridge
+              - entity: sensor.edp_data_staleness
+                name: Data freshness
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Tasks & Reminders
+            icon: mdi:clipboard-check-outline
+          - type: entity
+            entity: sensor.edp_open_tasks
+            name: Open business tasks
+            icon: mdi:clipboard-text-outline
+          - type: markdown
+            title: Task Detail
+            content: |
+              **TEST source:** TASKS_TEST
+              
+              Open: **{{ states('sensor.edp_open_tasks') }}**  
+              Urgent: **{{ state_attr('sensor.edp_open_tasks','urgent_count') or 0 }}**
+              
+              {% set items = state_attr('sensor.edp_open_tasks','items') or [] %}
+              {% for item in items[:6] %}
+              - {{ item.title }}{% if item.priority %} · {{ item.priority }}{% endif %}{% if item.due_date %} · due {{ item.due_date }}{% endif %}
+              {% else %}
+              No task detail received yet.
+              {% endfor %}
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Bills & Important Dates
+            icon: mdi:calendar-alert
+          - type: entity
+            entity: sensor.edp_bills_due
+            name: Bills requiring attention
+            icon: mdi:receipt-text-clock
+          - type: markdown
+            content: |
+              Private amounts are not displayed in this TEST dashboard.
+              
+              {% set items = state_attr('sensor.edp_bills_due','items') or [] %}
+              {% for item in items[:5] %}
+              - {{ item.bill_name }} · {{ item.status }}{% if item.due_date %} · {{ item.due_date }}{% endif %}
+              {% else %}
+              No bill detail received yet.
+              {% endfor %}
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Schedule & Team
+            icon: mdi:account-clock
+          - type: entities
+            entities:
+              - entity: sensor.edp_schedule_today
+                name: Scheduled today
+              - entity: sensor.edp_team_clocked_in
+                name: Clocked in
+          - type: markdown
+            content: |
+              Schedule rows remain TEST until source times are verified.
+              
+              Clocked in: **{{ states('sensor.edp_team_clocked_in') }}**
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Shopping & Restocking
+            icon: mdi:cart-outline
+          - type: markdown
+            content: |
+              ### BLOCKED — exact Shopping List entity ID required
+              Home Assistant exposes one friendly-named **Shopping List**, but this session cannot read its entity ID.
+              
+              After Taylor copies the exact entity ID, replace this card with:
+              
+              ```yaml
+              type: todo-list
+              entity: <EXACT_SHOPPING_LIST_ENTITY_ID>
+              title: Shopping List
+              ```
+          - type: entity
+            entity: sensor.edp_parts_low_stock
+            name: Parts at/below restock threshold
+            icon: mdi:package-variant-closed-minus
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Operations
+            icon: mdi:factory
+          - type: entities
+            entities:
+              - entity: sensor.edp_kiosk_unread
+                name: Unread kiosk messages
+              - entity: sensor.edp_sales_7d
+                name: Sales — last 7 days
+              - entity: sensor.edp_purchases_7d
+                name: Purchases — last 7 days
+              - entity: sensor.edp_inventory_available
+                name: Available inventory
+              - entity: sensor.edp_repairs_open
+                name: Open repairs
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Security & Frigate
+            icon: mdi:shield-home-outline
+          - type: markdown
+            content: |
+              ### BLOCKED — registry/integration access required
+              
+              **Cameras:** BLOCKED — 0 camera entities visible in current Assist layer.  
+              **Locks:** BLOCKED — 0 lock entities visible in current Assist layer.  
+              **Alarm:** BLOCKED — 0 alarm_control_panel entities visible in current Assist layer.  
+              **Frigate:** BLOCKED until camera/integration/MQTT entities are verified.
+              
+              No unlock/disarm automation is included.
+          - type: markdown
+            content: |
+              ### Sensor readiness
+              Current Assist layer reports **39 binary_sensor entities**, but does not expose entity IDs or integration ownership.
+              
+              Door/window/motion cards stay BLOCKED until exact IDs are exported from Home Assistant.
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Phone Battery & Presence
+            icon: mdi:cellphone-marker
+          - type: markdown
+            content: |
+              ### BLOCKED — entity IDs required
+              Add exact Companion App battery, device_tracker/person, and zone entity IDs after registry export.
+              
+              Do not guess entity names.
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Navigation
+            icon: mdi:open-in-new
+          - type: markdown
+            content: |
+              Use these as deep-link launchers after the exact URLs are confirmed in Home Assistant:
+              
+              - Register — authoritative sales/payment workflow
+              - Kiosk — authoritative employee/kiosk workflow
+              - Inventory — authoritative item workflow
+              - Repairs — authoritative repair workflow
+              - Calendar — authoritative scheduling source
+              - EDP Master Sheet — authoritative business data
+              
+              Keep workflows in their existing apps; Home Assistant only summarizes and launches them.
