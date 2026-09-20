@@ -285,15 +285,9 @@ views:
             card_mod:
               style: |
                 ha-card { background:transparent; box-shadow:none; }
-          # The one confirmed-live entity in this build: the todo domain
-          # returned exactly one entity, "Shopping List", currently empty.
-          # The entity_id below is the HA default and was NOT verifiable
-          # from the API used; the markdown card above prints the real id.
-          - type: todo-list
-            entity: todo.shopping_list
-            card_mod:
-              style: |
-                ha-card { background:#12151a; border:1px solid #00e08f33; }
+          # Exact todo entity_id is intentionally not guessed. After the
+          # Diagnostics view confirms it, add a todo-list card here using
+          # that exact entity_id.
           - type: markdown
             content: >-
               {% set rows = state_attr('sensor.edp_parts_low','rows') %}
@@ -741,14 +735,14 @@ views:
             the weekly rollup tab that would drive a summary card is empty in
             the Sheet, so there is nothing truthful to display yet. A card
             showing `$0` would read as "no sales", not "no data".
-          - **Inventory** — the tab name is unconfirmed; run the bridge's
-            `?list=1` to get the real one.
-          - **Repairs** — same, plus the open-ticket pipeline lives in a
-            different tab from `REPAIR_PARTS`.
+          - **Inventory** — source tab is verified as `APPLIANCES`.
+          - **Repairs** — open-ticket source is verified as `REPAIR_TICKETS`.
+          - **Sales / Purchases** — source tabs are verified, but the TEST
+            dashboard still needs truthful period rollups before showing money.
 
-          Once `?list=1` returns the real tab names, enable these in
-          `Code.gs` (`TABS`) and add the matching `rest` sensors. The card
-          wiring is already in place in `rest_sensors.yaml`.
+          The source mappings are now verified. These cards remain BLOCKED
+          only until the matching aggregate REST sensors and period logic are
+          added and tested.
 
           _Sheets, Apps Script and n8n remain authoritative. Home Assistant
           displays; it does not compute or store business records._
