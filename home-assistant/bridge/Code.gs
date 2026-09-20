@@ -63,8 +63,8 @@ const TABS = {
     // bill_name is private on purpose: this tab carries a health-insurance
     // line, and a bill name is enough to disclose it on a shared screen.
     fields: {
-      bill_id: 'private', due_date: 'public', status: 'public',
-      priority: 'public',
+      bill_id: 'private', due_date: 'private', status: 'private',
+      priority: 'private',
       bill_name: 'private', amount_due: 'private',
       fund_balance: 'private', notes: 'private', updated_by: 'private'
     },
