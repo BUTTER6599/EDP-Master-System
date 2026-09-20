@@ -2,6 +2,7 @@
  * EDP Home Assistant TEST Bridge
  * Read-only JSON summaries from EDP_MASTER_DATABASE.
  * No writes. No customer phone/email output. No payroll dollar detail.
+ * Requires Script Property EDP_BRIDGE_KEY and matching ?key= value.
  */
 const EDP = {
   spreadsheetId: '117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI',
@@ -12,6 +13,16 @@ const EDP = {
 
 function doGet(e) {
   try {
+    if (!authorized_(e)) {
+      return json_({
+        status: 'BLOCKED',
+        mode: EDP.mode,
+        schema_version: EDP.schemaVersion,
+        generated_at: new Date().toISOString(),
+        error: 'UNAUTHORIZED'
+      });
+    }
+
     const view = String((e && e.parameter && e.parameter.view) || 'all').toLowerCase();
     const payload = buildPayload_();
     const body = view === 'all' ? payload : {
@@ -22,7 +33,7 @@ function doGet(e) {
       source: payload.source,
       data: payload[view] || null
     };
-    return json_(body, 200);
+    return json_(body);
   } catch (err) {
     return json_({
       status: 'BLOCKED',
@@ -30,8 +41,14 @@ function doGet(e) {
       schema_version: EDP.schemaVersion,
       generated_at: new Date().toISOString(),
       error: String(err && err.message ? err.message : err)
-    }, 500);
+    });
   }
+}
+
+function authorized_(e) {
+  const expected = PropertiesService.getScriptProperties().getProperty('EDP_BRIDGE_KEY');
+  const supplied = String((e && e.parameter && e.parameter.key) || '');
+  return !!expected && supplied === expected;
 }
 
 function buildPayload_() {
@@ -137,7 +154,11 @@ function summarizeBills_(rows) {
     const s = norm_(r.status);
     return s && !['paid','closed','complete','completed'].some(x => s.includes(x));
   });
-  attention.sort((a,b) => dateMs_(a.due_date) - dateMs_(b.due_date));
+  attention.sort((a,b) => {
+    const da = dateMs_(a.due_date) || Number.MAX_SAFE_INTEGER;
+    const db = dateMs_(b.due_date) || Number.MAX_SAFE_INTEGER;
+    return da - db;
+  });
   return {
     source_status: 'TEST',
     attention_count: attention.length,
@@ -195,8 +216,7 @@ function summarizeKiosk_(rows) {
     items: unread.slice(-5).reverse().map(r => ({
       timestamp: r.Timestamp,
       name: r.Name,
-      direction: r.Direction,
-      message: r.Message
+      direction: r.Direction
     }))
   };
 }
@@ -306,7 +326,7 @@ function dateMs_(v) {
   const d = new Date(v);
   return isNaN(d.getTime()) ? 0 : d.getTime();
 }
-function json_(obj, code) {
+function json_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
