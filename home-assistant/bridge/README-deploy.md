@@ -167,3 +167,8 @@ TEST project -> update the existing TEST deployment -> verification.
 
 LIVE deployment remains separately approved and is never automatic from this
 TEST workflow.
+
+
+## Authenticated TEST deployment verification checkpoint — 2026-09-20
+
+The one-time Google/clasp authorization was completed in a GitHub Codespace and GitHub Actions TEST deployment secrets/variable were configured. This checkpoint intentionally triggers the bridge workflow for first authenticated automated redeployment verification. LIVE remains blocked pending separate approval.
