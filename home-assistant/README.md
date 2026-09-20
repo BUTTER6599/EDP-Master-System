@@ -39,8 +39,10 @@ home-assistant/
 
 ## Start here
 
-`docs/TAYLOR-ACTIONS.md`. Sessions 1–5 put a working TEST dashboard on
-screen in about 35 minutes.
+`docs/TAYLOR-ACTIONS.md`. Deploy the TEST bridge first, then verify the
+mapped tabs. Before pasting the dashboard, use its Diagnostics view process
+to confirm the exact Shopping List entity_id; this consolidated branch does
+not guess `todo.shopping_list`.
 
 ## Status legend
 
@@ -58,7 +60,7 @@ action.
 | Cameras / Frigate | BLOCKED | `camera` domain empty; detection sensors down since 2026-05-18 |
 | Phone battery / presence | BLOCKED | no `sensor`, `person` or `device_tracker` entities returned |
 | Sales / spending | BLOCKED | the weekly rollup tab is empty in the Sheet |
-| Inventory / Repairs | BLOCKED | tab names unconfirmed — run `?list=1` |
+| Inventory / Repairs | BLOCKED | source tabs verified as `APPLIANCES` and `REPAIR_TICKETS`; aggregate sensors/display still pending |
 | Notifications | BLOCKED | not built; no automation or notify action exists here |
 
 ## Two things worth knowing before reading the code
