@@ -3,7 +3,9 @@ import fs from 'node:fs';
 
 const src = fs.readFileSync('home-assistant/bridge/Code.gs', 'utf8');
 
-// Fixtures lifted verbatim from the Drive export of the live spreadsheet.
+// Fixtures mirror verified EDP_MASTER_DATABASE schemas. Sensitive/private
+// example values are synthetic so staff/customer/business details are not
+// committed to the repository.
 const FIXTURES = {
   TASKS_TEST: [
     ['task_id','list','title','category','status','priority','owner','due_date','recurrence','source_type','source_id','amount','location','notes','created_at','updated_at','completed_at','completed_by','next_action','active'],
@@ -19,8 +21,19 @@ const FIXTURES = {
   ],
   SCHEDULE: [
     ['EmployeeID','Name','DayOfWeek','ClockInTime','ClockOutTime','Active'],
-    ['JOE','Joe','MON','8:00:00 AM','5:00:00 PM','TRUE'],
-    ['OLD','Former','MON','8:00:00 AM','5:00:00 PM','FALSE'],
+    ['EMP-A','Employee A','MON','8:00:00 AM','5:00:00 PM','TRUE'],
+    ['EMP-OLD','Former Employee','MON','8:00:00 AM','5:00:00 PM','FALSE'],
+  ],
+  KIOSK_MESSAGES: [
+    ['Timestamp','EmployeeID','Name','Direction','Message','Read'],
+    ['9/20/2026 10:00:00','EMP-A','Employee A','TO_TAYLOR','Synthetic private message','FALSE'],
+    ['9/20/2026 09:00:00','EMP-B','Employee B','TO_TAYLOR','Already read synthetic message','TRUE'],
+  ],
+  PARTS: [
+    ['part_id','name','category','brand','model','cost','price','quantity','notes','photo_links','condition'],
+    ['PART-LOW-001','Low Stock Test Part','TEST PART','Test Brand','MODEL-PRIVATE','10.00','20.00','1','Synthetic private note','','USED'],
+    ['PART-OK-001','Adequate Stock Test Part','TEST PART','Test Brand','MODEL-PRIVATE','11.00','21.00','4','Synthetic private note','','NEW'],
+    ['PART-OUT-001','Out of Stock Test Part','TEST PART','','MODEL-PRIVATE','12.00','22.00','0','Synthetic private note','',''],
   ],
   PAYROLL: [
     ['payroll_id','week_id','employee','hours','rate','gross_pay','status','notes'],
@@ -112,21 +125,51 @@ check('public payroll returns zero rows',
   pPub.count === 0 && pPub.rows.length === 0, JSON.stringify(pPub));
 check('public payroll leaks no pay', !/600/.test(JSON.stringify(pPub)));
 
-console.log('\n--- SCHEDULE ---');
+console.log('\n--- SCHEDULE privacy + display values ---');
+const sPub = call({ tab: 'SCHEDULE', key: 'pub-token' });
 const sPriv = call({ tab: 'SCHEDULE', key: 'priv-token' });
 check('inactive employee dropped', sPriv.count === 1, `count=${sPriv.count}`);
 check('clock time is display text, not 1899 date',
   sPriv.rows[0].ClockInTime === '8:00:00 AM', sPriv.rows[0].ClockInTime);
+check('public schedule exposes day + active only',
+  Object.keys(sPub.rows[0]).sort().join(',') === 'Active,DayOfWeek',
+  JSON.stringify(sPub.rows[0]));
+check('public schedule hides employee identity and times',
+  !/Employee A|EMP-A|8:00:00 AM|5:00:00 PM/.test(JSON.stringify(sPub)),
+  JSON.stringify(sPub));
 
-console.log('\n--- missing tab degrades, does not throw ---');
-const miss = call({ tab: 'PARTS', key: 'priv-token' });
-check('missing tab returns BLOCKED', miss.status === 'BLOCKED' && miss.ok === false);
-check('missing tab still returns rows array', Array.isArray(miss.rows));
+console.log('\n--- KIOSK unread filtering + privacy ---');
+const kPub = call({ tab: 'KIOSK', key: 'pub-token' });
+const kPriv = call({ tab: 'KIOSK', key: 'priv-token' });
+check('read kiosk messages are dropped', kPriv.count === 1, `count=${kPriv.count}`);
+check('private kiosk retains message body',
+  kPriv.rows[0].Message === 'Synthetic private message', JSON.stringify(kPriv.rows[0]));
+check('public kiosk hides employee identity and message body',
+  !/Employee A|EMP-A|Synthetic private message/.test(JSON.stringify(kPub)),
+  JSON.stringify(kPub));
+check('public kiosk retains operational envelope',
+  kPub.rows[0].Direction === 'TO_TAYLOR' && kPub.rows[0].Read === 'FALSE',
+  JSON.stringify(kPub.rows[0]));
+
+console.log('\n--- PARTS low-stock filtering + privacy ---');
+const partsPub = call({ tab: 'PARTS', key: 'pub-token' });
+const partsPriv = call({ tab: 'PARTS', key: 'priv-token' });
+check('parts endpoint keeps only quantity <= 2',
+  partsPriv.count === 2 && !partsPriv.rows.some(r => r.part_id === 'PART-OK-001'),
+  JSON.stringify(partsPriv.rows));
+check('public parts hides cost/price/notes',
+  !/10.00|20.00|Synthetic private note/.test(JSON.stringify(partsPub)),
+  JSON.stringify(partsPub));
+check('public parts retains operational stock fields',
+  partsPub.rows.some(r => r.part_id === 'PART-LOW-001' && r.quantity === '1'),
+  JSON.stringify(partsPub.rows));
 
 console.log('\n--- health ---');
 const h = call({ health: '1', key: 'priv-token' });
-check('health lists missing tabs', h.missing_tabs.includes('PARTS'));
-check('health reports degraded', h.ok === false);
+check('health finds fixture-backed tabs', !h.missing_tabs.includes('SCHEDULE') &&
+  !h.missing_tabs.includes('KIOSK') && !h.missing_tabs.includes('PARTS'));
+check('health still degrades for intentionally missing registered tabs',
+  h.ok === false && h.missing_tabs.length > 0, JSON.stringify(h.missing_tabs));
 
 console.log(`\n${fails === 0 ? 'ALL CHECKS PASSED' : fails + ' CHECK(S) FAILED'}`);
 process.exit(fails === 0 ? 0 : 1);
