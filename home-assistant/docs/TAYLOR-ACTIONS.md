@@ -29,22 +29,20 @@ Full detail: `bridge/README-deploy.md`.
 
 ---
 
-## Session 2 — Confirm the real tab names · 5 min
+## Session 2 — Verify the mapped tabs · 5 min
 
-This is the single highest-value five minutes in the list. It resolves the
-one thing the build had to guess.
+The core source names were verified directly from EDP_MASTER_DATABASE before
+this consolidated TEST branch was created: Inventory = `APPLIANCES`,
+Repairs = `REPAIR_TICKETS`, plus the already verified TASKS_TEST, BILLS,
+SCHEDULE, KIOSK_MESSAGES, PURCHASES, PARTS, SALES and PAYROLL mappings.
 
 1. In a browser: `<web app url>?list=1&key=<BRIDGE_TOKEN_PRIVATE>`
 2. Find the `configured` block. Every entry should read `"found": true`.
-3. For any `false`, open `Code.gs`, correct that entry's `sheet:` value to
-   the real name from the `sheets` list, save, then **Deploy → Manage
-   deployments → ✏ → Version: New version → Deploy**.
-4. Repeat until all are true.
+3. If any entry is `false`, stop there and report it before editing anything.
 
 **Done when:** every configured tab reads `"found": true`.
 
-**Report back:** the list of real sheet names. That is what unblocks the
-Inventory, Repairs and Sales cards.
+This is now a verification step, not a discovery step.
 
 ---
 
@@ -93,8 +91,8 @@ dashboard will not diagnose it for you.
    replaces everything and there is no undo.
 2. Select all → paste `dashboard/edp-command-center-TEST.yaml` → Save.
 3. Tap **Diagnostics** in the navigation grid and read it.
-4. If the todo entity listed there is not `todo.shopping_list`, correct
-   the one `entity:` line in the Shopping & Restocking section.
+4. Copy the exact Shopping List entity_id shown in Diagnostics and report
+   it back. The consolidated TEST dashboard intentionally does not guess it.
 5. Replace the four `REPLACE_WITH_..._URL` placeholders with the real
    Register, Kiosk, Inventory and Repairs URLs.
 
