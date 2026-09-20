@@ -100,7 +100,10 @@ const bPriv = call({ tab: 'BILLS', key: 'priv-token' });
 const pubBlob = JSON.stringify(bPub);
 check('public payload hides insurer name', !/Blue Cross/.test(pubBlob), pubBlob);
 check('public payload hides all amounts', !/919.68/.test(pubBlob) && !/3600/.test(pubBlob));
-check('public payload keeps due date + status', bPub.rows[0].due_date === '2026-08-01');
+check('public bills expose zero detailed rows',
+  bPub.count === 0 && bPub.rows.length === 0, JSON.stringify(bPub));
+check('public bills hide ids, dates, statuses and priority',
+  !/B-20260805|2026-08-01|PAST DUE|priority/.test(pubBlob), pubBlob);
 check('private payload shows the bill', /Blue Cross/.test(JSON.stringify(bPriv)));
 
 console.log('\n--- PAYROLL is private-only at every field ---');
