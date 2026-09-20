@@ -38,7 +38,7 @@ jobs:
   deploy-test:
     name: Deploy existing Apps Script TEST web app
     needs: bridge-tests
-    if: ${{ vars.ENABLE_APPS_SCRIPT_TEST_DEPLOY == 'true' }}
+    if: ${{ needs.bridge-tests.result == 'success' }}
     runs-on: ubuntu-latest
     environment: edp-ha-test
     steps:
