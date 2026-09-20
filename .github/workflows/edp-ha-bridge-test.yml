@@ -25,6 +25,15 @@ jobs:
           node-version: "20"
       - name: Run bridge harness
         run: node home-assistant/bridge/test/bridge_test.mjs
+      - name: Upload verified bridge snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: edp-ha-bridge-test-${{ github.sha }}
+          path: |
+            home-assistant/bridge
+            .github/workflows/edp-ha-bridge-test.yml
+          if-no-files-found: error
+          retention-days: 30
 
   deploy-test:
     name: Deploy existing Apps Script TEST web app
