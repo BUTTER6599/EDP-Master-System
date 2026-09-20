@@ -5,3 +5,6 @@ node_modules/
 .DS_Store
 .vscode/
 .idea/
+
+# Apps Script local config (bridge)
+.clasp.json

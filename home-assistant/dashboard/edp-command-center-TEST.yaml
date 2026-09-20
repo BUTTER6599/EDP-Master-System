@@ -1,0 +1,842 @@
+# ============================================================================
+# EDP COMMAND CENTER - TEST
+# ============================================================================
+# Paste into: EDP Command Center dashboard -> pencil -> 3-dot menu ->
+# "Raw configuration editor". Back up the existing config first (see
+# dashboard/README-deploy.md) - pasting replaces the whole dashboard.
+#
+# STATUS OF EACH SECTION IS PRINTED ON THE CARD ITSELF. Nothing here is
+# labelled LIVE. Sections reading the Sheet bridge are TEST until Taylor
+# verifies the numbers against the Sheet; security hardware is BLOCKED
+# until the entities are confirmed to exist.
+#
+# ---------------------------------------------------------------------------
+# WHY THE SECURITY CARDS LOOK EMPTY-BUT-WIRED
+# ---------------------------------------------------------------------------
+# This dashboard was written with Assist-level API access only, which
+# exposes friendly names but no entity_ids, and reported zero entities in
+# the camera, lock, alarm_control_panel, sensor, person and device_tracker
+# domains on 2026-09-20.
+#
+# That is a limit of the API used to build this, NOT proof the entities are
+# absent: the Lovelace frontend runs as Taylor and sees every entity in the
+# registry, exposed to Assist or not. So every hardware card below is built
+# from auto-entities filters and states.* iteration rather than hardcoded
+# entity_ids. If the entities exist, these cards populate on load with no
+# edit. If they are genuinely missing, the card says so in place.
+#
+# Nothing here claims a camera, lock or alarm is connected. The cards
+# report what Home Assistant actually returns at render time.
+#
+# Requires HACS: auto-entities, card-mod. Both confirmed installed per the
+# Implementation Tracker. Bubble Card and ApexCharts are NOT used yet -
+# fewer moving parts while validating in TEST.
+# ============================================================================
+
+title: EDP Command Center
+
+views:
+  # ==========================================================================
+  # MAIN VIEW
+  # ==========================================================================
+  - title: Command
+    path: home
+    icon: mdi:view-dashboard-variant
+    type: sections
+    max_columns: 2
+    sections:
+      # ---------------------------------------------------------------- header
+      - type: grid
+        cards:
+          - type: markdown
+            content: >-
+              # EDP COMMAND CENTER
+
+              **{{ now().strftime('%A %d %B') }} · {{ now().strftime('%H:%M') }}**
+              &nbsp;·&nbsp; MODE: `TEST`
+
+              {% set stale = is_state('binary_sensor.edp_bridge_stale','on') %}
+              {% set age = states('sensor.edp_bridge_age') %}
+              {% if stale %}
+              <span style="color:#ff4d5a">■ SHEET DATA STALE</span> — last refresh
+              {{ age }} min ago. Numbers below may be wrong.
+              {% else %}
+              <span style="color:#00e08f">■ SHEET DATA FRESH</span> — refreshed
+              {{ age }} min ago.
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card {
+                  background: linear-gradient(145deg,#12151a 0%,#1b1f27 100%);
+                  border: 1px solid #00e5ff33;
+                  border-radius: 14px;
+                }
+                ha-card h1 {
+                  color: #00e5ff;
+                  letter-spacing: 3px;
+                  margin-bottom: 4px;
+                }
+
+      # ------------------------------------------------------- system status
+      - type: grid
+        cards:
+          - type: markdown
+            title: System Status
+            content: >-
+              {% set health = states('sensor.edp_bridge_health') %}
+              {% set missing = state_attr('sensor.edp_bridge_health','missing_tabs') %}
+              **Sheet bridge:**
+              {% if health == 'ok' %}<span style="color:#00e08f">TEST · reachable</span>
+              {% elif health == 'degraded' %}<span style="color:#ffb300">DEGRADED</span>
+              {% else %}<span style="color:#ff4d5a">BLOCKED · not reachable</span>
+              {% endif %}
+
+              {% if missing %}
+              <span style="color:#ffb300">Tabs not found:</span> `{{ missing | join('`, `') }}`
+              — correct the names in `TABS` in Code.gs.
+              {% endif %}
+
+              **Cameras:** {{ states.camera | list | count }} entity(s)
+              {% if states.camera | list | count == 0 %}
+              <span style="color:#ff4d5a">· BLOCKED</span>{% endif %}
+
+              **Locks:** {{ states.lock | list | count }} entity(s)
+              {% if states.lock | list | count == 0 %}
+              <span style="color:#ff4d5a">· BLOCKED</span>{% endif %}
+
+              **Alarm panels:** {{ states.alarm_control_panel | list | count }} entity(s)
+              {% if states.alarm_control_panel | list | count == 0 %}
+              <span style="color:#ff4d5a">· BLOCKED</span>{% endif %}
+
+              **Unavailable sensors:** {{ states('sensor.edp_sensors_unavailable') }}
+
+              ---
+              <span style="color:#00e08f">■ LIVE</span> verified ·
+              <span style="color:#ffb300">■ TEST</span> connected, unverified ·
+              <span style="color:#ff4d5a">■ BLOCKED</span> needs access
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #ffffff14; }
+
+      # ----------------------------------------------------- priority tiles
+      - type: grid
+        column_span: 2
+        cards:
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: button
+                entity: sensor.edp_tasks_open
+                name: Tasks
+                icon: mdi:clipboard-check-outline
+                show_state: true
+                tap_action:
+                  action: navigate
+                  navigation_path: /edp-command-center/tasks
+                card_mod:
+                  style: |
+                    ha-card { background:#12151a; border:1px solid #00e5ff44; }
+                    ha-card .state { color:#00e5ff; font-size:26px; }
+              - type: button
+                entity: sensor.edp_bills_open
+                name: Bills
+                icon: mdi:file-document-alert-outline
+                show_state: true
+                tap_action:
+                  action: navigate
+                  navigation_path: /edp-command-center/bills
+                card_mod:
+                  style: |
+                    ha-card { background:#12151a; border:1px solid #ffb30044; }
+                    ha-card .state { color:#ffb300; font-size:26px; }
+              - type: button
+                entity: sensor.edp_kiosk_unread
+                name: Kiosk
+                icon: mdi:message-badge-outline
+                show_state: true
+                tap_action:
+                  action: navigate
+                  navigation_path: /edp-command-center/business
+                card_mod:
+                  style: |
+                    ha-card { background:#12151a; border:1px solid #b46cff44; }
+                    ha-card .state { color:#b46cff; font-size:26px; }
+              - type: button
+                entity: sensor.edp_parts_low
+                name: Restock
+                icon: mdi:package-variant-closed-remove
+                show_state: true
+                tap_action:
+                  action: navigate
+                  navigation_path: /edp-command-center/business
+                card_mod:
+                  style: |
+                    ha-card { background:#12151a; border:1px solid #00e08f44; }
+                    ha-card .state { color:#00e08f; font-size:26px; }
+
+      # ------------------------------------------------------ open reminders
+      - type: grid
+        cards:
+          - type: markdown
+            title: Open Reminders & Tasks — TEST
+            content: >-
+              {% set rows = state_attr('sensor.edp_tasks_open','rows') %}
+              {% if rows is none %}
+              <span style="color:#ff4d5a">BLOCKED</span> — bridge not
+              responding. See the Diagnostics view.
+              {% elif rows | count == 0 %}
+              <span style="color:#00e08f">Nothing open.</span>
+              {% else %}
+              {% for r in rows[:6] %}
+              {% set hi = r.priority in ['high','urgent','1'] %}
+              {% if hi %}<span style="color:#ff4d5a">●</span>
+              {% else %}<span style="color:#00e5ff">●</span>{% endif %}
+              **{{ r.title }}**
+              {% if r.due_date %}· due {{ r.due_date }}{% endif %}
+              {% if r.category %}· _{{ r.category }}_{% endif %}
+
+              {% endfor %}
+              {% if rows | count > 6 %}
+              _+{{ rows | count - 6 }} more — tap Tasks above._
+              {% endif %}
+              {% endif %}
+
+              _Source: EDP_MASTER_DATABASE · TASKS_TEST — TEST data, not promoted._
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #00e5ff22; }
+
+      # ----------------------------------------------- bills / important dates
+      - type: grid
+        cards:
+          - type: markdown
+            title: Bills & Important Dates — TEST
+            content: >-
+              {% set rows = state_attr('sensor.edp_bills_open','rows') %}
+              {% if rows is none %}
+              <span style="color:#ff4d5a">BLOCKED</span> — bridge not responding.
+              {% elif rows | count == 0 %}
+              <span style="color:#00e08f">No open bills.</span>
+              {% else %}
+              {% for r in rows[:5] %}
+              {% set past = 'PAST DUE' in (r.status | upper) or
+                            'SUSPENDED' in (r.status | upper) %}
+              {% if past %}<span style="color:#ff4d5a">●</span>
+              {% else %}<span style="color:#ffb300">●</span>{% endif %}
+              **{{ r.bill_name | default(r.bill_id) }}**
+              {% if r.amount_due %}· ${{ r.amount_due }}{% endif %}
+              {% if r.due_date %}· {{ r.due_date }}{% endif %}
+
+              {% endfor %}
+              {% if rows | count > 5 %}
+              _+{{ rows | count - 5 }} more — tap Bills above._
+              {% endif %}
+              {% endif %}
+
+              _Sheet is authoritative for all balances. This is a display only._
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #ffb30022; }
+
+      # -------------------------------------------------- schedule / team
+      - type: grid
+        cards:
+          - type: markdown
+            title: Schedule & Team — TEST
+            content: >-
+              {% set rows = state_attr('sensor.edp_schedule','rows') %}
+              {% set dow = now().strftime('%a') | upper %}
+              {% if rows is none %}
+              <span style="color:#ff4d5a">BLOCKED</span> — bridge not responding.
+              {% else %}
+              {% set today = rows | selectattr('DayOfWeek','defined')
+                                  | selectattr('DayOfWeek','eq',dow) | list %}
+              **On today ({{ dow }}):**
+              {% if today | count == 0 %}
+              <span style="color:#ffb300">nobody scheduled</span>
+              {% else %}
+              {% for r in today %}
+              <span style="color:#00e08f">●</span> {{ r.Name }}
+              {% if r.ClockInTime %}· {{ r.ClockInTime }}–{{ r.ClockOutTime }}{% endif %}
+
+              {% endfor %}
+              {% endif %}
+              {% endif %}
+
+              _Clock-in/out state is not wired yet — schedule only._
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #b46cff22; }
+
+      # ------------------------------------------------ shopping / restocking
+      - type: grid
+        cards:
+          - type: markdown
+            content: >-
+              ### Shopping & Restocking
+              {% set todos = states.todo | list %}
+              {% if todos | count == 0 %}
+              <span style="color:#ff4d5a">BLOCKED</span> — no todo entity found.
+              {% else %}
+              <span style="color:#ffb300">TEST</span> — live list below
+              (`{{ todos | map(attribute='entity_id') | join('`, `') }}`)
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card { background:transparent; box-shadow:none; }
+          # The one confirmed-live entity in this build: the todo domain
+          # returned exactly one entity, "Shopping List", currently empty.
+          # The entity_id below is the HA default and was NOT verifiable
+          # from the API used; the markdown card above prints the real id.
+          - type: todo-list
+            entity: todo.shopping_list
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #00e08f33; }
+          - type: markdown
+            content: >-
+              {% set rows = state_attr('sensor.edp_parts_low','rows') %}
+              {% if rows and rows | count > 0 %}
+              **Parts at or below 2 on hand — TEST**
+
+              {% for r in rows[:5] %}
+              <span style="color:#ffb300">●</span> {{ r.name }}
+              {% if r.brand %}({{ r.brand }}){% endif %} · qty {{ r.quantity }}
+
+              {% endfor %}
+              {% endif %}
+
+      # ------------------------------------------------------ security summary
+      - type: grid
+        cards:
+          - type: markdown
+            title: Security Status
+            content: >-
+              {% set doors = states('sensor.edp_doors_open') | int(0) %}
+              {% set wins = states('sensor.edp_windows_open') | int(0) %}
+              {% set motion = states('sensor.edp_motion_active') | int(0) %}
+              {% set dead = states('sensor.edp_sensors_unavailable') | int(0) %}
+              {% set locks = states.lock | list | count %}
+              {% set alarms = states.alarm_control_panel | list | count %}
+
+              **Doors open:**
+              {% if doors > 0 %}<span style="color:#ff4d5a">{{ doors }}</span>
+              {% else %}<span style="color:#00e08f">0 — all closed</span>{% endif %}
+
+              **Windows open:**
+              {% if wins > 0 %}<span style="color:#ffb300">{{ wins }}</span>
+              {% else %}<span style="color:#00e08f">0</span>{% endif %}
+
+              **Motion active:** <span style="color:#00e5ff">{{ motion }}</span>
+
+              **Unavailable sensors:**
+              {% if dead > 0 %}<span style="color:#ffb300">{{ dead }}</span>
+              {% else %}<span style="color:#00e08f">0</span>{% endif %}
+
+              ---
+
+              **Locks:**
+              {% if locks == 0 %}
+              <span style="color:#ff4d5a">BLOCKED</span> — no lock entities.
+              Wyze integration reports connected but creates none.
+              {% else %}
+              <span style="color:#ffb300">TEST</span> — {{ locks }} found,
+              {{ states('sensor.edp_locks_unlocked') }} unlocked.
+              {% endif %}
+
+              **Alarm:**
+              {% if alarms == 0 %}
+              <span style="color:#ff4d5a">BLOCKED</span> — no
+              alarm_control_panel entity. Ring contact/keypad sensors report
+              fine, but the panel itself is not registered.
+              {% else %}
+              <span style="color:#ffb300">TEST</span> — {{ alarms }} found.
+              {% endif %}
+
+              _No automatic arm, disarm or unlock exists in this dashboard,
+              by design._
+            tap_action:
+              action: navigate
+              navigation_path: /edp-command-center/security
+            card_mod:
+              style: |
+                ha-card {
+                  background:#12151a;
+                  border:1px solid {% if states('sensor.edp_doors_open') | int(0) > 0 %}#ff4d5a66{% else %}#00e08f44{% endif %};
+                }
+
+      # ------------------------------------------------- phone / presence
+      - type: grid
+        cards:
+          - type: markdown
+            title: Phone Battery & Presence
+            content: >-
+              {% set people = states.person | list %}
+              {% set bats = states.sensor
+                 | selectattr('attributes.device_class','defined')
+                 | selectattr('attributes.device_class','eq','battery') | list %}
+              {% if people | count == 0 %}
+              **Presence:** <span style="color:#ff4d5a">BLOCKED</span> — no
+              person entities returned.
+              {% else %}
+              {% for p in people %}
+              <span style="color:{% if p.state == 'home' %}#00e08f{% else %}#ffb300{% endif %}">●</span>
+              **{{ p.name }}** — {{ p.state }}
+
+              {% endfor %}
+              {% endif %}
+
+              {% if bats | count == 0 %}
+              **Battery:** <span style="color:#ff4d5a">BLOCKED</span> — no
+              battery sensors returned. Battery Notes is installed per the
+              tracker, so these may exist but be unexposed.
+              {% else %}
+              **Lowest batteries — TEST**
+
+              {% set ns = namespace(l=[]) %}
+              {% for s in bats if s.state | float(101) < 101 %}
+              {% set ns.l = ns.l + [(s.state | float(101), s.name)] %}
+              {% endfor %}
+              {% for b in ns.l | sort | list %}{% if loop.index <= 5 %}
+              <span style="color:{% if b[0] < 20 %}#ff4d5a{% else %}#00e5ff{% endif %}">●</span>
+              {{ b[1] }} — {{ b[0] | round(0) }}%
+
+              {% endif %}{% endfor %}
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #ffffff14; }
+
+      # -------------------------------------------------------- frigate
+      - type: grid
+        cards:
+          - type: markdown
+            title: Frigate & Cameras — BLOCKED
+            content: >-
+              {% set cams = states.camera | list %}
+              {% if cams | count == 0 %}
+              <span style="color:#ff4d5a">■ BLOCKED</span> — the camera domain
+              is empty. Frigate detection sensors have been unavailable since
+              2026-05-18.
+
+              Planned fix on file: bypass the broken HA-Frigate integration and
+              subscribe Home Assistant's native MQTT integration to
+              `frigate/events`. That needs SSH to the Frigate host
+              (`100.114.19.113`) and the Mosquitto broker — neither reachable
+              from the session that built this dashboard.
+
+              **This card activates by itself** once camera entities exist. No
+              edit needed here.
+              {% else %}
+              <span style="color:#ffb300">■ TEST</span> — {{ cams | count }}
+              camera entity(s) found.
+
+              {% for c in cams %}
+              <span style="color:{% if c.state == 'unavailable' %}#ff4d5a{% else %}#00e08f{% endif %}">●</span>
+              {{ c.name }} — {{ c.state }}
+
+              {% endfor %}
+              {% endif %}
+
+              {% set dead = state_attr('sensor.edp_sensors_unavailable','names') %}
+              {% if dead and dead | count > 0 %}
+              ---
+              **Unavailable / stale sensors ({{ dead | count }}):**
+              {{ dead[:8] | join(', ') }}{% if dead | count > 8 %} …{% endif %}
+              {% endif %}
+            card_mod:
+              style: |
+                ha-card { background:#12151a; border:1px solid #ff4d5a44; }
+
+      # ------------------------------------------------------- navigation
+      - type: grid
+        column_span: 2
+        cards:
+          - type: markdown
+            content: "### EDP Systems"
+            card_mod:
+              style: "ha-card { background:transparent; box-shadow:none; }"
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: button
+                name: Master Sheet
+                icon: mdi:google-spreadsheet
+                tap_action:
+                  action: url
+                  url_path: https://docs.google.com/spreadsheets/d/117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI
+              - type: button
+                name: Register
+                icon: mdi:cash-register
+                tap_action: { action: url, url_path: "REPLACE_WITH_REGISTER_URL" }
+              - type: button
+                name: Kiosk
+                icon: mdi:tablet-dashboard
+                tap_action: { action: url, url_path: "REPLACE_WITH_KIOSK_URL" }
+              - type: button
+                name: Inventory
+                icon: mdi:warehouse
+                tap_action: { action: url, url_path: "REPLACE_WITH_INVENTORY_URL" }
+              - type: button
+                name: Repairs
+                icon: mdi:wrench-clock
+                tap_action: { action: url, url_path: "REPLACE_WITH_REPAIRS_URL" }
+              - type: button
+                name: Calendar
+                icon: mdi:calendar-month
+                tap_action:
+                  action: url
+                  url_path: https://calendar.google.com
+              - type: button
+                name: Diagnostics
+                icon: mdi:stethoscope
+                tap_action:
+                  action: navigate
+                  navigation_path: /edp-command-center/diagnostics
+
+  # ==========================================================================
+  # SUBVIEW: TASKS
+  # ==========================================================================
+  - title: Tasks
+    path: tasks
+    icon: mdi:clipboard-check-outline
+    subview: true
+    cards:
+      - type: markdown
+        title: All Open Tasks — TEST
+        content: >-
+          {% set rows = state_attr('sensor.edp_tasks_open','rows') %}
+          {% set gen = state_attr('sensor.edp_tasks_open','generated_at') %}
+          {% if rows is none %}
+          <span style="color:#ff4d5a">BLOCKED</span> — no data from the bridge.
+          {% else %}
+          _{{ rows | count }} open · refreshed {{ gen }}_
+
+          | | Task | Category | Owner | Due |
+          |---|---|---|---|---|
+          {% for r in rows %}
+          | {% if r.priority in ['high','urgent','1'] %}🔴{% else %}🔵{% endif %} | {{ r.title }} | {{ r.category | default('—') }} | {{ r.owner | default('—') }} | {{ r.due_date | default('—') }} |
+          {% endfor %}
+
+          {% if state_attr('sensor.edp_tasks_open','truncated') %}
+          _Truncated at 25 rows. Open the Sheet for the full list._
+          {% endif %}
+          {% endif %}
+
+          ---
+          Source tab `TASKS_TEST` is **TEST data**. Do not promote to LIVE
+          until the rows are verified against the Sheet.
+      - type: button
+        name: Open TASKS_TEST in the Sheet
+        icon: mdi:google-spreadsheet
+        tap_action:
+          action: url
+          url_path: https://docs.google.com/spreadsheets/d/117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI
+
+  # ==========================================================================
+  # SUBVIEW: BILLS
+  # ==========================================================================
+  - title: Bills
+    path: bills
+    icon: mdi:file-document-alert-outline
+    subview: true
+    cards:
+      - type: markdown
+        title: Bills & Important Dates — TEST
+        content: >-
+          {% set rows = state_attr('sensor.edp_bills_open','rows') %}
+          {% if rows is none %}
+          <span style="color:#ff4d5a">BLOCKED</span> — no data from the bridge.
+          {% else %}
+          _{{ rows | count }} open · refreshed
+          {{ state_attr('sensor.edp_bills_open','generated_at') }}_
+
+          | | Bill | Amount | Due | Status |
+          |---|---|---|---|---|
+          {% for r in rows %}
+          | {% if 'PAST DUE' in (r.status | upper) or 'SUSPENDED' in (r.status | upper) %}🔴{% else %}🟡{% endif %} | {{ r.bill_name | default(r.bill_id) }} | {% if r.amount_due %}${{ r.amount_due }}{% else %}—{% endif %} | {{ r.due_date | default('—') }} | {{ r.status | default('—') }} |
+          {% endfor %}
+          {% endif %}
+
+          ---
+          **Display only.** Apps Script and the Sheet remain authoritative for
+          every balance, bucket and reserve figure. A card here is never
+          evidence a payment was made.
+
+          This view carries financial and insurance detail — it is served with
+          the private bridge token and must not be mirrored to a kiosk or
+          shop-floor screen.
+
+  # ==========================================================================
+  # SUBVIEW: SECURITY
+  # ==========================================================================
+  - title: Security
+    path: security
+    icon: mdi:shield-home
+    subview: true
+    cards:
+      - type: markdown
+        content: >-
+          ### Security Detail
+          Doors, windows and motion below are read live from Home Assistant
+          and are **TEST** — states are real, but no closing-check or alert
+          automation is wired yet.
+
+          Locks, alarm panel and cameras are **BLOCKED** and show whatever the
+          registry actually returns, which was nothing on 2026-09-20.
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Doors
+          state_color: true
+        filter:
+          include:
+            - domain: binary_sensor
+              attributes:
+                device_class: door
+          exclude:
+            - state: unavailable
+            - state: unknown
+        sort:
+          method: state
+          reverse: true
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Windows
+          state_color: true
+        filter:
+          include:
+            - domain: binary_sensor
+              attributes:
+                device_class: window
+          exclude:
+            - state: unavailable
+            - state: unknown
+        sort:
+          method: state
+          reverse: true
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Motion
+          state_color: true
+        filter:
+          include:
+            - domain: binary_sensor
+              attributes:
+                device_class: motion
+          exclude:
+            - state: unavailable
+            - state: unknown
+        sort:
+          method: state
+          reverse: true
+
+      # Populates only if the Wyze locks are repaired. No lock.* service call
+      # is bound to any card here: unlocking stays a deliberate manual act.
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Locks — BLOCKED until entities exist
+          state_color: true
+        filter:
+          include:
+            - domain: lock
+        show_empty: true
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Alarm Panel — BLOCKED until entities exist
+          state_color: true
+        filter:
+          include:
+            - domain: alarm_control_panel
+        show_empty: true
+
+      # The repair queue: every sensor HA cannot currently read.
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Unavailable / Stale Sensors
+          state_color: true
+        filter:
+          include:
+            - domain: binary_sensor
+              state: unavailable
+            - domain: binary_sensor
+              state: unknown
+            - domain: sensor
+              state: unavailable
+        show_empty: true
+
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Batteries
+          state_color: true
+        filter:
+          include:
+            - domain: sensor
+              attributes:
+                device_class: battery
+        sort:
+          method: state
+          numeric: true
+        show_empty: true
+
+  # ==========================================================================
+  # SUBVIEW: BUSINESS
+  # ==========================================================================
+  - title: Business
+    path: business
+    icon: mdi:chart-box-outline
+    subview: true
+    cards:
+      - type: markdown
+        title: Kiosk Messages — TEST
+        content: >-
+          {% set rows = state_attr('sensor.edp_kiosk_unread','rows') %}
+          {% if rows is none %}
+          <span style="color:#ff4d5a">BLOCKED</span> — no data from the bridge.
+          {% elif rows | count == 0 %}
+          <span style="color:#00e08f">No unread staff messages.</span>
+          {% else %}
+          {% for r in rows %}
+          <span style="color:#b46cff">●</span> **{{ r.Name | default(r.EmployeeID) }}**
+          ({{ r.Timestamp }}): {{ r.Message }}
+
+          {% endfor %}
+          {% endif %}
+
+      - type: markdown
+        title: Restocking — TEST
+        content: >-
+          {% set rows = state_attr('sensor.edp_parts_low','rows') %}
+          {% if rows is none %}
+          <span style="color:#ff4d5a">BLOCKED</span> — no data from the bridge.
+          {% elif rows | count == 0 %}
+          <span style="color:#00e08f">Nothing at or below 2 on hand.</span>
+          {% else %}
+          | Part | Brand | Qty |
+          |---|---|---|
+          {% for r in rows %}
+          | {{ r.name }} | {{ r.brand | default('—') }} | {{ r.quantity }} |
+          {% endfor %}
+          {% endif %}
+
+      - type: markdown
+        title: Sales, Spending, Inventory & Repairs — BLOCKED
+        content: >-
+          These four summaries are **BLOCKED**, and the reason is a data
+          question, not a Home Assistant one:
+
+          - **Sales / Purchases** — the bridge can serve both tabs today, but
+            the weekly rollup tab that would drive a summary card is empty in
+            the Sheet, so there is nothing truthful to display yet. A card
+            showing `$0` would read as "no sales", not "no data".
+          - **Inventory** — the tab name is unconfirmed; run the bridge's
+            `?list=1` to get the real one.
+          - **Repairs** — same, plus the open-ticket pipeline lives in a
+            different tab from `REPAIR_PARTS`.
+
+          Once `?list=1` returns the real tab names, enable these in
+          `Code.gs` (`TABS`) and add the matching `rest` sensors. The card
+          wiring is already in place in `rest_sensors.yaml`.
+
+          _Sheets, Apps Script and n8n remain authoritative. Home Assistant
+          displays; it does not compute or store business records._
+
+  # ==========================================================================
+  # SUBVIEW: DIAGNOSTICS
+  # ==========================================================================
+  - title: Diagnostics
+    path: diagnostics
+    icon: mdi:stethoscope
+    subview: true
+    cards:
+      - type: markdown
+        title: Entity Discovery
+        content: >-
+          This view answers the questions the build could not. Read it once
+          after deploying and report the values back.
+
+          **todo entities** ({{ states.todo | list | count }}):
+          {% for e in states.todo %}
+          `{{ e.entity_id }}` — {{ e.name }} ({{ e.state }} items)
+          {% endfor %}
+          {% if states.todo | list | count == 0 %}none{% endif %}
+
+          **lock** ({{ states.lock | list | count }}):
+          {% for e in states.lock %}`{{ e.entity_id }}` {% else %}none{% endfor %}
+
+          **camera** ({{ states.camera | list | count }}):
+          {% for e in states.camera %}`{{ e.entity_id }}` {% else %}none{% endfor %}
+
+          **alarm_control_panel** ({{ states.alarm_control_panel | list | count }}):
+          {% for e in states.alarm_control_panel %}`{{ e.entity_id }}` {% else %}none{% endfor %}
+
+          **person** ({{ states.person | list | count }}):
+          {% for e in states.person %}`{{ e.entity_id }}` {% else %}none{% endfor %}
+
+          **battery sensors**:
+          {{ states.sensor
+             | selectattr('attributes.device_class','defined')
+             | selectattr('attributes.device_class','eq','battery')
+             | list | count }}
+
+          **binary_sensor total**: {{ states.binary_sensor | list | count }}
+          (door {{ states.binary_sensor | selectattr('attributes.device_class','defined') | selectattr('attributes.device_class','eq','door') | list | count }},
+          window {{ states.binary_sensor | selectattr('attributes.device_class','defined') | selectattr('attributes.device_class','eq','window') | list | count }},
+          motion {{ states.binary_sensor | selectattr('attributes.device_class','defined') | selectattr('attributes.device_class','eq','motion') | list | count }})
+
+      - type: markdown
+        title: Bridge Health
+        content: >-
+          **State:** {{ states('sensor.edp_bridge_health') }}
+
+          **Spreadsheet:** {{ state_attr('sensor.edp_bridge_health','spreadsheet') }}
+
+          **Last refresh:** {{ state_attr('sensor.edp_bridge_health','generated_at') }}
+          ({{ states('sensor.edp_bridge_age') }} min ago)
+
+          {% set missing = state_attr('sensor.edp_bridge_health','missing_tabs') %}
+          {% if missing and missing | count > 0 %}
+          **Tabs NOT found:** `{{ missing | join('`, `') }}`
+          {% else %}
+          All configured tabs found.
+          {% endif %}
+
+          {% set tabs = state_attr('sensor.edp_bridge_health','tabs') %}
+          {% if tabs %}
+          | Tab | Status | Rows | Missing |
+          |---|---|---|---|
+          {% for k, v in tabs.items() %}
+          | {{ k }} | {{ v.status }} | {{ v.rows }} | {{ v.missing }} |
+          {% endfor %}
+          {% endif %}
+
+      - type: entities
+        title: Bridge Sensors
+        entities:
+          - sensor.edp_bridge_health
+          - sensor.edp_bridge_age
+          - binary_sensor.edp_bridge_stale
+          - sensor.edp_tasks_open
+          - sensor.edp_bills_open
+          - sensor.edp_schedule
+          - sensor.edp_kiosk_unread
+          - sensor.edp_parts_low
+          - sensor.edp_sensors_unavailable
+          - sensor.edp_doors_open
+          - sensor.edp_windows_open
+          - sensor.edp_motion_active
+          - sensor.edp_locks_unlocked
+          - sensor.edp_batteries_low
+          - binary_sensor.edp_security_attention

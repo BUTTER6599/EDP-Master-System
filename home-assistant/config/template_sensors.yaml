@@ -1,0 +1,166 @@
+# EDP derived sensors.
+#
+# Include from configuration.yaml:
+#   template: !include edp/template_sensors.yaml
+#
+# Two jobs here:
+#   1. Freshness / staleness for the Sheet bridge. A REST sensor that stops
+#      updating keeps its last state forever, so "the number looks fine" is
+#      not evidence the data is current. These sensors make stale data
+#      visibly stale instead of silently wrong.
+#   2. Security rollups computed by iterating states.binary_sensor. This
+#      deliberately uses no entity_ids: none were obtainable when this was
+#      written, and name-independent rollups keep working when a sensor is
+#      renamed or a new one is added.
+
+- sensor:
+    - name: "EDP Bridge Age"
+      unique_id: edp_bridge_age
+      unit_of_measurement: "min"
+      state_class: measurement
+      icon: mdi:clock-alert-outline
+      state: >-
+        {% set stamps = [
+             state_attr('sensor.edp_tasks_open','generated_at'),
+             state_attr('sensor.edp_bills_open','generated_at'),
+             state_attr('sensor.edp_schedule','generated_at'),
+             state_attr('sensor.edp_kiosk_unread','generated_at'),
+             state_attr('sensor.edp_parts_low','generated_at')
+           ] | reject('none') | list %}
+        {% if stamps | count == 0 %}
+          unknown
+        {% else %}
+          {% set oldest = stamps | map('as_timestamp', default=none)
+                                 | reject('none') | list | min %}
+          {% if oldest is none %}unknown
+          {% else %}{{ ((now().timestamp() - oldest) / 60) | round(0) }}
+          {% endif %}
+        {% endif %}
+
+    - name: "EDP Doors Open"
+      unique_id: edp_doors_open
+      state_class: measurement
+      icon: mdi:door-open
+      state: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','door')
+           | selectattr('state','eq','on') | list | count }}
+      attributes:
+        names: >-
+          {{ states.binary_sensor
+             | selectattr('attributes.device_class','defined')
+             | selectattr('attributes.device_class','eq','door')
+             | selectattr('state','eq','on')
+             | map(attribute='name') | list | sort }}
+
+    - name: "EDP Windows Open"
+      unique_id: edp_windows_open
+      state_class: measurement
+      icon: mdi:window-open-variant
+      state: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','window')
+           | selectattr('state','eq','on') | list | count }}
+      attributes:
+        names: >-
+          {{ states.binary_sensor
+             | selectattr('attributes.device_class','defined')
+             | selectattr('attributes.device_class','eq','window')
+             | selectattr('state','eq','on')
+             | map(attribute='name') | list | sort }}
+
+    - name: "EDP Motion Active"
+      unique_id: edp_motion_active
+      state_class: measurement
+      icon: mdi:motion-sensor
+      state: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','motion')
+           | selectattr('state','eq','on') | list | count }}
+      attributes:
+        names: >-
+          {{ states.binary_sensor
+             | selectattr('attributes.device_class','defined')
+             | selectattr('attributes.device_class','eq','motion')
+             | selectattr('state','eq','on')
+             | map(attribute='name') | list | sort }}
+
+    # Counts every unavailable/unknown binary_sensor. The Frigate detection
+    # sensors have been stuck unavailable since 2026-05-18; this is the
+    # number that has to reach 0 before that section can be called LIVE.
+    - name: "EDP Sensors Unavailable"
+      unique_id: edp_sensors_unavailable
+      state_class: measurement
+      icon: mdi:alert-circle-outline
+      state: >-
+        {{ states.binary_sensor
+           | selectattr('state','in',['unavailable','unknown'])
+           | list | count }}
+      attributes:
+        names: >-
+          {{ states.binary_sensor
+             | selectattr('state','in',['unavailable','unknown'])
+             | map(attribute='name') | list | sort }}
+
+    - name: "EDP Batteries Low"
+      unique_id: edp_batteries_low
+      state_class: measurement
+      icon: mdi:battery-alert
+      state: >-
+        {{ states.sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','battery')
+           | map(attribute='state') | map('float', default=101)
+           | select('lt', 20) | list | count }}
+      attributes:
+        # Built with an explicit loop, not selectattr: sensor states are
+        # strings, and a string comparison puts "9" above "20".
+        names: >-
+          {% set ns = namespace(low=[]) %}
+          {% for s in states.sensor
+             if s.attributes.device_class is defined
+             and s.attributes.device_class == 'battery'
+             and s.state | float(101) < 20 %}
+            {% set ns.low = ns.low + [s.name ~ ' (' ~ s.state ~ '%)'] %}
+          {% endfor %}
+          {{ ns.low | sort }}
+
+    # Locks are BLOCKED as of 2026-09-20: the lock domain returned zero
+    # entities. If the Wyze integration is repaired this starts reporting
+    # on its own, with no edit here.
+    - name: "EDP Locks Unlocked"
+      unique_id: edp_locks_unlocked
+      state_class: measurement
+      icon: mdi:lock-open-variant
+      state: >-
+        {{ states.lock | selectattr('state','eq','unlocked') | list | count }}
+      attributes:
+        total: "{{ states.lock | list | count }}"
+        names: >-
+          {{ states.lock | selectattr('state','eq','unlocked')
+             | map(attribute='name') | list | sort }}
+
+- binary_sensor:
+    - name: "EDP Bridge Stale"
+      unique_id: edp_bridge_stale
+      device_class: problem
+      icon: mdi:database-clock-outline
+      # 20 minutes = four missed 5-minute polls. Unknown counts as stale:
+      # never-loaded and long-stopped are both "do not trust this number".
+      state: >-
+        {% set age = states('sensor.edp_bridge_age') %}
+        {{ age in ['unknown','unavailable','none'] or (age | float(999) > 20) }}
+      attributes:
+        age_minutes: "{{ states('sensor.edp_bridge_age') }}"
+
+    - name: "EDP Security Attention"
+      unique_id: edp_security_attention
+      device_class: problem
+      icon: mdi:shield-alert-outline
+      state: >-
+        {{ states('sensor.edp_doors_open') | int(0) > 0
+           or states('sensor.edp_windows_open') | int(0) > 0
+           or states('sensor.edp_locks_unlocked') | int(0) > 0 }}
