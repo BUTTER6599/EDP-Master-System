@@ -12,51 +12,19 @@ Stop after any session. Nothing is left half-applied between them.
 
 ---
 
-## Session 1 — Deploy the bridge · 10 min
+## Sessions 1–3 — COMPLETED BY CLOUD AUTOMATION · NO OWNER ACTION
 
-Full detail: `bridge/README-deploy.md`.
+Do **not** redeploy Apps Script or repeat browser tab/privacy checks.
 
-1. Open the Sheet → **Extensions → Apps Script**.
-2. Paste `bridge/Code.gs` over the stub. Show the manifest in Project
-   Settings and paste `bridge/appsscript.json`.
-3. **Project Settings → Script Properties**, add two properties with two
-   different random strings: `BRIDGE_TOKEN`, `BRIDGE_TOKEN_PRIVATE`.
-4. **Deploy → New deployment → Web app** · Execute as **Me** · Access
-   **Anyone** · Deploy · authorise.
-5. Copy the `/exec` URL somewhere safe.
+Verified through GitHub Actions run **35606356611** on 2026-09-21:
+- GitHub Actions + clasp pushes the version-controlled bridge to the existing TEST project.
+- The existing TEST web app redeploys automatically; current TEST deployment reached version 10.
+- The deployed runtime smoke suite verifies health plus TASKS, SCHEDULE, KIOSK, PARTS, PURCHASES, SALES, INVENTORY, REPAIRS, BILLS and PAYROLL privacy/filter behavior.
+- The public bridge token remains in encrypted GitHub Actions secret storage.
+- Manual `tab=` browser testing is no longer the normal workflow.
 
-**Done when:** you have the URL and both tokens.
-
----
-
-## Session 2 — Verify the mapped tabs · 5 min
-
-The core source names were verified directly from EDP_MASTER_DATABASE before
-this consolidated TEST branch was created: Inventory = `APPLIANCES`,
-Repairs = `REPAIR_TICKETS`, plus the already verified TASKS_TEST, BILLS,
-SCHEDULE, KIOSK_MESSAGES, PURCHASES, PARTS, SALES and PAYROLL mappings.
-
-1. In a browser: `<web app url>?list=1&key=<BRIDGE_TOKEN_PRIVATE>`
-2. Find the `configured` block. Every entry should read `"found": true`.
-3. If any entry is `false`, stop there and report it before editing anything.
-
-**Done when:** every configured tab reads `"found": true`.
-
-This is now a verification step, not a discovery step.
-
----
-
-## Session 3 — Privacy spot-check · 5 min
-
-Do this before the dashboard goes on any screen other than your own.
-
-1. `<web app url>?tab=BILLS&key=<BRIDGE_TOKEN>` (the **public** token)
-2. Confirm: no dollar amounts, and no bill names — specifically no
-   "Blue Cross".
-3. `<web app url>?tab=PAYROLL&key=<BRIDGE_TOKEN>` → must be `"count": 0`.
-
-**Done when:** both confirmed. If either leaks, stop and re-paste
-`Code.gs` whole.
+If a future recovery requires manual Apps Script work, use the Git/Drive recovery
+artifacts and the bridge deployment README. Otherwise start at Session 4.
 
 ---
 
@@ -75,7 +43,7 @@ Full detail: `dashboard/README-deploy.md` steps 1–3.
    ```
    plus the `recorder: exclude:` block from the deploy guide.
 4. **Developer Tools → YAML → Check configuration**, then **Restart**.
-5. **Developer Tools → States**, filter `edp` — expect 15 entities.
+5. **Developer Tools → States**, filter `edp` — expect 19 EDP entities.
    `sensor.edp_bridge_health` must read `ok` and `sensor.edp_tasks_open`
    must read `6`.
 
