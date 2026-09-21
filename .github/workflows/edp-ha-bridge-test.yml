@@ -30,7 +30,7 @@ jobs:
         with:
           name: edp-ha-bridge-test-${{ github.sha }}
           path: |
-            home-assistant/bridge
+            home-assistant
             .github/workflows/edp-ha-bridge-test.yml
           if-no-files-found: error
           retention-days: 30
