@@ -25,7 +25,11 @@
              state_attr('sensor.edp_bills_open','generated_at'),
              state_attr('sensor.edp_schedule','generated_at'),
              state_attr('sensor.edp_kiosk_unread','generated_at'),
-             state_attr('sensor.edp_parts_low','generated_at')
+             state_attr('sensor.edp_parts_low','generated_at'),
+             state_attr('sensor.edp_purchase_records','generated_at'),
+             state_attr('sensor.edp_sales_records','generated_at'),
+             state_attr('sensor.edp_inventory_active','generated_at'),
+             state_attr('sensor.edp_repairs_open','generated_at')
            ] | reject('none') | list %}
         {% if stamps | count == 0 %}
           unknown
@@ -41,6 +45,11 @@
       unique_id: edp_doors_open
       state_class: measurement
       icon: mdi:door-open
+      availability: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','door')
+           | list | count > 0 }}
       state: >-
         {{ states.binary_sensor
            | selectattr('attributes.device_class','defined')
@@ -58,6 +67,11 @@
       unique_id: edp_windows_open
       state_class: measurement
       icon: mdi:window-open-variant
+      availability: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','window')
+           | list | count > 0 }}
       state: >-
         {{ states.binary_sensor
            | selectattr('attributes.device_class','defined')
@@ -75,6 +89,11 @@
       unique_id: edp_motion_active
       state_class: measurement
       icon: mdi:motion-sensor
+      availability: >-
+        {{ states.binary_sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','motion')
+           | list | count > 0 }}
       state: >-
         {{ states.binary_sensor
            | selectattr('attributes.device_class','defined')
@@ -109,6 +128,11 @@
       unique_id: edp_batteries_low
       state_class: measurement
       icon: mdi:battery-alert
+      availability: >-
+        {{ states.sensor
+           | selectattr('attributes.device_class','defined')
+           | selectattr('attributes.device_class','eq','battery')
+           | list | count > 0 }}
       state: >-
         {{ states.sensor
            | selectattr('attributes.device_class','defined')
@@ -135,6 +159,7 @@
       unique_id: edp_locks_unlocked
       state_class: measurement
       icon: mdi:lock-open-variant
+      availability: "{{ states.lock | list | count > 0 }}"
       state: >-
         {{ states.lock | selectattr('state','eq','unlocked') | list | count }}
       attributes:
@@ -160,7 +185,11 @@
       unique_id: edp_security_attention
       device_class: problem
       icon: mdi:shield-alert-outline
+      availability: >-
+        {{ states('sensor.edp_doors_open') not in ['unknown','unavailable']
+           and states('sensor.edp_windows_open') not in ['unknown','unavailable']
+           and states('sensor.edp_locks_unlocked') not in ['unknown','unavailable'] }}
       state: >-
-        {{ states('sensor.edp_doors_open') | int(0) > 0
-           or states('sensor.edp_windows_open') | int(0) > 0
-           or states('sensor.edp_locks_unlocked') | int(0) > 0 }}
+        {{ states('sensor.edp_doors_open') | int > 0
+           or states('sensor.edp_windows_open') | int > 0
+           or states('sensor.edp_locks_unlocked') | int > 0 }}
