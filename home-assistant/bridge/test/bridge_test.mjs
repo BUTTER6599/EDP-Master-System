@@ -35,9 +35,28 @@ const FIXTURES = {
     ['PART-OK-001','Adequate Stock Test Part','TEST PART','Test Brand','MODEL-PRIVATE','11.00','21.00','4','Synthetic private note','','NEW'],
     ['PART-OUT-001','Out of Stock Test Part','TEST PART','','MODEL-PRIVATE','12.00','22.00','0','Synthetic private note','',''],
   ],
+  PURCHASES: [
+    ['purchase_id','timestamp','purchase_date','week_id','vendor','item','category','cost','status','notes'],
+    ['PUR-001','9/20/2026 10:00','9/20/2026','2026-09-15','Private Vendor','Private Item','Appliance','100','PAID','Synthetic private note'],
+  ],
+  SALES: [
+    ['sale_id','timestamp','sale_date','week_id','amount','category','payment_type','notes','entered_by','invoice_number'],
+    ['SALE-001','9/20/2026 11:00','9/20/2026','2026-09-15','295','Appliance Sale','Cash','Synthetic private sale note','EMP-A','INV-PRIVATE'],
+  ],
+  APPLIANCES: [
+    ['item_id','category','brand','model','serial','condition','list_price','cost_basis','stage','status','days_on_hand'],
+    ['INV-ACTIVE-001','Washer','Test Brand','MODEL-PRIVATE','SERIAL-PRIVATE','Used','295','100','FLOOR_READY','AVAILABLE','10'],
+    ['INV-NOTREADY-001','Dryer','Test Brand','MODEL-PRIVATE-2','SERIAL-PRIVATE-2','Used','195','50','RECEIVED','NOT_READY','2'],
+    ['INV-SOLD-001','Stove','Test Brand','MODEL-SOLD','SERIAL-SOLD','Used','265','80','FLOOR_READY','SOLD','30'],
+  ],
+  REPAIR_TICKETS: [
+    ['ticket_id','created_at','created_by','intake_type','category','brand','model','serial','customer_name','customer_phone_1','customer_email','problem_description','diagnostic_notes','drop_off_date','notes','status','diagnostic_quote','final_cost','completed_at','completed_by','expected_out_date','expected_repair_hours'],
+    ['REP-OPEN-001','2026-09-20','EMP-A','REPAIR','Washer','Test Brand','MODEL-PRIVATE','SERIAL-PRIVATE','Private Customer','555-0100','private@example.com','Private problem','Private diagnostic','2026-09-20','Private note','DIAGNOSING','40','','','','2026-09-22','1.5'],
+    ['REP-CLOSED-001','2026-09-19','EMP-A','REPAIR','Dryer','Test Brand','MODEL-CLOSED','SERIAL-CLOSED','Closed Customer','555-0101','','Private problem','Private diagnostic','2026-09-19','Private note','CLOSED','40','120','2026-09-20','EMP-A','','2'],
+  ],
   PAYROLL: [
     ['payroll_id','week_id','employee','hours','rate','gross_pay','status','notes'],
-    ['P-001','2026-09-01','Joe','40','15','600','paid',''],
+    ['P-001','2026-09-01','Employee A','40','15','600','paid',''],
   ],
 };
 
@@ -164,12 +183,58 @@ check('public parts retains operational stock fields',
   partsPub.rows.some(r => r.part_id === 'PART-LOW-001' && r.quantity === '1'),
   JSON.stringify(partsPub.rows));
 
+console.log('\n--- PURCHASES privacy ---');
+const purchasesPub = call({ tab: 'PURCHASES', key: 'pub-token' });
+const purchasesPriv = call({ tab: 'PURCHASES', key: 'priv-token' });
+check('public purchases expose operational fields only',
+  Object.keys(purchasesPub.rows[0]).sort().join(',') === 'category,purchase_date,purchase_id,status',
+  JSON.stringify(purchasesPub.rows[0]));
+check('public purchases hide vendor/item/cost/notes',
+  !/Private Vendor|Private Item|100|Synthetic private note/.test(JSON.stringify(purchasesPub)),
+  JSON.stringify(purchasesPub));
+check('private purchases retain vendor and cost',
+  purchasesPriv.rows[0].vendor === 'Private Vendor' && purchasesPriv.rows[0].cost === '100');
+
+console.log('\n--- SALES privacy ---');
+const salesPub = call({ tab: 'SALES', key: 'pub-token' });
+const salesPriv = call({ tab: 'SALES', key: 'priv-token' });
+check('public sales expose id/date/category only',
+  Object.keys(salesPub.rows[0]).sort().join(',') === 'category,sale_date,sale_id',
+  JSON.stringify(salesPub.rows[0]));
+check('public sales hide money/payment/staff/invoice/notes',
+  !/295|Cash|EMP-A|INV-PRIVATE|Synthetic private sale note/.test(JSON.stringify(salesPub)),
+  JSON.stringify(salesPub));
+check('private sales retain amount', salesPriv.rows[0].amount === '295');
+
+console.log('\n--- INVENTORY active filter + privacy ---');
+const inventoryPub = call({ tab: 'INVENTORY', key: 'pub-token' });
+const inventoryPriv = call({ tab: 'INVENTORY', key: 'priv-token' });
+check('sold inventory is excluded from operational count',
+  inventoryPriv.count === 2 && !inventoryPriv.rows.some(r => r.item_id === 'INV-SOLD-001'),
+  JSON.stringify(inventoryPriv.rows));
+check('public inventory hides model/serial/prices',
+  !/MODEL-PRIVATE|SERIAL-PRIVATE|295|100/.test(JSON.stringify(inventoryPub)),
+  JSON.stringify(inventoryPub));
+check('public inventory retains operational status',
+  inventoryPub.rows.some(r => r.item_id === 'INV-ACTIVE-001' && r.status === 'AVAILABLE'));
+
+console.log('\n--- REPAIRS open filter + PII privacy ---');
+const repairsPub = call({ tab: 'REPAIRS', key: 'pub-token' });
+const repairsPriv = call({ tab: 'REPAIRS', key: 'priv-token' });
+check('closed repair tickets are excluded',
+  repairsPriv.count === 1 && repairsPriv.rows[0].ticket_id === 'REP-OPEN-001',
+  JSON.stringify(repairsPriv.rows));
+check('public repairs hide model/serial/diagnosis/money',
+  !/MODEL-PRIVATE|SERIAL-PRIVATE|Private problem|Private diagnostic|40/.test(JSON.stringify(repairsPub)),
+  JSON.stringify(repairsPub));
+check('customer PII is never returned even privately',
+  !/Private Customer|555-0100|private@example.com/.test(JSON.stringify(repairsPriv)),
+  JSON.stringify(repairsPriv));
+
 console.log('\n--- health ---');
 const h = call({ health: '1', key: 'priv-token' });
-check('health finds fixture-backed tabs', !h.missing_tabs.includes('SCHEDULE') &&
-  !h.missing_tabs.includes('KIOSK') && !h.missing_tabs.includes('PARTS'));
-check('health still degrades for intentionally missing registered tabs',
-  h.ok === false && h.missing_tabs.length > 0, JSON.stringify(h.missing_tabs));
+check('health finds every configured fixture-backed tab',
+  h.ok === true && h.missing_tabs.length === 0, JSON.stringify(h.missing_tabs));
 
 console.log(`\n${fails === 0 ? 'ALL CHECKS PASSED' : fails + ' CHECK(S) FAILED'}`);
 process.exit(fails === 0 ? 0 : 1);

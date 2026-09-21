@@ -15,7 +15,10 @@ if (!token) {
 const forbidden = new Set([
   'EmployeeID','Name','ClockInTime','ClockOutTime','Message',
   'cost','price','notes','amount_due','fund_balance','bill_name',
-  'updated_by','employee','hours','rate','gross_pay'
+  'updated_by','employee','hours','rate','gross_pay','vendor','item',
+  'amount','payment_type','entered_by','invoice_number','model','serial',
+  'list_price','cost_basis','problem_description','diagnostic_notes',
+  'diagnostic_quote','final_cost','completed_by','expected_repair_hours'
 ]);
 
 function assert(cond, msg, detail='') {
@@ -72,6 +75,13 @@ assert(health.scope === 'public', 'public health scope');
 assert(Array.isArray(health.missing_tabs) && health.missing_tabs.length === 0,
   'no configured tabs missing', JSON.stringify(health.missing_tabs));
 
+const tasks = await fetchJson({tab:'TASKS'});
+assert(tasks.ok === true && tasks.scope === 'public', 'TASKS public endpoint ok');
+assert(keysOnly(tasks.rows || [], new Set([
+  'task_id','title','category','status','priority','due_date','list','next_action'
+])), 'TASKS exposes only approved public fields', JSON.stringify(tasks.rows));
+assert(noForbidden(tasks).ok, 'TASKS contains no forbidden private fields');
+
 const schedule = await fetchJson({tab:'SCHEDULE'});
 assert(schedule.ok === true && schedule.scope === 'public', 'SCHEDULE public endpoint ok');
 assert(keysOnly(schedule.rows || [], new Set(['DayOfWeek','Active'])),
@@ -91,6 +101,33 @@ assert(keysOnly(parts.rows || [], new Set(['part_id','name','category','quantity
 assert((parts.rows || []).every(r => Number(r.quantity || 0) <= 2),
   'PARTS runtime filter keeps quantity <= 2', JSON.stringify(parts.rows));
 assert(noForbidden(parts).ok, 'PARTS contains no forbidden private fields');
+
+const purchases = await fetchJson({tab:'PURCHASES'});
+assert(purchases.ok === true && purchases.scope === 'public', 'PURCHASES public endpoint ok');
+assert(keysOnly(purchases.rows || [], new Set(['purchase_id','purchase_date','category','status'])),
+  'PURCHASES exposes only approved public fields', JSON.stringify(purchases.rows));
+assert(noForbidden(purchases).ok, 'PURCHASES contains no forbidden private fields');
+
+const sales = await fetchJson({tab:'SALES'});
+assert(sales.ok === true && sales.scope === 'public', 'SALES public endpoint ok');
+assert(keysOnly(sales.rows || [], new Set(['sale_id','sale_date','category'])),
+  'SALES exposes only approved public fields', JSON.stringify(sales.rows));
+assert(noForbidden(sales).ok, 'SALES contains no forbidden private fields');
+
+const inventory = await fetchJson({tab:'INVENTORY'});
+assert(inventory.ok === true && inventory.scope === 'public', 'INVENTORY public endpoint ok');
+assert(keysOnly(inventory.rows || [], new Set(['item_id','category','brand','stage','status','days_on_hand'])),
+  'INVENTORY exposes only approved public fields', JSON.stringify(inventory.rows));
+assert((inventory.rows || []).every(r => !['sold','removed','archived'].includes(String(r.status || '').toLowerCase())),
+  'INVENTORY runtime excludes sold/removed/archived rows', JSON.stringify(inventory.rows));
+assert(noForbidden(inventory).ok, 'INVENTORY contains no forbidden private fields');
+
+const repairs = await fetchJson({tab:'REPAIRS'});
+assert(repairs.ok === true && repairs.scope === 'public', 'REPAIRS public endpoint ok');
+assert(keysOnly(repairs.rows || [], new Set([
+  'ticket_id','created_at','intake_type','category','brand','drop_off_date','status','expected_out_date'
+])), 'REPAIRS exposes only approved public fields', JSON.stringify(repairs.rows));
+assert(noForbidden(repairs).ok, 'REPAIRS contains no forbidden private fields');
 
 const bills = await fetchJson({tab:'BILLS'});
 assert(bills.ok === true && bills.count === 0 && Array.isArray(bills.rows) && bills.rows.length === 0,

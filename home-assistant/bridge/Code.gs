@@ -23,8 +23,8 @@ const SHEET_ID = '117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI';
  *  attributes; unbounded rows bloat the state machine and the recorder. */
 const ROW_LIMIT = 25;
 
-/** Seconds of CacheService reuse. Five HA sensors on a 5-minute poll stay
- *  well inside Apps Script quota with this on. */
+/** Seconds of CacheService reuse. Home Assistant polls several read-only
+ *  sensors; this keeps overlapping requests from re-reading the Sheet. */
 const CACHE_TTL = 60;
 
 /**
@@ -145,7 +145,13 @@ const TABS = {
       model: 'private', serial: 'private', list_price: 'private',
       cost_basis: 'private'
     },
-    where: function (r) { return r.item_id; }
+    // Operational inventory excludes records already sold/removed/archived.
+    // Blank/NOT_READY/HOLD/DIAGNOSTIC statuses remain active business stock.
+    where: function (r) {
+      if (!r.item_id) return false;
+      const s = String(r.status || '').trim().toLowerCase();
+      return !['sold','removed','archived'].includes(s);
+    }
   },
 
   REPAIRS: {
