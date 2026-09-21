@@ -52,7 +52,7 @@ views:
             content: >-
               # EDP COMMAND CENTER
 
-              **{{ now().strftime('%A %d %B') }} · {{ now().strftime('%H:%M') }}**
+              **{{ now().strftime('%I:%M %p').lstrip('0') }} — {{ now().strftime('%A, %B %d, %Y') }}**
               &nbsp;·&nbsp; MODE: `TEST`
 
               {% set stale = is_state('binary_sensor.edp_bridge_stale','on') %}
@@ -307,22 +307,29 @@ views:
           - type: markdown
             title: Security Status
             content: >-
-              {% set doors = states('sensor.edp_doors_open') | int(0) %}
-              {% set wins = states('sensor.edp_windows_open') | int(0) %}
-              {% set motion = states('sensor.edp_motion_active') | int(0) %}
+              {% set doors = states('sensor.edp_doors_open') %}
+              {% set wins = states('sensor.edp_windows_open') %}
+              {% set motion = states('sensor.edp_motion_active') %}
               {% set dead = states('sensor.edp_sensors_unavailable') | int(0) %}
               {% set locks = states.lock | list | count %}
               {% set alarms = states.alarm_control_panel | list | count %}
 
               **Doors open:**
-              {% if doors > 0 %}<span style="color:#ff4d5a">{{ doors }}</span>
-              {% else %}<span style="color:#00e08f">0 — all closed</span>{% endif %}
+              {% if doors in ['unknown','unavailable'] %}
+              <span style="color:#ffb300">BLOCKED · no verified door entities</span>
+              {% elif doors | int > 0 %}<span style="color:#ff4d5a">{{ doors }}</span>
+              {% else %}<span style="color:#00e08f">0 — all verified door sensors closed</span>{% endif %}
 
               **Windows open:**
-              {% if wins > 0 %}<span style="color:#ffb300">{{ wins }}</span>
-              {% else %}<span style="color:#00e08f">0</span>{% endif %}
+              {% if wins in ['unknown','unavailable'] %}
+              <span style="color:#ffb300">BLOCKED · no verified window entities</span>
+              {% elif wins | int > 0 %}<span style="color:#ffb300">{{ wins }}</span>
+              {% else %}<span style="color:#00e08f">0 — all verified window sensors closed</span>{% endif %}
 
-              **Motion active:** <span style="color:#00e5ff">{{ motion }}</span>
+              **Motion active:**
+              {% if motion in ['unknown','unavailable'] %}
+              <span style="color:#ffb300">BLOCKED · no verified motion entities</span>
+              {% else %}<span style="color:#00e5ff">{{ motion }}</span>{% endif %}
 
               **Unavailable sensors:**
               {% if dead > 0 %}<span style="color:#ffb300">{{ dead }}</span>
@@ -357,7 +364,7 @@ views:
               style: |
                 ha-card {
                   background:#12151a;
-                  border:1px solid {% if states('sensor.edp_doors_open') | int(0) > 0 %}#ff4d5a66{% else %}#00e08f44{% endif %};
+                  border:1px solid {% if states('sensor.edp_doors_open') in ['unknown','unavailable'] %}#ffb30066{% elif states('sensor.edp_doors_open') | int > 0 %}#ff4d5a66{% else %}#00e08f44{% endif %};
                 }
 
       # ------------------------------------------------- phone / presence
@@ -726,26 +733,41 @@ views:
           {% endif %}
 
       - type: markdown
-        title: Sales, Spending, Inventory & Repairs — BLOCKED
+        title: Inventory & Repairs — TEST
         content: >-
-          These four summaries are **BLOCKED**, and the reason is a data
-          question, not a Home Assistant one:
+          **Active inventory records:** {{ states('sensor.edp_inventory_active') }}
 
-          - **Sales / Purchases** — the bridge can serve both tabs today, but
-            the weekly rollup tab that would drive a summary card is empty in
-            the Sheet, so there is nothing truthful to display yet. A card
-            showing `$0` would read as "no sales", not "no data".
-          - **Inventory** — source tab is verified as `APPLIANCES`.
-          - **Repairs** — open-ticket source is verified as `REPAIR_TICKETS`.
-          - **Sales / Purchases** — source tabs are verified, but the TEST
-            dashboard still needs truthful period rollups before showing money.
+          **Open repair tickets:** {{ states('sensor.edp_repairs_open') }}
 
-          The source mappings are now verified. These cards remain BLOCKED
-          only until the matching aggregate REST sensors and period logic are
-          added and tested.
+          {% set inv = state_attr('sensor.edp_inventory_active','rows') %}
+          {% if inv %}
+          **Inventory sample:**{% for r in inv[:5] %}
+          · {{ r.item_id }} — {{ r.category | default('—') }} · {{ r.stage | default('—') }} · {{ r.status | default('—') }}
+          {% endfor %}{% endif %}
+
+          {% set repairs = state_attr('sensor.edp_repairs_open','rows') %}
+          {% if repairs %}
+          **Open repair sample:**{% for r in repairs[:5] %}
+          · {{ r.ticket_id }} — {{ r.category | default('—') }} · {{ r.status | default('—') }}
+          {% endfor %}{% endif %}
+
+          _Inventory excludes SOLD/removed/archived rows. Repair tickets exclude
+          completed/closed/cancelled rows. TEST until checked inside Home Assistant._
+
+      - type: markdown
+        title: Sales & Purchases — DATA CONNECTED / SUMMARY BLOCKED
+        content: >-
+          **Sales source records:** {{ states('sensor.edp_sales_records') }}
+
+          **Purchase source records:** {{ states('sensor.edp_purchase_records') }}
+
+          The raw read-only feeds are connected for diagnostics, but a
+          **current-period money summary is still BLOCKED** until an approved
+          weekly/daily rollup rule exists. These counts are record counts, not
+          today's sales or spending.
 
           _Sheets, Apps Script and n8n remain authoritative. Home Assistant
-          displays; it does not compute or store business records._
+          displays; it does not invent financial totals._
 
   # ==========================================================================
   # SUBVIEW: DIAGNOSTICS
@@ -827,6 +849,10 @@ views:
           - sensor.edp_schedule
           - sensor.edp_kiosk_unread
           - sensor.edp_parts_low
+          - sensor.edp_inventory_active
+          - sensor.edp_repairs_open
+          - sensor.edp_sales_records
+          - sensor.edp_purchase_records
           - sensor.edp_sensors_unavailable
           - sensor.edp_doors_open
           - sensor.edp_windows_open
