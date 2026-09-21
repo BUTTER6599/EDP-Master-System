@@ -102,3 +102,5 @@ assert(payroll.ok === true && payroll.count === 0 && Array.isArray(payroll.rows)
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log('ALL DEPLOYED RUNTIME SMOKE CHECKS PASSED');
+
+// Secret-activation verification trigger: 2026-09-20
