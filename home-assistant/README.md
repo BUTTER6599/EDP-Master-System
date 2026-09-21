@@ -27,7 +27,7 @@ home-assistant/
 │   ├── README-deploy.md               15-min browser deploy
 │   └── test/bridge_test.mjs           22 checks, no network needed
 ├── config/
-│   ├── rest_sensors.yaml              6 REST sensors
+│   ├── rest_sensors.yaml              10 REST sensors
 │   ├── template_sensors.yaml          9 derived sensors
 │   └── secrets.yaml.example
 └── docs/
@@ -52,15 +52,15 @@ action.
 
 | Section | Status | Why |
 |---|---|---|
-| Tasks, Bills, Schedule, Kiosk, Restocking | TEST | auth/health, TASKS and BILLS runtime checks passed; remaining endpoints still being validated |
+| Tasks, Bills, Schedule, Kiosk, Restocking | TEST | deployed runtime/privacy checks passed; Home Assistant-side validation still pending |
 | Shopping list | TEST | the one confirmed live entity — `todo`, 1 entity, 0 items |
 | Doors / windows / motion | TEST | 39 binary sensors read live; no alerting wired |
 | Locks | BLOCKED | `lock` domain empty on 2026-09-02 and 2026-09-20 |
 | Alarm panel | BLOCKED | no `alarm_control_panel` entity |
 | Cameras / Frigate | BLOCKED | `camera` domain empty; detection sensors down since 2026-05-18 |
 | Phone battery / presence | BLOCKED | no `sensor`, `person` or `device_tracker` entities returned |
-| Sales / spending | BLOCKED | the weekly rollup tab is empty in the Sheet |
-| Inventory / Repairs | BLOCKED | source tabs verified as `APPLIANCES` and `REPAIR_TICKETS`; aggregate sensors/display still pending |
+| Sales / spending | BLOCKED | raw feeds are connected, but an approved current-period money rollup is still missing |
+| Inventory / Repairs | TEST | active-inventory/open-repair REST sensors are built; HA-side validation pending |
 | Notifications | BLOCKED | not built; no automation or notify action exists here |
 
 ## Two things worth knowing before reading the code
@@ -101,8 +101,8 @@ node home-assistant/bridge/test/bridge_test.mjs
 ```
 
 Runs the real `Code.gs` against fixture rows copied from the live Sheet.
-22 checks: auth, blank-row filtering, priority sort, and the scope rules
-that keep payroll, bill amounts and the insurer name off a public screen.
+The suite now checks auth, filtering, and privacy across tasks, bills,
+schedule, kiosk, parts, purchases, sales, inventory, repairs and payroll.
 Run it after any edit to `TABS`.
 
 
