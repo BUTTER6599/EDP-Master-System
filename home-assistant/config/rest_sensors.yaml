@@ -13,9 +13,9 @@
 # Each sensor's state is a COUNT, never the row data. Home Assistant caps
 # state strings at 255 characters; rows travel in attributes instead.
 #
-# scan_interval 300 = 5 minutes. Six sensors x 288 polls/day is ~1,700
-# Apps Script executions per day, well inside the free quota, and the
-# bridge's own 60s cache absorbs any overlap.
+# Business sensors poll every 5 minutes; bridge health polls every 15.
+# The bridge's 60s cache absorbs overlap. Monitor Apps Script execution
+# usage after TEST deployment rather than assuming a quota margin.
 
 - resource: !secret edp_bridge_base
   scan_interval: 300
@@ -27,7 +27,8 @@
     - name: "EDP Tasks Open"
       unique_id: edp_tasks_open
       icon: mdi:clipboard-check-outline
-      value_template: "{{ value_json.count | default(0) }}"
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
       json_attributes:
         - rows
         - generated_at
@@ -46,7 +47,8 @@
     - name: "EDP Bills Open"
       unique_id: edp_bills_open
       icon: mdi:file-document-alert-outline
-      value_template: "{{ value_json.count | default(0) }}"
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
       json_attributes:
         - rows
         - generated_at
@@ -65,7 +67,8 @@
     - name: "EDP Schedule"
       unique_id: edp_schedule
       icon: mdi:calendar-account
-      value_template: "{{ value_json.count | default(0) }}"
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
       json_attributes:
         - rows
         - generated_at
@@ -83,7 +86,8 @@
     - name: "EDP Kiosk Unread"
       unique_id: edp_kiosk_unread
       icon: mdi:message-badge-outline
-      value_template: "{{ value_json.count | default(0) }}"
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
       json_attributes:
         - rows
         - generated_at
@@ -101,13 +105,70 @@
     - name: "EDP Parts Low"
       unique_id: edp_parts_low
       icon: mdi:package-variant-closed-remove
-      value_template: "{{ value_json.count | default(0) }}"
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
       json_attributes:
         - rows
         - generated_at
         - status
         - ok
         - error
+
+- resource: !secret edp_bridge_base
+  scan_interval: 300
+  timeout: 30
+  params:
+    tab: PURCHASES
+    key: !secret edp_bridge_key_private
+  sensor:
+    - name: "EDP Purchase Records"
+      unique_id: edp_purchase_records
+      icon: mdi:cart-arrow-down
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
+      json_attributes: [rows, generated_at, status, ok, truncated, error]
+
+- resource: !secret edp_bridge_base
+  scan_interval: 300
+  timeout: 30
+  params:
+    tab: SALES
+    key: !secret edp_bridge_key_private
+  sensor:
+    - name: "EDP Sales Records"
+      unique_id: edp_sales_records
+      icon: mdi:cash-register
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
+      json_attributes: [rows, generated_at, status, ok, truncated, error]
+
+- resource: !secret edp_bridge_base
+  scan_interval: 300
+  timeout: 30
+  params:
+    tab: INVENTORY
+    key: !secret edp_bridge_key_private
+  sensor:
+    - name: "EDP Inventory Active"
+      unique_id: edp_inventory_active
+      icon: mdi:warehouse
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
+      json_attributes: [rows, generated_at, status, ok, truncated, error]
+
+- resource: !secret edp_bridge_base
+  scan_interval: 300
+  timeout: 30
+  params:
+    tab: REPAIRS
+    key: !secret edp_bridge_key_private
+  sensor:
+    - name: "EDP Repairs Open"
+      unique_id: edp_repairs_open
+      icon: mdi:wrench-clock
+      value_template: >-
+        {{ value_json.count if value_json.ok | default(false) else 'unknown' }}
+      json_attributes: [rows, generated_at, status, ok, truncated, error]
 
 # Bridge self-check. Reports which configured tabs are missing from the
 # spreadsheet, which is the failure this build is most likely to hit:
