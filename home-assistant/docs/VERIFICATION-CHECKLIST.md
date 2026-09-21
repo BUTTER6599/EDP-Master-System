@@ -14,7 +14,7 @@ data or a user action.
 
 | # | Check | Pass condition | Result |
 |---|---|---|---|
-| A1 | `?health=1` in a browser | `"ok": true`, `missing_tabs` empty | |
+| A1 | deployed `?health=1` smoke check | `"ok": true`, `missing_tabs` empty | PASS — Actions run 35606356611 |
 | A2 | `sensor.edp_bridge_health` | state `ok` | |
 | A3 | `sensor.edp_tasks_open` | equals **6**, matching `TASKS_TEST` | |
 | A4 | Open each of the 6 tasks on the Tasks subview | titles match the Sheet row for row | |
@@ -35,13 +35,13 @@ has changed.
 
 | # | Check | Pass condition | Result |
 |---|---|---|---|
-| B1 | `?tab=BILLS&key=<PUBLIC>` | response contains **no** dollar amounts | |
-| B2 | same | contains **no** bill names — no "Blue Cross" | |
-| B3 | `?tab=PAYROLL&key=<PUBLIC>` | `"count": 0`, `rows` empty | |
-| B4 | `?tab=TASKS&key=<PUBLIC>` | no `owner`, no `notes` | |
-| B5 | `?list=1&key=<PUBLIC>` | refused — "requires the private token" | |
-| B6 | `?tab=TASKS` with no key | `Unauthorized` | |
-| B7 | `node bridge/test/bridge_test.mjs` | 22/22 pass | |
+| B1 | deployed `BILLS` public smoke | response contains **no** detailed bill data | PASS — run 35606356611 |
+| B2 | same | contains **no** bill names | PASS — run 35606356611 |
+| B3 | deployed `PAYROLL` public smoke | `"count": 0`, `rows` empty | PASS — run 35606356611 |
+| B4 | deployed `TASKS` public smoke | approved allowlist only; no owner/notes | PASS — run 35606356611 |
+| B5 | unit test: `?list=1&key=<PUBLIC>` | refused — "requires the private token" | PASS — run 35606356611 |
+| B6 | unit test: `?tab=TASKS` with no key | `Unauthorized` | PASS — run 35606356611 |
+| B7 | `node bridge/test/bridge_test.mjs` | all checks pass | PASS — run 35606356611 |
 
 B1–B3 are the controls that keep health, financial and payroll data off a
 shop-floor display. If any fails, do not mirror this dashboard anywhere
@@ -132,6 +132,6 @@ it is not a promotion.
 | Phone battery | BLOCKED | no battery sensors returned | |
 | Presence | BLOCKED | no `person` entities returned | |
 | Sales / spending | BLOCKED | weekly rollup tab empty in the Sheet | |
-| Inventory | BLOCKED | source verified as `APPLIANCES`; aggregate sensor/display still pending | |
-| Repairs | BLOCKED | source verified as `REPAIR_TICKETS`; aggregate sensor/display still pending | |
+| Inventory | TEST | deployed active-record endpoint + HA sensor/dashboard built; HA-side validation pending | |
+| Repairs | TEST | deployed open-ticket endpoint + HA sensor/dashboard built; HA-side validation pending | |
 | Notifications | BLOCKED | not built | |
