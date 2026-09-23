@@ -30,8 +30,9 @@ it).
 | Read-only APPLIANCES adapter | Built, tested, DEPLOYED to TEST, and INERT |
 | `ACTIVE_DATA_SOURCE` | `APPLIANCES_SHEET` — **real inventory live in TEST** (Package 8) |
 | Real-inventory runtime | **PROVEN and fully reconciled** — see below |
+| Real appliance photos | **VERIFIED COMPLETE** by owner visual check (Package 9) |
 | Complete Sale | Hard-disabled |
-| Tests | 186 assertions, 6 suites, 0 failed |
+| Tests | 224 assertions, 7 suites, 0 failed |
 
 ### Package 8 — real-inventory runtime proof (verified 2026-09-23)
 
@@ -53,6 +54,43 @@ unverified assumptions since Package 7.
 
 `cost_basis` is absent from the client payload: it is never mapped, so it is
 structurally incapable of reaching the browser.
+
+### Package 9 — real appliance photo display (owner-verified 2026-09-23)
+
+Real photographs now render on the catalog cards. Confirmed on screen by the
+owner: `W-105G` GE APPLIANCES HTW240ASK6WS $295.00, `W-0540` MAYTAG MVW6230HW0
+$235.00, `W-4554` Roper RTW4516FW2 $265.00.
+
+`W-4554` is significant: it is one of only two records whose `photo_links` are
+stored **exclusively** as `drive.google.com/.../view` viewer pages. Its photo
+rendering proves the URL normaliser works on real data, and answers the open
+question of whether the Drive photos were publicly readable — they are.
+
+Design: only two URL shapes are accepted, a direct
+`lh3.googleusercontent.com/d/<id>` image and a Drive viewer page normalised to
+that form. Everything else is refused, so the Register never points an `<img>`
+at an unrecognised host. The generated SVG remains the fallback for records
+with no usable photo and for images that fail to load, and the "Photo
+placeholder" label now appears only when that fallback is actually in use.
+
+**Scope of the owner's approval:** the display milestone only. It is NOT
+approval of checkout, tax, customer data, sales writing, inventory mutation,
+printing, LIVE deployment, or production readiness.
+
+## Remaining TEST / mock elements on screen
+
+Real inventory and its photographs are live. Everything else on the Register is
+still simulated, and the screen says so in places:
+
+| Element | State |
+| --- | --- |
+| Banner "TEST BUILD — MOCK DATA ONLY" | Static text. Now only partly true — inventory is real; the rest is not |
+| Customer directory, purchase history, warranty claims | MOCK — `readCustomers` still returns `getMockCustomers()` |
+| Activity timeline | MOCK — `readActivity` still returns `getMockActivity()` |
+| Open ticket `TXN-MOCK-4471` | MOCK — and see NV-13 below |
+| Sales Tax "(MOCK) · 9.45%" | MOCK placeholder rate. NV-1 still OPEN |
+| Complete Sale | Hard-disabled |
+| Receipt / invoice | Preview only. No printer bridge, no mail sender |
 
 ## Deferred requirements
 
@@ -106,6 +144,7 @@ the Apps Script layer, not in `Scripts.html`.
 | NV-10 | `W-732G` and `S-205Q` have `photo_links` containing the literal text `TAYLOR` instead of a URL. The adapter withholds them (fail-closed working), but the rows are invisible on the floor until fixed. | OPEN — data entry |
 | NV-11 | `TASKS_TEST` — a second TEST-named tab in production, **999 rows of which only 6 carry a `task_id`**. Not seen at all in the original Package 5B pass. | OPEN — unknown purpose |
 | NV-12 | `list_price` is blank in **54 of 100** APPLIANCES rows, and `photo_links` in 24. Any such row is withheld from the floor with a stated reason. | OPEN — data completeness, not a code fault |
+| NV-13 | The mock open ticket `TXN-MOCK-4471` references item IDs `EDP-10241` and `EDP-10190`, which no longer exist now that inventory is real. `findItem()` returns null, so those cart lines render with a blank name and a zero list price. Surfaced by the Package 8 cutover; harmless today because Complete Sale is disabled, but it is the first thing the checkout milestone has to address. | OPEN — blocks the cart/checkout milestone |
 
 ## Known cosmetic item
 
