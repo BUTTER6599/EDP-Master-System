@@ -92,9 +92,55 @@
 
   /* ---------------------------------------------------------------------- */
   /* Product imagery                                                         */
-  /* Locally generated SVG placeholders — deliberately NOT network images.   */
-  /* When real photos land, swap photoUri() for the stored image URL.        */
+  /*                                                                         */
+  /* Real appliance photos are used when one is available; photoUri() below  */
+  /* stays as the FALLBACK, used when a record has no usable photo or when   */
+  /* the real image fails to load.                                           */
+  /*                                                                         */
+  /* EDP_MASTER_DATABASE stores two URL shapes in photo_links:               */
+  /*   https://lh3.googleusercontent.com/d/<id>[=w2000]  direct image        */
+  /*   https://drive.google.com/file/d/<id>/view?...     viewer PAGE         */
+  /* Only the first renders inside an <img>. The second is a web page and    */
+  /* would show a broken image, so it is normalised to the direct form.      */
+  /* Anything that is not one of these two shapes is refused outright: the   */
+  /* Register never points an <img> at an unrecognised host.                 */
   /* ---------------------------------------------------------------------- */
+  var PHOTO_HOST = 'lh3.googleusercontent.com';
+
+  function directPhotoUrl(u) {
+    var s = String(u == null ? '' : u).trim();
+    if (s.indexOf('https://') !== 0) { return ''; }
+    var viewer = s.match(/^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)\//);
+    if (viewer) { return 'https://' + PHOTO_HOST + '/d/' + viewer[1]; }
+    if (new RegExp('^https://' + PHOTO_HOST + '/d/[A-Za-z0-9_-]+').test(s)) { return s; }
+    return '';
+  }
+
+  /* First USABLE photo for a record. Scans the whole gallery rather than
+     trusting photoPrimary, because a record's first photo can be a viewer
+     page while a later one is already direct. Returns '' when none is usable. */
+  function realPhotoFor(item) {
+    var gallery = (item && item.photoGallery) || [];
+    for (var i = 0; i < gallery.length; i++) {
+      var direct = directPhotoUrl(gallery[i]);
+      if (direct) { return direct; }
+    }
+    return directPhotoUrl(item && item.photoPrimary);
+  }
+
+  /* Swaps a failed real photo back to the drawn placeholder and reveals the
+     "Photo placeholder" label. Guarded so a failing fallback cannot loop. */
+  function photoFallback(img) {
+    if (!img || img.getAttribute('data-fellback') === '1') { return; }
+    img.setAttribute('data-fellback', '1');
+    var it = findItem(img.getAttribute('data-item')) || {};
+    img.src = photoUri(it, Number(img.getAttribute('data-w')) || 400,
+                           Number(img.getAttribute('data-h')) || 300);
+    var ph = img.parentNode ? img.parentNode.querySelector('.ph') : null;
+    if (ph) { ph.hidden = false; }
+  }
+  window.edpPhotoFallback = photoFallback;
+
   var HUE = {
     refrigerator: 208, washer: 192, dryer: 264, range: 18,
     dishwasher: 162, freezer: 200, microwave: 34, television: 238
@@ -251,13 +297,17 @@
 
     grid.innerHTML = items.map(function (it) {
       var a = availMeta(it.availability);
+      var real = realPhotoFor(it);
       var inCart = state.cart.some(function (l) { return l.itemId === it.itemId; });
       return '' +
         '<article class="prod" data-sellable="' + a.sellable + '">' +
           '<div class="photo">' +
-            '<img src="' + photoUri(it, 400, 300) + '" alt="' + esc(it.brand + ' ' + it.model) + '" loading="lazy">' +
+            '<img src="' + (real ? esc(real) : photoUri(it, 400, 300)) + '"' +
+              ' alt="' + esc(it.brand + ' ' + it.model) + '" loading="lazy"' +
+              (real ? ' data-item="' + esc(it.itemId) + '" data-w="400" data-h="300"' +
+                      ' onerror="edpPhotoFallback(this)"' : '') + '>' +
             '<span class="avail" style="background:' + a.bg + ';color:' + a.fg + '">' + esc(a.label) + '</span>' +
-            '<span class="ph">Photo placeholder</span>' +
+            '<span class="ph"' + (real ? ' hidden' : '') + '>Photo placeholder</span>' +
           '</div>' +
           '<div class="info">' +
             '<div class="cat">' + esc(it.category) + '</div>' +
@@ -277,11 +327,33 @@
         '</article>';
     }).join('');
 
+    renderStockSummary(items.length);
+  }
+
+  /* The label reflects the ACTIVE data source rather than asserting "mock".
+     It starts neutral and is sharpened once getDataSourceInfo() answers; if
+     that read-only call is unavailable or fails, the neutral wording stands. */
+  var dataSourceLabel = 'items';
+  var lastShownCount = 0;
+
+  function renderStockSummary(shown) {
+    if (typeof shown === 'number') { lastShownCount = shown; }
     var summary = $('#stockSummary');
-    if (summary) {
-      summary.textContent = items.length + ' of ' + state.inventory.length +
-        ' mock items shown · tap a card to add it to the sale';
-    }
+    if (!summary) { return; }
+    summary.textContent = lastShownCount + ' of ' + state.inventory.length + ' ' +
+      dataSourceLabel + ' shown · tap a card to add it to the sale';
+  }
+
+  function loadDataSourceLabel() {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) { return; }
+    google.script.run
+      .withSuccessHandler(function (info) {
+        if (!info || !info.id) { return; }
+        dataSourceLabel = info.isMock ? 'mock items' : 'live inventory items';
+        renderStockSummary();
+      })
+      .withFailureHandler(function () { /* neutral wording stands */ })
+      .getDataSourceInfo();
   }
 
   /* ---------------------------------------------------------------------- */
@@ -923,6 +995,7 @@
     renderReceipt();
     renderTimeline();
     renderStatus();
+    loadDataSourceLabel();
 
     tickClock();
     window.setInterval(tickClock, 1000);

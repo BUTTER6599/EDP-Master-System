@@ -1,6 +1,8 @@
 // DERIVED FROM test/recovery-snapshot/shoot.cjs — DO NOT EDIT THE SNAPSHOT.
-// Only path resolution differs from the preserved evidence; all test
-// logic is byte-identical. Five-viewport headless Chromium regression.
+// Differs from the preserved evidence in exactly two ways: path resolution,
+// and a Package 9 assertion that any external image request goes ONLY to the
+// approved Google image host. All other logic is byte-identical.
+// Five-viewport headless Chromium regression.
 const { chromium } = require('playwright');
 const path = require('path');
 const SP = require('./outdir.cjs');
@@ -115,5 +117,26 @@ const VIEWS = [
   console.log('external requests attempted:', requests.length, requests.slice(0, 5));
   console.log('JS errors:', errors.length);
   errors.forEach(e => console.log('  ' + e));
+
+  // Package 9: real appliance photos are allowed, but ONLY from the approved
+  // Google image host. A blanket "zero external requests" check would now fail
+  // for the wrong reason, and silently permitting any host would be worse.
+  const APPROVED_IMAGE_HOSTS = ['lh3.googleusercontent.com'];
+  const offHost = requests.filter(u => {
+    if (typeof u !== 'string' || !/^https?:\/\//.test(u)) { return false; }
+    let h; try { h = new URL(u).hostname; } catch (e) { return true; }
+    return !APPROVED_IMAGE_HOSTS.includes(h);
+  });
+  console.log('approved image hosts:', APPROVED_IMAGE_HOSTS.join(', '));
+  console.log('requests to NON-approved hosts:', offHost.length, offHost.slice(0, 5));
+
   await browser.close();
+  if (offHost.length) {
+    console.log('FAIL  external request to a non-approved host');
+    process.exit(1);
+  }
+  if (errors.length) {
+    console.log('FAIL  JS errors during render');
+    process.exit(1);
+  }
 })();
