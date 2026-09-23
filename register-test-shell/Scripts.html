@@ -263,7 +263,8 @@
             '<div class="cat">' + esc(it.category) + '</div>' +
             '<div class="title">' + esc(it.brand + ' ' + it.model) + '</div>' +
             '<div class="desc">' + esc(it.description) + '</div>' +
-            '<div class="idline">' + esc(it.itemId) + ' · ' + esc(it.location) + '</div>' +
+            '<div class="idline">' + esc(it.itemId) +
+              (it.location ? ' · ' + esc(it.location) : '') + '</div>' +
             '<div class="foot">' +
               '<span class="price">' + money(it.price) + '</span>' +
               '<span class="cond">' + esc(it.condition) + '<br>Qty ' + esc(it.qty) + '</span>' +

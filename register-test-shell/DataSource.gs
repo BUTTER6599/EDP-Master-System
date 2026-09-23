@@ -78,7 +78,7 @@ var DATA_SOURCES = {
  * The active source. Changing this value is the ONLY switch that should ever
  * be needed to move the Register onto a different read-only source.
  */
-var ACTIVE_DATA_SOURCE = DATA_SOURCES.MOCK;
+var ACTIVE_DATA_SOURCE = DATA_SOURCES.APPLIANCES_SHEET;
 
 /**
  * The mock implementation. A thin delegation layer over MockData.gs — it
