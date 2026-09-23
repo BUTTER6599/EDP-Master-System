@@ -70,6 +70,16 @@
     return Math.abs(h);
   }
 
+  /* Single resolution point for every cart line.
+     Returns the real inventory item, or NULL when the line cannot be resolved.
+     Callers MUST handle null. The previous idiom, findItem(...) || {}, turned a
+     missing item into a blank, zero-priced line — which is how an $818.69
+     phantom sale reached the screen after the real-inventory cutover. */
+  function resolveCartLine(line) {
+    if (!line || !line.itemId) { return null; }
+    return findItem(line.itemId);
+  }
+
   function findItem(itemId) {
     for (var i = 0; i < state.inventory.length; i++) {
       if (state.inventory[i].itemId === itemId) { return state.inventory[i]; }
@@ -360,15 +370,19 @@
   /* 2. Cart / checkout                                                      */
   /* ---------------------------------------------------------------------- */
   function cartTotals() {
-    var sub = 0, warr = 0, count = 0;
+    var sub = 0, warr = 0, count = 0, unresolved = 0;
     state.cart.forEach(function (l) {
+      // An unresolved line contributes NOTHING: no subtotal, no warranty, no
+      // tax, no item count, no total. It cannot move money.
+      if (!resolveCartLine(l)) { unresolved += 1; return; }
       sub += l.unitPrice * l.qty;
       warr += warrantyById(l.warrantyId).price * l.qty;
       count += l.qty;
     });
     var taxable = sub + warr;
     var tax = Math.round(taxable * (CFG.taxRate || 0) * 100) / 100;
-    return { sub: sub, warr: warr, tax: tax, total: taxable + tax, count: count };
+    return { sub: sub, warr: warr, tax: tax, total: taxable + tax,
+             count: count, unresolved: unresolved };
   }
 
   function renderCart() {
@@ -381,11 +395,27 @@
     } else {
       var opts = CFG.warrantyOptions || [];
       wrap.innerHTML = state.cart.map(function (l, idx) {
-        var it = findItem(l.itemId) || {};
+        var it = resolveCartLine(l);
+        if (!it) {
+          // Fail closed and VISIBLY. Never a blank name with a silent price.
+          return '' +
+            '<div class="line">' +
+              '<div class="mid">' +
+                '<div class="nm">UNRESOLVED ITEM — not included in totals</div>' +
+                '<div class="meta">' + esc(l.itemId) + ' · not found in the active inventory</div>' +
+              '</div>' +
+              '<div class="rt">' +
+                '<button class="rm" type="button" data-rm="' + idx + '">Remove</button>' +
+              '</div>' +
+            '</div>';
+        }
         var changed = l.listPrice != null && l.unitPrice !== l.listPrice;
+        var thumb = realPhotoFor(it);
         return '' +
           '<div class="line">' +
-            '<div class="thumb"><img src="' + photoUri(it, 120, 120) + '" alt=""></div>' +
+            '<div class="thumb"><img src="' + (thumb ? esc(thumb) : photoUri(it, 120, 120)) + '"' +
+              (thumb ? ' data-item="' + esc(it.itemId) + '" data-w="120" data-h="120"' +
+                       ' onerror="edpPhotoFallback(this)"' : '') + ' alt=""></div>' +
             '<div class="mid">' +
               '<div class="nm">' + esc((it.brand || '') + ' ' + (it.model || '')) + '</div>' +
               '<div class="meta">' + esc(l.itemId) + ' · qty ' + l.qty + '</div>' +
@@ -564,10 +594,21 @@
 
     var lines = state.cart.length
       ? state.cart.map(function (l) {
-          var it = findItem(l.itemId) || {};
+          var it = resolveCartLine(l);
+          if (!it) {
+            return '<div class="ritem">' +
+              '<div class="mid">' +
+                '<div class="nm">UNRESOLVED ITEM — not included in totals</div>' +
+                '<div class="sm">ITEM ID: ' + esc(l.itemId) + '</div>' +
+              '</div>' +
+            '</div>';
+          }
           var w = warrantyById(l.warrantyId);
+          var rthumb = realPhotoFor(it);
           return '<div class="ritem">' +
-            '<div class="thumb"><img src="' + photoUri(it, 160, 160) + '" alt=""></div>' +
+            '<div class="thumb"><img src="' + (rthumb ? esc(rthumb) : photoUri(it, 160, 160)) + '"' +
+              (rthumb ? ' data-item="' + esc(it.itemId) + '" data-w="160" data-h="160"' +
+                        ' onerror="edpPhotoFallback(this)"' : '') + ' alt=""></div>' +
             '<div class="mid">' +
               '<div class="nm">' + esc((it.brand || '') + ' ' + (it.model || '')) + '</div>' +
               '<div class="sm">' +
@@ -965,16 +1006,32 @@
     state.ticketId = t.ticketId || state.ticketId;
     state.customerId = t.customerId || null;
     state.paymentMethodId = t.paymentMethodId || 'CASH';
-    state.cart = (t.lines || []).map(function (l) {
-      var it = findItem(l.itemId) || {};
-      return {
+    // Only lines that resolve against the ACTIVE inventory may enter the cart.
+    // An unresolvable line is dropped and recorded — never silently carried in
+    // as a blank, zero-priced phantom.
+    var dropped = [];
+    state.cart = (t.lines || []).reduce(function (acc, l) {
+      var it = findItem(l.itemId);
+      if (!it) { dropped.push(l.itemId); return acc; }
+      acc.push({
         itemId: l.itemId,
         qty: l.qty || 1,
-        unitPrice: l.priceOverride != null ? l.priceOverride : (it.price || 0),
-        listPrice: it.price || 0,
+        unitPrice: l.priceOverride != null ? l.priceOverride : it.price,
+        listPrice: it.price,
         warrantyId: l.warrantyId || 'W-30'
-      };
-    });
+      });
+      return acc;
+    }, []);
+
+    if (dropped.length) {
+      logLocalEvent('TICKET_LINE_DROPPED', 'Open-ticket line not in active inventory', {
+        detail: dropped.join(', ') + ' — dropped from the cart because ' +
+          (dropped.length === 1 ? 'it does' : 'they do') + ' not exist in the ' +
+          'active inventory source. Nothing was added to the sale.',
+        status: 'BLOCKED',
+        reason: 'Fail-closed: an unresolvable line never enters the cart'
+      });
+    }
     $('#ticketId').textContent = state.ticketId;
   }
 

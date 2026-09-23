@@ -45,25 +45,28 @@ console.log(' EDP REGISTER — LOCAL TEST RUN');
 console.log(' No Google, no Apps Script, no spreadsheet, no network.');
 console.log('============================================================\n');
 
-console.log('--- [1/7] Phase 2 shape validator ---------------------------');
+console.log('--- [1/8] Phase 2 shape validator ---------------------------');
 run('Phase 2 shape validator', 'validator-tests.cjs');
 
-console.log('\n--- [2/7] Phase 3A query contract ---------------------------');
+console.log('\n--- [2/8] Phase 3A query contract ---------------------------');
 run('Phase 3A query contract', 'query-tests.cjs');
 
-console.log('\n--- [3/7] Ordered-parity analysis ---------------------------');
+console.log('\n--- [3/8] Ordered-parity analysis ---------------------------');
 run('Ordered-parity analysis', 'ordered-parity.cjs');
 
-console.log('\n--- [4/7] Bootstrap / template build ------------------------');
+console.log('\n--- [4/8] Bootstrap / template build ------------------------');
 const built = run('Bootstrap + template build', 'build-preview.cjs');
 
-console.log('\n--- [5/7] Package 6 read-only APPLIANCES adapter -------------');
+console.log('\n--- [5/8] Package 6 read-only APPLIANCES adapter -------------');
 run('Package 6 adapter', 'adapter-tests.cjs');
 
-console.log('\n--- [6/7] Package 9 real appliance photos --------------------');
+console.log('\n--- [6/8] Package 9 real appliance photos --------------------');
 run('Package 9 photos', 'photo-tests.cjs');
 
-console.log('\n--- [7/7] Five-viewport browser regression ------------------');
+console.log('\n--- [7/8] Package 10 real inventory -> real cart -------------');
+run('Package 10 cart', 'cart-tests.cjs');
+
+console.log('\n--- [8/8] Five-viewport browser regression ------------------');
 let pw = true;
 try { require.resolve('playwright'); } catch (e) { pw = false; }
 if (!built) {
