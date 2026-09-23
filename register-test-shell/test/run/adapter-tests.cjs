@@ -83,9 +83,20 @@ console.log('=========================================');
 console.log('\nSHIPPED DEFAULTS (what actually goes to Apps Script)');
 {
   const S = sandbox();
-  ok('ACTIVE_DATA_SOURCE ships as MOCK (adapter inert)', run(S, 'ACTIVE_DATA_SOURCE') === 'MOCK');
+  // Package 8 cutover: the shipped default is now the real read-only adapter.
+  // Both directions of the seam are still proven, so nothing is lost.
+  ok('ACTIVE_DATA_SOURCE ships as APPLIANCES_SHEET (Package 8 cutover)',
+    run(S, 'ACTIVE_DATA_SOURCE') === 'APPLIANCES_SHEET', run(S, 'ACTIVE_DATA_SOURCE'));
+  ok('shipped default resolves to the read-only sheet adapter',
+    run(S, 'getDataSource().id') === 'APPLIANCES_SHEET' && run(S, 'getDataSource().readInventory') !== undefined);
   ok('LOCATION_SOURCE_COLUMN ships unresolved (null)', run(S, 'LOCATION_SOURCE_COLUMN') === null);
-  ok('mock inventory still served while inert', run(S, 'readInventory().length') === 12);
+  // MOCK must remain selectable — the seam has to work in both directions, and
+  // reverting to MOCK is the documented one-constant rollback.
+  const M = sandbox(); vm.runInContext("ACTIVE_DATA_SOURCE = 'MOCK';", M);
+  ok('MOCK remains selectable through the seam (rollback path intact)',
+    vm.runInContext('getDataSource().id', M) === 'MOCK');
+  ok('mock inventory still served when MOCK is selected',
+    vm.runInContext('readInventory().length', M) === 12);
 }
 
 // --- location contract (Package 7) ---------------------------------------

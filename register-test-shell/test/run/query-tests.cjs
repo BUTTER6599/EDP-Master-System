@@ -1,12 +1,17 @@
 // DERIVED FROM test/recovery-snapshot/query-tests.cjs — DO NOT EDIT THE SNAPSHOT.
-// Only path resolution differs from the preserved evidence; all test
-// logic is byte-identical. Phase 3A query contract suite.
+// Differs from the preserved evidence in exactly two ways: path resolution,
+// and a Package 8 one-line pin of ACTIVE_DATA_SOURCE to 'MOCK'. All test
+// logic and every assertion are otherwise byte-identical. Phase 3A query contract suite.
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const DIR = require('path').resolve(__dirname, '..', '..');
 const read=f=>fs.readFileSync(path.join(DIR,f),'utf8');
 const S={console};vm.createContext(S);
 vm.runInContext(['Config.gs','MockData.gs','Validation.gs','DataSource.gs','InventoryQuery.gs','Code.gs']
   .map(read).join('\n'), S);
+  // Package 8: pin the source this suite exercises. These suites test MOCK
+  // data behaviour, so they must state that precondition rather than inherit
+  // whatever ACTIVE_DATA_SOURCE ships as. Pinning changes no assertion.
+vm.runInContext("ACTIVE_DATA_SOURCE = 'MOCK';", S);
 const run=e=>vm.runInContext(e,S);
 function q(o){ S.__o=o; return run('queryInventory(__o)'); }
 

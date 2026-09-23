@@ -1,6 +1,7 @@
 // DERIVED FROM test/recovery-snapshot/validator-tests.cjs — DO NOT EDIT THE SNAPSHOT.
-// Only path resolution differs from the preserved evidence; all test
-// logic is byte-identical. Phase 2 shape validator suite.
+// Differs from the preserved evidence in exactly two ways: path resolution,
+// and a Package 8 one-line pin of ACTIVE_DATA_SOURCE to 'MOCK'. All test
+// logic and every assertion are otherwise byte-identical. Phase 2 shape validator suite.
 const fs=require('fs'), vm=require('vm'), path=require('path');
 const DIR = require('path').resolve(__dirname, '..', '..');
 const read=f=>fs.readFileSync(path.join(DIR,f),'utf8');
@@ -8,6 +9,10 @@ const read=f=>fs.readFileSync(path.join(DIR,f),'utf8');
 function ctx(){
   const s={console};vm.createContext(s);
   vm.runInContext([read('Config.gs'),read('MockData.gs'),read('Validation.gs'),read('DataSource.gs'),read('Code.gs')].join('\n'), s);
+  // Package 8: pin the source this suite exercises. These suites test MOCK
+  // data behaviour, so they must state that precondition rather than inherit
+  // whatever ACTIVE_DATA_SOURCE ships as. Pinning changes no assertion.
+  vm.runInContext("ACTIVE_DATA_SOURCE = 'MOCK';", s);
   return s;
 }
 const S=ctx();
