@@ -4,9 +4,6 @@
 
    SAFETY CONTRACT FOR THIS FILE:
      - No fetch/XHR/WebSocket. No external requests of any kind.
-     - Printing is a hand-off to the browser's own print pipeline
-       (window.print). This file never addresses a printer and holds no
-       printer address, certificate or credential.
      - The only server calls are google.script.run to READ-ONLY functions.
      - Every "action" below mutates local page state only.
    ========================================================================== */
@@ -586,331 +583,80 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 4. Receipt — ONE data model, many channels                             */
-  /*                                                                        */
-  /* buildReceiptModel() is the single source of truth for what a receipt    */
-  /* contains. Every present and future channel consumes THIS and nothing    */
-  /* else, so the phone, a tablet and a desktop can never drift apart:       */
-  /*                                                                        */
-  /*   on-screen preview   renderReceipt()                                  */
-  /*   thermal print       the same DOM, handed to the OS print service      */
-  /*   reprint             not built yet                                    */
-  /*   email receipt       not built yet                                    */
-  /*   text receipt        not built yet                                    */
-  /*   ePOS-Print XML      buildEposPrintXml() — built, deliberately unused  */
-  /*                                                                        */
-  /* FIELD POLICY: the builder copies an explicit ALLOWLIST out of each      */
-  /* inventory record. It never spreads the record. The private columns     */
-  /* named in FORBIDDEN_CLIENT_FIELDS (DataSource.gs) are already stripped   */
-  /* server-side; this allowlist is a second, independent barrier, so a      */
-  /* future server-side change cannot put a private column onto a printed    */
-  /* receipt by accident.                                                    */
-  /*                                                                        */
-  /* UNRESOLVED LINES: kept in cart order with resolved:false, carrying no   */
-  /* money. Package 10's rule holds on every channel — an unresolvable line  */
-  /* is shown, never silently dropped and never silently priced.            */
+  /* 4. Receipt / invoice preview                                            */
   /* ---------------------------------------------------------------------- */
-  var TEST_RECEIPT_MARK = 'TEST — NOT A SALE';
-  var TEST_RECEIPT_WHY  = 'No sale was recorded. No payment was taken. No inventory changed.';
-
-  /* A receipt is a TEST receipt unless completing a sale is genuinely
-     enabled. The mark is therefore driven by the feature flag, not by a
-     separate switch someone could forget to flip back. */
-  function isTestReceipt() {
-    var f = CFG.features || {};
-    return f.COMPLETE_SALE_ENABLED !== true;
-  }
-
-  function buildReceiptModel() {
-    var c  = findCustomer(state.customerId);
-    var t  = cartTotals();
-    var pm = (CFG.paymentMethods || []).filter(function (p) { return p.id === state.paymentMethodId; })[0];
-    var now = new Date();
-
-    var lines = state.cart.map(function (l) {
-      var it = resolveCartLine(l);
-      if (!it) { return { resolved: false, itemId: String(l && l.itemId || '') }; }
-      var w = warrantyById(l.warrantyId);
-      return {
-        resolved: true,
-        itemId: it.itemId,
-        brand: it.brand || '',
-        model: it.model || '',
-        description: it.description || '',
-        condition: it.condition || '',
-        serialPlaceholder: it.serialPlaceholder || '[ SERIAL PLACEHOLDER ]',
-        qty: l.qty,
-        unitPrice: l.unitPrice,
-        listPrice: l.listPrice,
-        lineTotal: l.unitPrice * l.qty,
-        warrantyId: w.id,
-        warrantyLabel: w.label,
-        warrantyPrice: w.price,
-        photoUrl: realPhotoFor(it) || ''
-      };
-    });
-
-    return {
-      isTest: isTestReceipt(),
-      testMark: TEST_RECEIPT_MARK,
-      testWhy: TEST_RECEIPT_WHY,
-      store: {
-        short: CFG.companyShort || 'Electronics Depot',
-        company: CFG.companyName || '',
-        address: CFG.storeAddress || '',
-        phone: CFG.storePhone || '',
-        footer: CFG.storeFooter || ''
-      },
-      ticketId: state.ticketId,
-      dateIso: now.toISOString(),
-      dateText: dateFmt ? dateFmt.format(now) : now.toISOString(),
-      customer: c ? { name: c.name, phone: c.phone, customerId: c.customerId } : null,
-      payment: { id: pm ? pm.id : 'CASH', label: pm ? pm.label : 'Cash' },
-      lines: lines,
-      totals: {
-        sub: t.sub, warranty: t.warr, tax: t.tax, total: t.total,
-        itemCount: t.count, unresolvedCount: t.unresolved,
-        taxLabel: CFG.taxLabel || 'Sales Tax (MOCK)',
-        taxRate: CFG.taxRate || 0
-      },
-      build: {
-        environment: CFG.environment || 'TEST',
-        version: CFG.buildVersion || ''
-      }
-    };
-  }
-
-  /* The TEST mark. Rendered at the TOP and at the BOTTOM of the receipt so a
-     piece of paper torn anywhere still says what it is. */
-  function testMarkHtml(m, where) {
-    if (!m.isTest) { return ''; }
-    return '<div class="rtestmark' + (where === 'bottom' ? ' bottom' : '') + '">' +
-      esc(m.testMark) + '<span class="why">' + esc(m.testWhy) + '</span></div>';
-  }
-
-  function receiptLineHtml(l, px) {
-    if (!l.resolved) {
-      return '<div class="ritem unresolved">' +
-        '<div class="mid">' +
-          '<div class="nm">UNRESOLVED ITEM — not included in totals</div>' +
-          '<div class="sm">ITEM ID: ' + esc(l.itemId) + '</div>' +
-        '</div>' +
-      '</div>';
-    }
-    return '<div class="ritem">' +
-      '<div class="thumb"><img src="' + (l.photoUrl ? esc(l.photoUrl) : px(l.itemId)) + '"' +
-        (l.photoUrl ? ' data-item="' + esc(l.itemId) + '" data-w="160" data-h="160"' +
-                      ' onerror="edpPhotoFallback(this)"' : '') + ' alt=""></div>' +
-      '<div class="mid">' +
-        '<div class="nm">' + esc((l.brand + ' ' + l.model).trim()) + '</div>' +
-        '<div class="sm">' +
-          'ITEM ID: ' + esc(l.itemId) + '<br>' +
-          'BRAND: ' + esc(l.brand || '—') + ' · MODEL: ' + esc(l.model || '—') + '<br>' +
-          'SERIAL: ' + esc(l.serialPlaceholder) + '<br>' +
-          'CONDITION: ' + esc(l.condition || '—') +
-        '</div>' +
-        '<span class="warr">' + esc(l.warrantyLabel) +
-          (l.warrantyPrice ? ' · +' + money(l.warrantyPrice) : '') + '</span>' +
-      '</div>' +
-      '<div class="amt">' + money(l.lineTotal) + '</div>' +
-    '</div>';
-  }
-
   function renderReceipt() {
     var el = $('#receipt');
     if (!el) { return; }
-    var m = buildReceiptModel();
+    var c = findCustomer(state.customerId);
+    var t = cartTotals();
+    var pm = (CFG.paymentMethods || []).filter(function (p) { return p.id === state.paymentMethodId; })[0];
 
-    /* photoUri() needs the record, not the model, so resolve it here rather
-       than carrying a data: URI through the shared model. */
-    function px(itemId) {
-      var it = findItem(itemId);
-      return it ? photoUri(it, 160, 160) : '';
-    }
-
-    var lines = m.lines.length
-      ? m.lines.map(function (l) { return receiptLineHtml(l, px); }).join('')
+    var lines = state.cart.length
+      ? state.cart.map(function (l) {
+          var it = resolveCartLine(l);
+          if (!it) {
+            return '<div class="ritem">' +
+              '<div class="mid">' +
+                '<div class="nm">UNRESOLVED ITEM — not included in totals</div>' +
+                '<div class="sm">ITEM ID: ' + esc(l.itemId) + '</div>' +
+              '</div>' +
+            '</div>';
+          }
+          var w = warrantyById(l.warrantyId);
+          var rthumb = realPhotoFor(it);
+          return '<div class="ritem">' +
+            '<div class="thumb"><img src="' + (rthumb ? esc(rthumb) : photoUri(it, 160, 160)) + '"' +
+              (rthumb ? ' data-item="' + esc(it.itemId) + '" data-w="160" data-h="160"' +
+                        ' onerror="edpPhotoFallback(this)"' : '') + ' alt=""></div>' +
+            '<div class="mid">' +
+              '<div class="nm">' + esc((it.brand || '') + ' ' + (it.model || '')) + '</div>' +
+              '<div class="sm">' +
+                'ITEM ID: ' + esc(l.itemId) + '<br>' +
+                'BRAND: ' + esc(it.brand || '—') + ' · MODEL: ' + esc(it.model || '—') + '<br>' +
+                'SERIAL: ' + esc(it.serialPlaceholder || '[ SERIAL PLACEHOLDER ]') + '<br>' +
+                'CONDITION: ' + esc(it.condition || '—') +
+              '</div>' +
+              '<span class="warr">' + esc(w.label) + (w.price ? ' · +' + money(w.price) : '') + '</span>' +
+            '</div>' +
+            '<div class="amt">' + money(l.unitPrice * l.qty) + '</div>' +
+          '</div>';
+        }).join('')
       : '<div class="empty" style="padding:28px 0"><div class="big">No line items</div>' +
         '<div>Add an item on the Register tab to populate this preview.</div></div>';
 
     el.innerHTML =
-      testMarkHtml(m, 'top') +
-
       '<div class="rhead">' +
         '<div class="mark">EDP</div>' +
-        '<h3>' + esc(m.store.short) + '</h3>' +
-        '<div class="co">' + esc(m.store.company) + '</div>' +
-        '<div class="ph">' + esc(m.store.address) + '<br>' + esc(m.store.phone) + '</div>' +
+        '<h3>' + esc(CFG.companyShort || 'Electronics Depot') + '</h3>' +
+        '<div class="co">' + esc(CFG.companyName || '') + '</div>' +
+        '<div class="ph">' + esc(CFG.storeAddress || '') + '<br>' + esc(CFG.storePhone || '') + '</div>' +
       '</div>' +
 
       '<div class="rmeta">' +
-        '<div><div class="lbl">Ticket</div>' + esc(m.ticketId) + '</div>' +
-        '<div><div class="lbl">Customer</div>' + esc(m.customer ? m.customer.name : 'Walk-in') +
-          (m.customer ? '<br><span style="color:var(--muted)">' + esc(m.customer.phone) + '</span>' : '') + '</div>' +
-        '<div><div class="lbl">Payment</div>' + esc(m.payment.label) + '</div>' +
-        '<div><div class="lbl">Date</div><span id="receiptDate">' + esc(m.dateText) + '</span></div>' +
+        '<div><div class="lbl">Ticket</div>' + esc(state.ticketId) + '</div>' +
+        '<div><div class="lbl">Customer</div>' + esc(c ? c.name : 'Walk-in') +
+          (c ? '<br><span style="color:var(--muted)">' + esc(c.phone) + '</span>' : '') + '</div>' +
+        '<div><div class="lbl">Payment</div>' + esc(pm ? pm.label : 'Cash') + '</div>' +
+        '<div><div class="lbl">Date</div><span id="receiptDate">—</span></div>' +
       '</div>' +
 
       lines +
 
       '<div class="rtot">' +
-        '<div class="trow"><span>Subtotal</span><span>' + money(m.totals.sub) + '</span></div>' +
-        '<div class="trow"><span>Warranty coverage</span><span>' + money(m.totals.warranty) + '</span></div>' +
-        '<div class="trow"><span>' + esc(m.totals.taxLabel) + '</span><span>' + money(m.totals.tax) + '</span></div>' +
-        '<div class="trow grand"><span>Total</span><span>' + money(m.totals.total) + '</span></div>' +
+        '<div class="trow"><span>Subtotal</span><span>' + money(t.sub) + '</span></div>' +
+        '<div class="trow"><span>Warranty coverage</span><span>' + money(t.warr) + '</span></div>' +
+        '<div class="trow"><span>' + esc(CFG.taxLabel || 'Sales Tax (MOCK)') + '</span><span>' + money(t.tax) + '</span></div>' +
+        '<div class="trow grand"><span>Total</span><span>' + money(t.total) + '</span></div>' +
       '</div>' +
 
       '<div class="rfoot">' +
-        esc(m.store.footer) + '<br>' +
-        'PREVIEW ONLY — NOT A VALID RECEIPT · ' + esc(m.build.environment) +
-        ' BUILD ' + esc(m.build.version) +
-      '</div>' +
+        esc(CFG.storeFooter || '') + '<br>' +
+        'PREVIEW ONLY — NOT A VALID RECEIPT · ' + esc(CFG.environment || 'TEST') + ' BUILD ' + esc(CFG.buildVersion || '') +
+      '</div>';
 
-      testMarkHtml(m, 'bottom');
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* 4b. ePOS-Print XML — BUILT AND TESTED, DELIBERATELY NOT CALLED          */
-  /*                                                                        */
-  /* This is a pure string builder over the receipt model above. It performs */
-  /* NO network call of any kind — the file's no-fetch/no-XHR contract is    */
-  /* intact — and it holds no printer address and no credential.            */
-  /*                                                                        */
-  /* Why it exists now: Route D (Package 11) prints through the Android      */
-  /* system print service, which renders the page graphically. If that       */
-  /* proves too slow or too coarse, the ESC/POS text path is the alternative */
-  /* and it must consume the SAME model, not a second one. Writing it        */
-  /* against the model while the model is being defined is what guarantees   */
-  /* that. Nothing wires it up until a transport is approved.                */
-  /* ---------------------------------------------------------------------- */
-  var EPOS_COLS = 42;            /* font A, 80mm roll, 42 characters */
-
-  function eposEsc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-  }
-
-  function eposMoney(n) {
-    return (n < 0 ? '-$' : '$') + Math.abs(Number(n) || 0).toFixed(2);
-  }
-
-  /* left text, right text, padded to EPOS_COLS. Truncates the LEFT side only
-     — an amount is never allowed to be clipped. */
-  function eposRow(left, right) {
-    left = String(left == null ? '' : left);
-    right = String(right == null ? '' : right);
-    var room = EPOS_COLS - right.length - 1;
-    if (room < 1) { return right.slice(0, EPOS_COLS) + '\n'; }
-    if (left.length > room) { left = left.slice(0, room); }
-    var gap = EPOS_COLS - left.length - right.length;
-    return left + new Array(gap + 1).join(' ') + right + '\n';
-  }
-
-  function eposCenter(text) {
-    text = String(text == null ? '' : text);
-    if (text.length >= EPOS_COLS) { return text.slice(0, EPOS_COLS) + '\n'; }
-    var padCount = Math.floor((EPOS_COLS - text.length) / 2);
-    return new Array(padCount + 1).join(' ') + text + '\n';
-  }
-
-  function eposRule(ch) {
-    return new Array(EPOS_COLS + 1).join(ch || '-') + '\n';
-  }
-
-  /* Wraps on word boundaries instead of chopping mid-word. A policy line that
-     reads "...TEXT PLACEHOLDE" is a defect on a customer's paper slip, even
-     when the text behind it is still a placeholder. */
-  function eposWrap(text, centered) {
-    var words = String(text == null ? '' : text).split(/\s+/).filter(Boolean);
-    var out = '', line = '';
-    function flush() {
-      if (!line) { return; }
-      out += centered ? eposCenter(line) : (line + '\n');
-      line = '';
-    }
-    words.forEach(function (w) {
-      while (w.length > EPOS_COLS) {            /* a single unbreakable token */
-        flush();
-        out += w.slice(0, EPOS_COLS) + '\n';
-        w = w.slice(EPOS_COLS);
-      }
-      if (!line) { line = w; }
-      else if (line.length + 1 + w.length <= EPOS_COLS) { line += ' ' + w; }
-      else { flush(); line = w; }
-    });
-    flush();
-    return out;
-  }
-
-  /* An ESC/POS font-A code page has no em dash, no curly quote and no middle
-     dot. Transliterating 1:1 keeps the column arithmetic above exactly right
-     while making sure nothing prints as a stray glyph. This runs ONCE, over
-     the finished body, so there is still only one receipt model. */
-  function eposAscii(s) {
-    return String(s == null ? '' : s)
-      .replace(/[\u2014\u2013\u2212]/g, '-')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(/\u00B7/g, '-')
-      .replace(/\u00A0/g, ' ')
-      .replace(/[^\x0A\x20-\x7E]/g, '?');
-  }
-
-  function buildEposPrintXml(model) {
-    var m = model || buildReceiptModel();
-    var body = '';
-
-    if (m.isTest) {
-      body += eposRule('*') + eposCenter(m.testMark) + eposWrap(m.testWhy, true) + eposRule('*');
-    }
-
-    body += eposCenter(m.store.short) + eposCenter(m.store.company);
-    if (m.store.address) { body += eposCenter(m.store.address); }
-    if (m.store.phone)   { body += eposCenter(m.store.phone); }
-    body += eposRule('=');
-
-    body += eposRow('Ticket', m.ticketId);
-    body += eposRow('Date', m.dateText);
-    body += eposRow('Customer', m.customer ? m.customer.name : 'Walk-in');
-    body += eposRow('Payment', m.payment.label);
-    body += eposRule('=');
-
-    m.lines.forEach(function (l) {
-      if (!l.resolved) {
-        body += 'UNRESOLVED ITEM - not included in totals\n';
-        body += '  ITEM ID: ' + l.itemId + '\n';
-        return;
-      }
-      body += eposRow((l.brand + ' ' + l.model).trim(), eposMoney(l.lineTotal));
-      body += '  ' + l.itemId + ' x' + l.qty + ' @ ' + eposMoney(l.unitPrice) + '\n';
-      body += '  SERIAL: ' + l.serialPlaceholder + '\n';
-      body += '  CONDITION: ' + (l.condition || '-') + '\n';
-      body += '  ' + l.warrantyLabel + (l.warrantyPrice ? ' +' + eposMoney(l.warrantyPrice) : '') + '\n';
-    });
-
-    body += eposRule('-');
-    body += eposRow('Subtotal', eposMoney(m.totals.sub));
-    body += eposRow('Warranty coverage', eposMoney(m.totals.warranty));
-    body += eposRow(m.totals.taxLabel, eposMoney(m.totals.tax));
-    body += eposRow('TOTAL', eposMoney(m.totals.total));
-    body += eposRule('=');
-
-    if (m.store.footer) { body += eposWrap(m.store.footer, true); }
-    body += eposCenter('PREVIEW ONLY - NOT A VALID RECEIPT');
-    body += eposCenter(m.build.environment + ' BUILD ' + m.build.version);
-
-    if (m.isTest) {
-      body += eposRule('*') + eposCenter(m.testMark) + eposRule('*');
-    }
-
-    return '<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">' +
-             '<text lang="en"/>' +
-             '<text smooth="true"/>' +
-             '<text>' + eposEsc(eposAscii(body)) + '</text>' +
-             '<feed unit="24"/>' +
-             '<cut type="feed"/>' +
-           '</epos-print>';
+    var d = $('#receiptDate');
+    if (d && dateFmt) { d.textContent = dateFmt.format(new Date()); }
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1220,53 +966,12 @@
     $('#simSync').addEventListener('click', simulateSync);
     $('#simPrinter').addEventListener('click', simulatePrinter);
 
-    /* Print — Package 11, Route D.
-       This hands the already-rendered receipt to the BROWSER, which hands it
-       to the operating system's print pipeline. On Android that is the system
-       print service (e.g. Epson Print Enabler), and the print service is what
-       talks to the receipt printer.
-
-       This page therefore never contacts the printer: no fetch, no XHR, no
-       printer address, no certificate to trust and no credential to hold.
-       That is the whole point of the route — it is why an untrusted
-       self-signed printer certificate and browser mixed-content rules cannot
-       block it, and why there is nothing to roll back on the printer.
-
-       The receipt view is made active and re-rendered FIRST: an inactive
-       view is display:none, and a hidden receipt prints as a blank page. */
-    $('#btnPrint').addEventListener('click', function () {
-      setView('receipt');
-      renderReceipt();
-
-      var m = buildReceiptModel();
-      var priced = m.lines.filter(function (l) { return l.resolved; }).length;
-      var opened = false;
-      try {
-        if (typeof window.print === 'function') { window.print(); opened = true; }
-      } catch (e) { opened = false; }
-
-      logLocalEvent('RECEIPT_PRINTED',
-        opened ? 'Receipt handed to the system print dialog'
-               : 'System print dialog could not be opened', {
-        detail: opened
-          ? 'Choose the receipt printer in the print sheet. ' + priced + ' priced line(s)' +
-            (m.totals.unresolvedCount
-              ? ', ' + m.totals.unresolvedCount + ' unresolved line(s) shown but not priced'
-              : '') + '.'
-          : 'window.print() was unavailable in this frame. Use the browser menu ' +
-            '(three dots) then Share, then Print.',
-        status: opened ? 'HANDED_OFF' : 'BLOCKED',
-        reason: m.isTest ? 'TEST build — the receipt is marked ' + m.testMark : null
-      });
-    });
-
-    // Email Receipt and Reprint remain placeholders — intentionally inert.
-    // They will consume buildReceiptModel() when their channels are approved.
-    ['#btnEmail', '#btnReprint'].forEach(function (sel) {
+    // Receipt action placeholders — intentionally inert
+    ['#btnPrint', '#btnEmail', '#btnReprint'].forEach(function (sel) {
       $(sel).addEventListener('click', function () {
-        var label = sel === '#btnEmail' ? 'Email Receipt' : 'Reprint';
+        var label = sel === '#btnPrint' ? 'Print' : (sel === '#btnEmail' ? 'Email Receipt' : 'Reprint');
         logLocalEvent('RECEIPT_PRINTED', label + ' pressed (placeholder)', {
-          detail: 'No mail sender and no reprint store exist in this build. Nothing was sent.',
+          detail: 'No printer bridge and no mail sender exist in this build. Nothing was sent.',
           status: 'PENDING', reason: 'Not implemented in TEST shell pass 1'
         });
         setView('activity');

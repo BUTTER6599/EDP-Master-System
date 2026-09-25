@@ -32,7 +32,9 @@ it).
 | Real-inventory runtime | **PROVEN and fully reconciled** — see below |
 | Real appliance photos | **VERIFIED COMPLETE** by owner visual check (Package 9) |
 | Complete Sale | Hard-disabled |
-| Tests | 224 assertions, 7 suites, 0 failed |
+| Receipt data model | **ONE model** — `buildReceiptModel()` (Package 11). Staged locally, NOT deployed |
+| Receipt printing | Route D wired in source (system print hand-off). Staged locally, NOT deployed, NOT proven on paper |
+| Tests | 432 assertions, 10 suites, 0 failed |
 
 ### Package 8 — real-inventory runtime proof (verified 2026-09-23)
 
@@ -77,6 +79,62 @@ placeholder" label now appears only when that fallback is actually in use.
 approval of checkout, tax, customer data, sales writing, inventory mutation,
 printing, LIVE deployment, or production readiness.
 
+### Package 11 — Android to physical TEST receipt (STAGED, NOT DEPLOYED)
+
+**Chosen route (owner-approved): Route D — print through the device's own print
+service.** The page hands the rendered receipt to the browser, the browser hands
+it to the OS, and the OS print service talks to the printer. The Register never
+addresses the printer, so it holds no printer address, no certificate and no
+credential — which is exactly why the untrusted self-signed printer certificate
+and browser mixed-content rules cannot block it, and why there is nothing to
+roll back on the printer.
+
+Routes rejected, and why:
+
+| Route | Why not |
+| --- | --- |
+| Certificate + ePOS-Print over HTTPS | Requires uploading a trusted certificate to the printer. Printer admin credentials are UNKNOWN, so this is blocked at step 1 |
+| Server Direct Print | Also needs printer admin access, plus a world-reachable anonymous `/exec` holding receipt jobs — a security decision far larger than the problem |
+| Local print bridge on the Windows PC | Called from an HTTPS page, so it needs a trusted certificate of its own. Solves a certificate problem with a certificate problem, and adds an always-on machine |
+
+Verified printer facts (owner-observed, 2026-09-25): Epson TM-m30II, model
+M362B, serial X855040637, MAC 38:1A:52:9C:C9:CA, at 192.168.12.97/24, gateway
+192.168.12.1, DHCP enabled. The Android phone reaches it over the LAN; the
+printer redirects HTTP to HTTPS; Chrome shows a RED warning on that HTTPS
+(untrusted self-signed certificate); the "Authentication failed" dialog is the
+**admin web UI**, not the print endpoint; and Epson TM Utility (a native Android
+app) produced a physical test print. Printer admin credentials are UNKNOWN, so
+certificate inspection is BLOCKED pending them.
+
+What was built (staged locally, nothing deployed):
+
+- `buildReceiptModel()` — the single receipt data model. Screen preview,
+  thermal print, reprint, email receipt, text receipt and ePOS-Print XML all
+  consume this and nothing else, so phone, tablet and desktop cannot drift.
+- TEST marking — **TEST — NOT A SALE** at the top AND the bottom of every
+  receipt, driven by `COMPLETE_SALE_ENABLED`, not by a separate switch. It
+  fails CLOSED: any value other than boolean `true` still prints the mark.
+- A second, independent field allowlist. The builder copies named fields out of
+  an inventory record and never spreads it, so a future server-side change
+  cannot put a private column onto paper.
+- `#btnPrint` wired to `window.print()`. Email Receipt and Reprint stay inert.
+- `buildEposPrintXml()` — written and tested against the same model, and
+  **deliberately never called**. It exists so that if Route D's graphic print
+  quality proves unacceptable, the ESC/POS text path already consumes the one
+  model rather than growing a second one.
+- A thermal print stylesheet: 72mm roll width, pure black, photos suppressed,
+  page chrome removed. Verified by rendering the real page under `media: print`
+  in a real browser and measuring computed style, not by reading the CSS.
+
+**NOT proven:** no receipt has been printed on paper from the Register. Route
+D's mechanism is standard Android plus standard Epson tooling, but it is
+UNVERIFIED here until the owner sees a physical slip. Two specific risks are
+open: whether Apps Script's sandboxed `userHtmlFrame` permits `window.print()`
+(the code logs `BLOCKED` and names the browser-menu fallback if it does not),
+and whether the print service issues an auto-cut.
+
+Nothing was deployed. Nothing on the printer or the network was touched.
+
 ## Remaining TEST / mock elements on screen
 
 Real inventory and its photographs are live. Everything else on the Register is
@@ -90,7 +148,8 @@ still simulated, and the screen says so in places:
 | Open ticket `TXN-MOCK-4471` | MOCK — and see NV-13 below |
 | Sales Tax "(MOCK) · 9.45%" | MOCK placeholder rate. NV-1 still OPEN |
 | Complete Sale | Hard-disabled |
-| Receipt / invoice | Preview only. No printer bridge, no mail sender |
+| Receipt / invoice | Print is wired to the device print service (staged, not deployed). Email Receipt and Reprint are still inert |
+| Every receipt produced | Marked **TEST — NOT A SALE**, top and bottom, driven by `COMPLETE_SALE_ENABLED` |
 
 ## Deferred requirements
 
@@ -195,6 +254,28 @@ appliances as unit records versus PARTS carrying a quantity; that no Sheets
 adapter previously existed anywhere; `photo_links` as a comma-separated URL
 list; that `cost_basis` must never reach the client; the duplicate audit-tab
 conflict; and weak SALES linkage (now quantified more precisely).
+
+### Package 11 test-harness provenance
+
+- `test/run/receipt-tests.cjs` and `test/run/print-render-tests.cjs` are NEW
+  in Package 11. They have no counterpart in `test/recovery-snapshot/`, so the
+  "differs from the preserved evidence by exactly one line" claim in
+  `test/run-all.cjs` does not apply to them and was never meant to.
+- `test/run-all.cjs` was edited to register the two new suites and renumber the
+  step headers. No existing suite file was modified.
+- The "Tests" row above previously read **224 assertions, 7 suites** — that was
+  already stale before Package 11 began. The accepted figure entering Package 11
+  was 280 assertions across 8 suites; it now reads 432 across 10.
+- Three Package 11 assertions check source-level bans against **comment-stripped**
+  code rather than raw file text. That change was forced, not chosen: the first
+  run failed because `DataSource.gs`'s own header says "No setProperty" and
+  `Scripts.html`'s own header says "No fetch/XHR/WebSocket" — the suite was
+  matching the prose that documents each ban. The stripper is itself asserted
+  before any ban relies on it, and the printer-address and endpoint bans are
+  still checked against the raw file, code and comments alike.
+- Package 11 pre-write byte-exact copies of the three edited files, with their
+  SHA-256 digests, are preserved in `test/pkg11-prewrite/`. That directory sits
+  outside the `.claspignore` allowlist and can never reach Apps Script.
 
 ## Standing safety rules
 
