@@ -432,22 +432,62 @@
     modal.confirmationRefs.append(title, list);
   }
 
-  function showConfirmation(draft) {
+  function showConfirmation(draft, serverInfo) {
     modal.formView.hidden = true;
     modal.confirmation.hidden = false;
     modal.confirmationVerbatim.textContent = CONFIRMATION_SENTENCE;
-    const parts = [
-      `Draft saved in this browser session only (TEST). Item ${draft.item_id}.`,
-      draft.fulfillment === 'delivery'
-        ? 'Delivery was selected; the delivery questionnaire and photo placeholders have been recorded in the draft only.'
-        : 'Pickup was selected.'
-    ];
+
+    const parts = [];
+    if (serverInfo && serverInfo.ok) {
+      parts.push(`Your Hold Request ID is ${serverInfo.hold_id}.`);
+      parts.push(`Recorded at ${serverInfo.hold_time}.`);
+      parts.push(`Item ${draft.item_id}.`);
+      if (draft.fulfillment === 'delivery') {
+        parts.push('Delivery was selected; the delivery questionnaire and photo placeholders stayed in this browser only for the TEST build and were not sent to EDP in this request.');
+      } else {
+        parts.push('Pickup was selected.');
+      }
+    } else {
+      parts.push(`Draft saved in this browser session only (TEST). Item ${draft.item_id}.`);
+      if (serverInfo && serverInfo.error) {
+        parts.push(`EDP could not record this request right now (${serverInfo.error}); the local draft is still in your browser. An Electronics Depot representative can be reached at 504-732-1233.`);
+      } else {
+        parts.push('EDP could not record this request right now; the local draft is still in your browser.');
+      }
+      if (draft.fulfillment === 'delivery') {
+        parts.push('Delivery was selected; the delivery questionnaire and photo placeholders have been recorded in the draft only.');
+      } else {
+        parts.push('Pickup was selected.');
+      }
+    }
     modal.confirmationContext.textContent = parts.join(' ');
     renderConfirmationRefs(draft.fulfillment);
     modal.panel.scrollTop = 0;
   }
 
-  function saveDraft() {
+  async function submitDraftToServer(draft) {
+    try {
+      const response = await fetch('/api/hold-request', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+        body: JSON.stringify({
+          item_id: draft.item_id,
+          customer_name: draft.customer_name,
+          phone: draft.phone
+        })
+      });
+      const result = await response.json().catch(() => null);
+      if (response.ok && result && result.ok) {
+        return { ok: true, hold_id: result.hold_id, hold_time: result.hold_time, status: result.status };
+      }
+      const safeError = result && result.error ? String(result.error).slice(0, 64) : 'unavailable';
+      return { ok: false, error: safeError };
+    } catch (_err) {
+      return { ok: false, error: 'network' };
+    }
+  }
+
+  async function saveDraft() {
     if (modal.submit.disabled || !currentItem) return;
     const fulfillment = selectedFulfillment();
     const accessories = Array.from(modal.accessories.querySelectorAll('input:checked')).map((input) => input.value);
@@ -479,7 +519,25 @@
       created_at: new Date().toISOString()
     };
     try { sessionStorage.setItem(HOLD_DRAFT_KEY, JSON.stringify(draft)); } catch (_) { /* TEST draft may fail closed */ }
-    showConfirmation(draft);
+
+    // Preserve the frontend flow: the server call runs asynchronously
+    // and the confirmation screen is shown immediately on error so the
+    // customer always reaches the verbatim notice. The hold_id is
+    // filled in once the server responds (or an error is displayed).
+    modal.submit.disabled = true;
+    showConfirmation(draft, { ok: false, pending: true });
+    const serverInfo = await submitDraftToServer(draft);
+    if (serverInfo && serverInfo.ok) {
+      try {
+        const updated = JSON.parse(sessionStorage.getItem(HOLD_DRAFT_KEY) || '{}');
+        updated.state = 'SUBMITTED_TO_GATEWAY';
+        updated.hold_id = serverInfo.hold_id;
+        updated.hold_time = serverInfo.hold_time;
+        updated.hold_status = serverInfo.status;
+        sessionStorage.setItem(HOLD_DRAFT_KEY, JSON.stringify(updated));
+      } catch (_) { /* best effort */ }
+    }
+    showConfirmation(draft, serverInfo);
   }
 
   function wireButtons() {
@@ -549,6 +607,8 @@
     validate,
     syncDeliveryPanel,
     saveDraft,
+    submitDraftToServer,
+    showConfirmation,
     DELIVERY_QUESTIONS,
     PHOTO_PLACEHOLDERS,
     CONFIRMATION_SENTENCE

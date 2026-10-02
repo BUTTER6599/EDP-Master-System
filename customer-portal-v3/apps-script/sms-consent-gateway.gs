@@ -25,6 +25,14 @@ function doPost(e) {
       return jsonResponse_({ ok: false, error: 'environment_not_allowed' });
     }
 
+    // Dispatcher. Payloads with no `action` keep the pre-existing
+    // SMS-consent behavior (backward compatible with the Railway
+    // /api/sms-consent proxy). Payloads with action='hold_request'
+    // route to the Hold Request handler in hold-request-gateway.gs.
+    if (payload.action === 'hold_request') {
+      return handleHoldRequest_(payload);
+    }
+
     const mobileNumber = normalizeUsPhone_(payload.mobile_number);
     if (!mobileNumber) {
       return jsonResponse_({ ok: false, error: 'invalid_mobile_number' });

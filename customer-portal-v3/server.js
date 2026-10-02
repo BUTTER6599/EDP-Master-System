@@ -6,6 +6,11 @@ const port = process.env.PORT || 3000;
 const consentGatewayUrl = process.env.CONSENT_GATEWAY_URL || '';
 const consentGatewaySecret = process.env.CONSENT_GATEWAY_SECRET || '';
 const applianceGatewayUrl = process.env.APPLIANCE_GATEWAY_URL || '';
+// Hold-request gateway reuses the same Apps Script project as the SMS
+// consent gateway (dispatched on payload.action). Separate env vars so
+// the ops surface stays explicit and the gateway URL can be rotated.
+const holdGatewayUrl = process.env.HOLD_GATEWAY_URL || process.env.CONSENT_GATEWAY_URL || '';
+const holdGatewaySecret = process.env.HOLD_GATEWAY_SECRET || process.env.CONSENT_GATEWAY_SECRET || '';
 
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -80,6 +85,78 @@ app.get('/api/appliances', async (_req, res) => {
   } catch (err) {
     console.error('Appliance gateway request failed:', err && err.message ? err.message : err);
     return res.status(200).json({ ok: false, error: 'unavailable' });
+  }
+});
+
+// Public hold-request submission. Proxies to the TEST Apps Script
+// hold-request handler which writes to the CUSTOMER_HOLDS tab in
+// EDP_MASTER_DATABASE. Only the three customer-supplied fields
+// (item_id, customer_name, phone) are forwarded; everything else is
+// server-controlled. On gateway failure the server returns a stable
+// opaque error — the frontend keeps its session-only draft and
+// surfaces a degraded confirmation.
+app.post('/api/hold-request', async (req, res) => {
+  if (!holdGatewayUrl || !holdGatewaySecret) {
+    return res.status(503).json({ ok: false, error: 'hold_gateway_not_configured' });
+  }
+
+  const body = req.body || {};
+  const itemId = cleanText(body.item_id, 60);
+  const customerName = cleanText(body.customer_name, 120);
+  const phoneDigits = normalizeUsPhoneDigits(body.phone);
+
+  if (!itemId) {
+    return res.status(400).json({ ok: false, error: 'invalid_item_id' });
+  }
+  if (!customerName) {
+    return res.status(400).json({ ok: false, error: 'invalid_customer_name' });
+  }
+  if (phoneDigits.length !== 10) {
+    return res.status(400).json({ ok: false, error: 'invalid_phone' });
+  }
+
+  const gatewayPayload = {
+    secret: holdGatewaySecret,
+    environment: 'TEST',
+    action: 'hold_request',
+    item_id: itemId,
+    customer_name: customerName,
+    phone: phoneDigits
+  };
+
+  try {
+    const response = await fetch(holdGatewayUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(gatewayPayload),
+      signal: AbortSignal.timeout(10000)
+    });
+
+    const text = await response.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (_err) {
+      console.error('Hold gateway returned non-JSON. HTTP status:', response.status);
+      return res.status(502).json({ ok: false, error: 'invalid_gateway_response' });
+    }
+
+    if (!response.ok || !result.ok) {
+      const safeError = result && result.error ? String(result.error) : 'hold_gateway_error';
+      console.error('Hold gateway rejected TEST request:', safeError, 'HTTP status:', response.status);
+      return res.status(502).json({ ok: false, error: safeError });
+    }
+
+    return res.status(201).json({
+      ok: true,
+      hold_id: result.hold_id,
+      hold_time: result.hold_time,
+      status: result.status,
+      persisted_fields: Array.isArray(result.persisted_fields) ? result.persisted_fields : []
+    });
+  } catch (err) {
+    console.error('Hold gateway request failed:', err && err.message ? err.message : err);
+    return res.status(502).json({ ok: false, error: 'hold_gateway_unreachable' });
   }
 });
 
@@ -195,4 +272,10 @@ function normalizeUsPhone(value) {
   if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
   if (digits.length !== 10) return '';
   return `+1${digits}`;
+}
+
+function normalizeUsPhoneDigits(value) {
+  let digits = String(value == null ? '' : value).replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+  return digits;
 }
