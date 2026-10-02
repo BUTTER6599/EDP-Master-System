@@ -61,13 +61,13 @@
       <div id="appliance-grid" class="appliance-grid" aria-live="polite" hidden></div>
     </section>
 
-    <section class="section split" id="parts">
+    <section class="section split" id="parts" data-ext="parts-catalog" data-ext-status="placeholder">
       <div>
         <p class="eyebrow">PARTS</p>
         <h2>Need an appliance part?</h2>
         <p>The Parts section will support customer inquiries and approved parts listings as the Portal expands.</p>
       </div>
-      <div class="placeholder">Parts workflow coming in the next build phase.</div>
+      <div class="placeholder" data-ext-slot="parts-catalog-mount">Parts workflow coming in the next build phase.</div>
     </section>
 
     <section class="section" id="services">
@@ -99,6 +99,7 @@
     <p>© 2026 The Electronics Depot LLC</p>
     <p><a href="/privacy.html">Privacy Policy</a> · <a href="/sms-terms.html">SMS Terms</a> · <a href="/sms-consent.html">SMS Updates</a> · Customer Portal V3 — TEST build</p>
   </footer>
+  <script defer src="/policy-library.js"></script>
   <script defer src="/policy-gate.js"></script>
   <script defer src="/policy-audio.js"></script>
   <script defer src="/appliances.js"></script>
