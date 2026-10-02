@@ -15,6 +15,16 @@ function doGet() {
 function doPost(e) {
   try {
     const payload = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // TEST-only diagnostic branch for the Hold Request auth bug.
+    // Returns ONLY lengths and boolean comparisons. Never returns the
+    // secret value in any form. Deliberately bypasses the secret check
+    // so a mismatch can be diagnosed; the environment guard still
+    // applies. Remove this branch once the auth mismatch is fixed.
+    if (payload.action === 'diag_hold_auth' && payload.environment === ALLOWED_ENVIRONMENT) {
+      return handleDiagHoldAuth_(payload);
+    }
+
     const expectedSecret = PropertiesService.getScriptProperties().getProperty(PORTAL_SECRET_PROPERTY);
 
     if (!expectedSecret || payload.secret !== expectedSecret) {
@@ -95,6 +105,35 @@ function doPost(e) {
     console.error(err && err.stack ? err.stack : err);
     return jsonResponse_({ ok: false, error: 'gateway_error' });
   }
+}
+
+/**
+ * TEST-only diagnostic. Returns metadata about the shared-secret
+ * state so an auth mismatch can be pinpointed without revealing the
+ * secret value. Never returns the secret itself; only lengths and
+ * boolean comparisons.
+ */
+function handleDiagHoldAuth_(payload) {
+  const expected = PropertiesService.getScriptProperties().getProperty(PORTAL_SECRET_PROPERTY) || '';
+  const received = String(payload.probe_secret == null ? '' : payload.probe_secret);
+  let scriptId = '';
+  try { scriptId = ScriptApp.getScriptId(); } catch (_) { scriptId = 'unknown'; }
+  return jsonResponse_({
+    ok: true,
+    diag: 'hold_auth',
+    script_id: scriptId,
+    portal_shared_secret_property_name: PORTAL_SECRET_PROPERTY,
+    expected_configured: expected.length > 0,
+    expected_length: expected.length,
+    expected_leading_ws: expected.length > 0 && /^\s/.test(expected),
+    expected_trailing_ws: expected.length > 0 && /\s$/.test(expected),
+    received_configured: received.length > 0,
+    received_length: received.length,
+    received_leading_ws: received.length > 0 && /^\s/.test(received),
+    received_trailing_ws: received.length > 0 && /\s$/.test(received),
+    length_match: expected.length === received.length,
+    bytewise_match: expected.length > 0 && received.length > 0 && expected === received
+  });
 }
 
 function appendByHeader_(sheet, record) {

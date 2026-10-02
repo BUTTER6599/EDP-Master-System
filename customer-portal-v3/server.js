@@ -160,6 +160,53 @@ app.post('/api/hold-request', async (req, res) => {
   }
 });
 
+// TEST-only auth diagnostic for the Hold Request bug. Returns server
+// env state (which var is in use, whether it is configured, its byte
+// length, leading/trailing whitespace flags) and a round-trip through
+// the Apps Script gateway's diag_hold_auth action (returns Script
+// Property length/match without the value). Remove this endpoint and
+// the matching Apps Script branch once the mismatch is resolved.
+app.get('/api/hold-request/_diag', async (_req, res) => {
+  const urlEnv = process.env.HOLD_GATEWAY_URL ? 'HOLD_GATEWAY_URL'
+    : process.env.CONSENT_GATEWAY_URL ? 'CONSENT_GATEWAY_URL_fallback'
+    : 'none';
+  const secretEnv = process.env.HOLD_GATEWAY_SECRET ? 'HOLD_GATEWAY_SECRET'
+    : process.env.CONSENT_GATEWAY_SECRET ? 'CONSENT_GATEWAY_SECRET_fallback'
+    : 'none';
+  const urlTail = holdGatewayUrl ? holdGatewayUrl.slice(-20) : '';
+  const serverInfo = {
+    url_source: urlEnv,
+    url_configured: Boolean(holdGatewayUrl),
+    url_tail20: urlTail,
+    secret_source: secretEnv,
+    secret_configured: Boolean(holdGatewaySecret),
+    secret_length: holdGatewaySecret.length,
+    secret_leading_ws: holdGatewaySecret.length > 0 && /^\s/.test(holdGatewaySecret),
+    secret_trailing_ws: holdGatewaySecret.length > 0 && /\s$/.test(holdGatewaySecret)
+  };
+  if (!holdGatewayUrl || !holdGatewaySecret) {
+    return res.status(200).json({ ok: true, server: serverInfo, gateway: null, note: 'gateway not configured' });
+  }
+  try {
+    const response = await fetch(holdGatewayUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        environment: 'TEST',
+        action: 'diag_hold_auth',
+        probe_secret: holdGatewaySecret
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+    const text = await response.text();
+    let result;
+    try { result = JSON.parse(text); } catch (_) { result = { ok: false, error: 'non_json', raw: text.slice(0, 200) }; }
+    return res.status(200).json({ ok: true, server: serverInfo, gateway: result });
+  } catch (err) {
+    return res.status(200).json({ ok: true, server: serverInfo, gateway: { ok: false, error: err && err.message ? err.message : 'network' } });
+  }
+});
+
 app.post('/api/sms-consent', async (req, res) => {
   if (!consentGatewayUrl || !consentGatewaySecret) {
     return res.status(503).json({ ok: false, error: 'consent_gateway_not_configured' });
