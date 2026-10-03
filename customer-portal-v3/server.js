@@ -88,6 +88,51 @@ app.get('/api/appliances', async (_req, res) => {
   }
 });
 
+// TEST-only diagnostic. Returns the raw text body the appliance
+// gateway returned to Node, plus its HTTP status and server-side
+// state. Lets us see when the gateway returns an HTML error page or
+// a non-ok JSON instead of the expected success body. Carries no
+// customer or secret data. Remove after the overlay root cause is
+// found and the overlay is re-enabled with the proper safeguards.
+app.get('/api/appliances/_raw', async (_req, res) => {
+  const serverInfo = {
+    url_configured: Boolean(applianceGatewayUrl),
+    url_tail20: applianceGatewayUrl ? applianceGatewayUrl.slice(-20) : ''
+  };
+  if (!applianceGatewayUrl) {
+    return res.status(200).json({ ok: true, server: serverInfo, gateway: null });
+  }
+  try {
+    const response = await fetch(applianceGatewayUrl, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10000)
+    });
+    const text = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+    const final = response.url || applianceGatewayUrl;
+    return res.status(200).json({
+      ok: true,
+      server: serverInfo,
+      gateway: {
+        http_status: response.status,
+        http_ok: response.ok,
+        content_type: contentType,
+        final_url_tail40: final.slice(-40),
+        body_length: text.length,
+        body_head: text.slice(0, 800)
+      }
+    });
+  } catch (err) {
+    return res.status(200).json({
+      ok: true,
+      server: serverInfo,
+      gateway: { error: err && err.message ? err.message : 'network' }
+    });
+  }
+});
+
 // Public hold-request submission. Proxies to the TEST Apps Script
 // hold-request handler which writes to the CUSTOMER_HOLDS tab in
 // EDP_MASTER_DATABASE. Only the three customer-supplied fields
