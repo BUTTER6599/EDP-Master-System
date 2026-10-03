@@ -21,6 +21,23 @@
 
 const APPLIANCE_SPREADSHEET_ID = '117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI';
 const APPLIANCE_SHEET_NAME = 'APPLIANCES';
+const APPLIANCE_HOLDS_SHEET_NAME = 'CUSTOMER_HOLDS';
+
+// Status tokens on CUSTOMER_HOLDS that mark an active, customer-facing
+// hold. Match is case-insensitive and strips every non-alphanumeric
+// character, so "pending review", "pending-review", "PENDING_REVIEW",
+// "on hold", "on-hold" all collapse to the same token. Anything else
+// (CONFIRMED_SOLD, CANCELLED, EXPIRED, blank, unknown) is NOT treated
+// as active and does not block the inventory card.
+const APPLIANCE_ACTIVE_HOLD_STATUSES = {
+  PENDINGREVIEW: true,
+  PENDING: true,
+  ACTIVE: true,
+  OPEN: true,
+  HOLD: true,
+  HELD: true,
+  ONHOLD: true
+};
 
 // Zero-indexed column positions in the APPLIANCES header row.
 // Verified header row: A item_id ... Z spec_verified
@@ -98,6 +115,18 @@ function doGet() {
       return applianceJsonResponse_({ ok: false, error: 'unavailable' });
     }
 
+    // Fail-open hold overlay. If CUSTOMER_HOLDS is missing or any step
+    // of the hold read throws, the browse page still renders — the
+    // ribbon just does not show for anyone. This is deliberate: a
+    // hold-sheet issue must NEVER take down the inventory feed.
+    let activeHoldsByItem = {};
+    try {
+      activeHoldsByItem = applianceLoadActiveHolds_(ss);
+    } catch (holdErr) {
+      console.error('Hold overlay read failed:', holdErr && holdErr.stack ? holdErr.stack : holdErr);
+      activeHoldsByItem = {};
+    }
+
     const rows = sheet.getDataRange().getValues();
     if (rows.length < 2) {
       return applianceJsonResponse_({ ok: true, count: 0, data: [] });
@@ -107,7 +136,18 @@ function doGet() {
     const items = [];
     for (let i = 0; i < rows.length; i += 1) {
       const projected = applianceProjectPublic_(rows[i]);
-      if (projected) items.push(projected);
+      if (!projected) continue;
+      // Enrich with only the three public-safe hold fields. Customer
+      // name, phone, raw status, raw expires_at NEVER appear here.
+      const hold = activeHoldsByItem[projected.item_id];
+      if (hold) {
+        projected.is_held = true;
+        if (hold.hold_id) projected.hold_id = hold.hold_id;
+        if (hold.held_until) projected.held_until = hold.held_until;
+      } else {
+        projected.is_held = false;
+      }
+      items.push(projected);
     }
 
     return applianceJsonResponse_({ ok: true, count: items.length, data: items });
@@ -116,6 +156,71 @@ function doGet() {
     console.error(err && err.stack ? err.stack : err);
     return applianceJsonResponse_({ ok: false, error: 'unavailable' });
   }
+}
+
+/**
+ * Returns {item_id: {hold_id, held_until}} for every CUSTOMER_HOLDS row
+ * whose status normalizes to a token in APPLIANCE_ACTIVE_HOLD_STATUSES
+ * AND whose expires_at is either blank (no expiry set) OR parses to a
+ * future date. Expired, unparseable, or unknown-status rows are
+ * dropped. Blank-expires_at rows are kept because new portal holds
+ * never carry an expiry (EDP sets one on confirmation).
+ *
+ * This function reads CUSTOMER_HOLDS by header name — not by column
+ * index — so a column add/reorder on CUSTOMER_HOLDS does not break
+ * the overlay. Missing hold_id or expires_at headers degrade to the
+ * row carrying blank values; missing item_id or status headers
+ * abort the overlay entirely (the browse feed still works).
+ */
+function applianceLoadActiveHolds_(ss) {
+  const sheet = ss.getSheetByName(APPLIANCE_HOLDS_SHEET_NAME);
+  if (!sheet) return {};
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {};
+  const lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return {};
+  const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const headers = data[0].map(function (v) { return String(v == null ? '' : v); });
+
+  const idx = {
+    hold_id: headers.indexOf('hold_id'),
+    item_id: headers.indexOf('item_id'),
+    expires_at: headers.indexOf('expires_at'),
+    status: headers.indexOf('status')
+  };
+  if (idx.item_id < 0 || idx.status < 0) return {};
+
+  const now = new Date().getTime();
+  const out = {};
+  for (let r = 1; r < data.length; r += 1) {
+    const row = data[r];
+    const itemId = String(row[idx.item_id] == null ? '' : row[idx.item_id]).trim();
+    if (!itemId) continue;
+
+    const statusToken = String(row[idx.status] == null ? '' : row[idx.status])
+      .toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!APPLIANCE_ACTIVE_HOLD_STATUSES[statusToken]) continue;
+
+    let heldUntil = '';
+    if (idx.expires_at >= 0) {
+      const raw = row[idx.expires_at];
+      if (raw !== '' && raw !== null && raw !== undefined) {
+        let d = null;
+        if (raw instanceof Date) d = raw;
+        else d = new Date(String(raw));
+        const t = (d && typeof d.getTime === 'function') ? d.getTime() : NaN;
+        if (!isFinite(t)) continue;    // unparseable -> drop
+        if (t <= now) continue;        // expired   -> drop
+        heldUntil = Utilities.formatDate(d, 'America/Chicago', 'yyyy-MM-dd');
+      }
+    }
+
+    const holdId = idx.hold_id >= 0
+      ? String(row[idx.hold_id] == null ? '' : row[idx.hold_id]).trim()
+      : '';
+    out[itemId] = { hold_id: holdId, held_until: heldUntil };
+  }
+  return out;
 }
 
 /**
