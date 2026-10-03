@@ -4,13 +4,17 @@ const CUSTOMERS_SHEET = 'CUSTOMERS';
 const ALLOWED_ENVIRONMENT = 'TEST';
 const PORTAL_SECRET_PROPERTY = 'PORTAL_SHARED_SECRET';
 
-function doGet() {
-  return jsonResponse_({
-    ok: true,
-    service: 'EDP SMS Consent Gateway',
-    environment: ALLOWED_ENVIRONMENT
-  });
-}
+// NOTE: do NOT declare a function doGet(e) here. Apps Script allows
+// only one doGet per project, and this project's single doGet lives
+// in appliance-browse-gateway.gs (serves the public inventory feed).
+// Adding a second function doGet in any file silently overrides the
+// appliance browse endpoint on every deployment URL in the project
+// and breaks the browse page across the whole portal (restoration
+// requires removing this file's doGet and redeploying all pinned
+// URLs; see commit ac3e886 and the follow-up for the full history).
+// The SMS consent flow is POST-only and does not need a health
+// doGet; if a public health check is ever required, add it to the
+// appliance-browse-gateway doGet with action-based routing instead.
 
 function doPost(e) {
   try {
