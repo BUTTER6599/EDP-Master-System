@@ -91,14 +91,8 @@ responsive layout down to phone width.
 
 **Mock only:** all inventory, customers, purchase history, warranty claims, and
 the seeded activity events. Serial numbers, store address, store phone, and
-policy text are literal `[ PLACEHOLDER ]` strings.
-
-**Sales tax is real, not mock.** EDP retail prices are TAX-INCLUSIVE at the
-combined 9.75% rate (Louisiana 5.00% + Jefferson Parish 4.75%), approved by the
-owner on 2026-10-03. The price shown IS the customer total; tax is extracted
-from it, never added to it. The former 9.45% `MOCK_TAX_RATE` is deleted. The
-rate exists in exactly one place, `CONFIG.SALES_TAX` in `Config.gs`, and the
-client holds none of its own.
+policy text are literal `[ PLACEHOLDER ]` strings. `MOCK_TAX_RATE` (9.45%) is a
+layout placeholder, not the filed rate.
 
 **Deliberately not connected:** the SALES writer, inventory mutation, the
 printer bridge, receipt email, the persistent offline queue/database, Script

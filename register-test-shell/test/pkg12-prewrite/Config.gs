@@ -30,44 +30,11 @@ var CONFIG = {
   LOCALE: 'en-US',
   CURRENCY: 'USD',
 
-  // --- Sales tax ----------------------------------------------------------
-  // APPROVED EDP RETAIL TAX POLICY (owner decision, 2026-10-03). This closes
-  // NV-1.
-  //
-  // EDP advertised and selling prices are TAX-INCLUSIVE. The price shown on
-  // an item IS what the customer pays. Tax is NEVER added on top; it is
-  // extracted from the total that is already displayed:
-  //
-  //     tax            = total - (total / (1 + RATE))
-  //     pre-tax amount = total - tax
-  //
-  // So a $300.00 advertised appliance is a $300.00 customer total, of which
-  // $26.65 is tax and $273.35 is the pre-tax taxable amount.
-  //
-  // Authority for the rate:
-  //     Louisiana state general sales tax        5.00%
-  //     Jefferson Parish general merchandise     4.75%
-  //     combined general rate                    9.75%
-  //
-  // The previous MOCK_TAX_RATE of 9.45% is RETIRED and DELETED, not commented
-  // out, so it cannot be reinstated by uncommenting a line. It was never an
-  // EDP rate: it appears nowhere in the historical SALES data, and it was
-  // applied additively, which no historical EDP sale does.
-  //
-  // This object is the ONLY place a tax rate exists in the whole build. The
-  // client holds no rate of its own and derives everything from here.
-  SALES_TAX: {
-    MODE: 'INCLUSIVE',
-    RATE: 0.0975,
-    LABEL: 'Sales Tax (9.75%, included)',
-    COMPONENTS: [
-      { authority: 'Louisiana (state)', rate: 0.0500 },
-      { authority: 'Jefferson Parish', rate: 0.0475 }
-    ],
-    AUTHORITY_NOTE: 'Owner policy decision 2026-10-03. Louisiana 5.00% + ' +
-      'Jefferson Parish 4.75% = 9.75% combined general rate, applied ' +
-      'TAX-INCLUSIVE to EDP retail selling prices.'
-  },
+  // --- Mock financials ----------------------------------------------------
+  // MOCK ONLY. This is a placeholder rate for visual layout of the cart and
+  // receipt. It is NOT the filed rate and must not be used for real sales.
+  MOCK_TAX_RATE: 0.0945,
+  MOCK_TAX_LABEL: 'Sales Tax (MOCK)',
 
   // --- Receipt header placeholders ---------------------------------------
   // Deliberate placeholders. Do not substitute real store details until the
@@ -123,10 +90,8 @@ function getClientConfig() {
     timezone: CONFIG.TIMEZONE,
     locale: CONFIG.LOCALE,
     currency: CONFIG.CURRENCY,
-    taxMode: CONFIG.SALES_TAX.MODE,
-    taxRate: CONFIG.SALES_TAX.RATE,
-    taxLabel: CONFIG.SALES_TAX.LABEL,
-    taxComponents: CONFIG.SALES_TAX.COMPONENTS,
+    taxRate: CONFIG.MOCK_TAX_RATE,
+    taxLabel: CONFIG.MOCK_TAX_LABEL,
     storeAddress: CONFIG.STORE_ADDRESS_PLACEHOLDER,
     storePhone: CONFIG.STORE_PHONE_PLACEHOLDER,
     storeFooter: CONFIG.STORE_FOOTER_PLACEHOLDER,

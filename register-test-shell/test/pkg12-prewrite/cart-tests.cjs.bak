@@ -67,8 +67,7 @@ const REAL = [
     availability: 'AVAILABLE', qty: 1, location: '', serialPlaceholder: '[ SERIAL PLACEHOLDER ]',
     photoKey: 'washer', photoPrimary: '', photoGallery: [] }
 ];
-const CFG = { taxMode: 'INCLUSIVE', taxRate: 0.0975,
-  taxLabel: 'Sales Tax (9.75%, included)', currency: 'USD',
+const CFG = { taxRate: 0.0945, taxLabel: 'Sales Tax (MOCK)', currency: 'USD',
   warrantyOptions: [{ id: 'W-ASIS', label: 'As-Is', days: 0, price: 0 },
                     { id: 'W-30', label: '30-Day', days: 30, price: 0 },
                     { id: 'W-90', label: '90-Day', days: 90, price: 49 }],
@@ -230,12 +229,8 @@ console.log('\nSAFETY INVARIANTS');
   ok('no spreadsheet id in the client', !/117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI/.test(js));
   ok('no write verb in the client',
     !/setValue|appendRow|Values\.update|Values\.append|setProperty/.test(js));
-  // Package 10 asserted the rate had NOT moved, because no tax policy existed
-  // then. The owner approved one on 2026-10-03, so this guard is re-aimed at
-  // what still must hold: the client carries no rate of its own, and the one
-  // approved rate lives only in Config.gs.
-  ok('the client still holds NO tax rate of its own',
-    /CFG\.taxRate/.test(js) && !/0\.0975|0\.0945|1\.0975/.test(js));
+  ok('tax still uses the MOCK placeholder rate, unchanged',
+    /CFG\.taxRate/.test(js) && !/0\.0975/.test(js));
 }
 
 console.log('\n' + '='.repeat(48));

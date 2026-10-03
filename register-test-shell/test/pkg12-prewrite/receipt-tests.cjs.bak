@@ -105,8 +105,7 @@ const WARR = [{ id: 'W-ASIS', label: 'As-Is', days: 0, price: 0 },
               { id: 'W-30', label: '30-Day', days: 30, price: 0 },
               { id: 'W-90', label: '90-Day', days: 90, price: 49 }];
 function cfg(features) {
-  return { taxMode: 'INCLUSIVE', taxRate: 0.0975,
-    taxLabel: 'Sales Tax (9.75%, included)', currency: 'USD', locale: 'en-US',
+  return { taxRate: 0.0945, taxLabel: 'Sales Tax (MOCK)', currency: 'USD', locale: 'en-US',
     environment: 'TEST', buildVersion: '0.1.0',
     companyShort: 'Electronics Depot', companyName: 'The Electronics Depot LLC',
     storeAddress: '[ STORE ADDRESS PLACEHOLDER ]', storePhone: '[ STORE PHONE PLACEHOLDER ]',
@@ -164,16 +163,8 @@ console.log('\n2. SCREEN AND RECEIPT AGREE — ALWAYS');
   ok('tax matches the cart', m.totals.tax === t.tax);
   ok('total matches the cart', m.totals.total === t.total);
   ok('item count matches the cart', m.totals.itemCount === t.count);
-  // Tax-inclusive (owner policy 2026-10-03): the total IS sub + warranty, and
-  // the tax is extracted from it rather than added to it.
-  ok('the receipt total is exactly the prices shown — nothing added',
-    m.totals.total === m.totals.sub + m.totals.warranty,
-    '$' + m.totals.total + ' vs $' + (m.totals.sub + m.totals.warranty));
-  ok('the receipt tax is extracted from that total',
-    m.totals.tax === Math.round((m.totals.total - m.totals.total / 1.0975) * 100) / 100,
-    '$' + m.totals.tax);
-  ok('pre-tax plus tax reconstructs the total exactly',
-    Math.round((m.totals.preTax + m.totals.tax) * 100) / 100 === m.totals.total);
+  ok('the receipt computes no tax of its own',
+    m.totals.tax === Math.round((m.totals.sub + m.totals.warranty) * 0.0945 * 100) / 100);
   ok('an overridden unit price is what prints, not list price',
     m.lines[1].unitPrice === 200 && m.lines[1].listPrice === 235);
 }

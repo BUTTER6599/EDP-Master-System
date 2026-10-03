@@ -45,31 +45,34 @@ console.log(' EDP REGISTER — LOCAL TEST RUN');
 console.log(' No Google, no Apps Script, no spreadsheet, no network.');
 console.log('============================================================\n');
 
-console.log('--- [1/10] Phase 2 shape validator ---------------------------');
+console.log('--- [1/11] Phase 2 shape validator ---------------------------');
 run('Phase 2 shape validator', 'validator-tests.cjs');
 
-console.log('\n--- [2/10] Phase 3A query contract ---------------------------');
+console.log('\n--- [2/11] Phase 3A query contract ---------------------------');
 run('Phase 3A query contract', 'query-tests.cjs');
 
-console.log('\n--- [3/10] Ordered-parity analysis ---------------------------');
+console.log('\n--- [3/11] Ordered-parity analysis ---------------------------');
 run('Ordered-parity analysis', 'ordered-parity.cjs');
 
-console.log('\n--- [4/10] Bootstrap / template build ------------------------');
+console.log('\n--- [4/11] Bootstrap / template build ------------------------');
 const built = run('Bootstrap + template build', 'build-preview.cjs');
 
-console.log('\n--- [5/10] Package 6 read-only APPLIANCES adapter -------------');
+console.log('\n--- [5/11] Package 6 read-only APPLIANCES adapter -------------');
 run('Package 6 adapter', 'adapter-tests.cjs');
 
-console.log('\n--- [6/10] Package 9 real appliance photos --------------------');
+console.log('\n--- [6/11] Package 9 real appliance photos --------------------');
 run('Package 9 photos', 'photo-tests.cjs');
 
-console.log('\n--- [7/10] Package 10 real inventory -> real cart -------------');
+console.log('\n--- [7/11] Package 10 real inventory -> real cart -------------');
 run('Package 10 cart', 'cart-tests.cjs');
 
-console.log('\n--- [8/10] Package 11 receipt model + print hand-off ----------');
+console.log('\n--- [8/11] Package 11 receipt model + print hand-off ----------');
 run('Package 11 receipt', 'receipt-tests.cjs');
 
-console.log('\n--- [9/10] Thermal print render -----------------------------');
+console.log('\n--- [9/11] Package 12 tax-inclusive pricing ------------------');
+run('Package 12 tax', 'tax-tests.cjs');
+
+console.log('\n--- [10/11] Thermal print render ----------------------------');
 if (!built) {
   skip('Print render', 'preview build failed, nothing to render');
   console.log('  SKIPPED — preview build failed.');
@@ -77,7 +80,7 @@ if (!built) {
   run('Print render', 'print-render-tests.cjs');
 }
 
-console.log('\n--- [10/10] Five-viewport browser regression ----------------');
+console.log('\n--- [11/11] Five-viewport browser regression ----------------');
 let pw = true;
 try { require.resolve('playwright'); } catch (e) { pw = false; }
 if (!built) {

@@ -32,7 +32,6 @@ it).
 | Real-inventory runtime | **PROVEN and fully reconciled** — see below |
 | Real appliance photos | **VERIFIED COMPLETE** by owner visual check (Package 9) |
 | Complete Sale | Hard-disabled |
-| Sales tax | **9.75% TAX-INCLUSIVE** — approved, implemented, 115 assertions. Staged locally, NOT deployed |
 | Receipt data model | **ONE model** — `buildReceiptModel()` (Package 11). Staged locally, NOT deployed |
 | Receipt printing | Route D wired in source (system print hand-off). Staged locally, NOT deployed, NOT proven on paper |
 | Tests | 432 assertions, 10 suites, 0 failed |
@@ -147,7 +146,7 @@ still simulated, and the screen says so in places:
 | Customer directory, purchase history, warranty claims | MOCK — `readCustomers` still returns `getMockCustomers()` |
 | Activity timeline | MOCK — `readActivity` still returns `getMockActivity()` |
 | Open ticket `TXN-MOCK-4471` | MOCK — and see NV-13 below |
-| Sales Tax | **REAL** — 9.75% TAX-INCLUSIVE (owner policy 2026-10-03). NV-1 RESOLVED |
+| Sales Tax "(MOCK) · 9.45%" | MOCK placeholder rate. NV-1 still OPEN |
 | Complete Sale | Hard-disabled |
 | Receipt / invoice | Print is wired to the device print service (staged, not deployed). Email Receipt and Reprint are still inert |
 | Every receipt produced | Marked **TEST — NOT A SALE**, top and bottom, driven by `COMPLETE_SALE_ENABLED` |
@@ -192,8 +191,7 @@ the Apps Script layer, not in `Scripts.html`.
 
 | Id | Item | Status |
 | --- | --- | --- |
-| NV-1 | **RESOLVED 2026-10-03 by owner policy decision.** EDP retail prices are TAX-INCLUSIVE at the combined 9.75% general rate (Louisiana state 5.00% + Jefferson Parish general merchandise 4.75%). The displayed price IS the customer total; tax is extracted from it (`tax = total - total / 1.0975`), never added. The 9.45% `MOCK_TAX_RATE` is deleted from source. The historical evidence below is consistent with this and was NOT the basis for the decision — the owner's authoritative rate review was. | **CLOSED.** It no longer blocks Complete Sale; the remaining blockers are the SALES writer and inventory mutation, neither of which exists. |
-| NV-1 (historical evidence, retained) | Tax treatment. **Evidence corrected 2026-09-23 — the original basis was wrong.** Of 147 SALES rows: 74 carry `tax_rate` 0.0975, 71 are blank, 2 are zero. Of the 72 taxed rows with both `amount` and `tax_amount`, **71 match tax-INCLUSIVE arithmetic** (`tax = amount / 1.0975 * 0.0975`) and **0 match tax-ADDED** (`amount * 0.0975`); 1 row (`SHOPIFY-3102`) fits neither. The pattern holds across appliances, parts, delivery and repair alike, which contradicts the claim that tax applies only to add-ons. Unresolved: practice is not the filed rule; the 53 blank-tax appliance rows are unexplained; `MOCK_TAX_RATE` 0.0945 differs from the only observed rate (0.0975); and the Register currently ADDS tax on top, which no historical row does. | **OPEN. No tax policy decision is approved.** Closes only on an authoritative current tax source, never on historical rows alone. Blocks Complete Sale. |
+| NV-1 | Tax treatment. **Evidence corrected 2026-09-23 — the original basis was wrong.** Of 147 SALES rows: 74 carry `tax_rate` 0.0975, 71 are blank, 2 are zero. Of the 72 taxed rows with both `amount` and `tax_amount`, **71 match tax-INCLUSIVE arithmetic** (`tax = amount / 1.0975 * 0.0975`) and **0 match tax-ADDED** (`amount * 0.0975`); 1 row (`SHOPIFY-3102`) fits neither. The pattern holds across appliances, parts, delivery and repair alike, which contradicts the claim that tax applies only to add-ons. Unresolved: practice is not the filed rule; the 53 blank-tax appliance rows are unexplained; `MOCK_TAX_RATE` 0.0945 differs from the only observed rate (0.0975); and the Register currently ADDS tax on top, which no historical row does. | **OPEN. No tax policy decision is approved.** Closes only on an authoritative current tax source, never on historical rows alone. Blocks Complete Sale. |
 | NV-2 | `location` has no authoritative source column. Made optional in Package 7; nothing is fabricated. | RESOLVED for now; revisit if a real column appears |
 | NV-3 | `category` case is inconsistent in source (WASHER / Washer, REFRIGERATOR / Refrigerator, one `ELECTRIC STOVE`). Adapter Title-Cases deterministically. | Mitigated in the adapter; source unchanged |
 | NV-4 | `fuel_type` contaminated — `S-205Q` holds warranty text (`30 DAYS`) in the fuel column. `warranty_tier` blank in most rows with many spellings. | OPEN — not used by the Register yet |
@@ -285,53 +283,3 @@ No LIVE changes. No old Register. No production deployment. No merge to
 `main`/`master`. No SALES, inventory, or customer writes. No spreadsheet writes
 of any kind. Complete Sale stays disabled until explicitly authorized. Every
 write is preceded by a byte-exact backup and a stated rollback.
-
-## Package 12 — tax-inclusive retail pricing (STAGED, NOT DEPLOYED)
-
-Owner policy decision, 2026-10-03. This closed NV-1.
-
-**EDP advertised and selling prices are TAX-INCLUSIVE.** The price shown on an
-item IS what the customer pays. Tax is never added on top; it is extracted from
-the total already displayed.
-
-| | |
-| --- | --- |
-| Combined rate | **9.75%** |
-| Louisiana state general sales tax | 5.00% |
-| Jefferson Parish general merchandise | 4.75% |
-| Tax contained in a total | `tax = total - (total / 1.0975)` |
-| Pre-tax taxable amount | `subtotal_before_tax = total - tax` |
-
-A $300.00 advertised appliance is a $300.00 customer total, of which $26.65 is
-tax and $273.35 is the pre-tax amount.
-
-**What changed structurally:**
-
-- `MOCK_TAX_RATE` 0.0945 is **deleted**, not commented out, so it cannot be
-  reinstated by uncommenting a line. 9.45% was never an EDP rate: it appears
-  nowhere in the historical SALES data, and it was applied additively, which no
-  historical EDP sale does.
-- The rate now exists in exactly **one** place, `CONFIG.SALES_TAX` in
-  `Config.gs`, together with its authority and its component rates. The client
-  hard-codes no rate at all — a test asserts that `0.0975`, `0.0945` and
-  `1.0975` appear nowhere in `Scripts.html`.
-- Tax configuration **fails closed**. The old `CFG.taxRate || 0` idiom turned a
-  missing rate into a silent 0%, which renders as a perfectly normal-looking
-  `$0.00` tax line. A rate that is absent, zero, negative, non-numeric or out of
-  range now produces no tax figure and no total at all, and the screen shows an
-  em dash with a stated reason.
-- `money()` renders any non-finite figure as an em dash rather than `$0.00`, so
-  an uncomputed total can never be mistaken for a real one.
-- Tax is split in whole cents: the tax is rounded once and the pre-tax amount is
-  the remainder, so the two parts always reconstruct the total exactly. Verified
-  across every total from $0.01 to $2,000.00 — 200,000 cases, zero drift and
-  zero inflation of the customer total.
-
-**Warranty treatment — NEW OPEN ITEM (NV-14).** Warranty coverage is currently
-carried inside the tax-inclusive total along with the goods, so the customer
-total is exactly the sum of the prices on display. Whether a service contract is
-taxable at the same combined rate in Jefferson Parish has NOT been established
-and was not part of the owner's decision. This does not change what the customer
-pays either way — only how the tax portion is reported. **OPEN.**
-
-Nothing was deployed. No Sheet write, no inventory mutation, no SALES write.

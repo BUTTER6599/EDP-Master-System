@@ -444,6 +444,20 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .ritem .amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .receipt .rtot { padding-top: 14px; }
+
+/* Tax-inclusive breakdown. EDP prices already contain the tax, so these two
+   lines explain the total rather than adding to it. Indented and captioned so
+   they cannot be misread as further charges. */
+.taxbreak {
+  margin-top: 10px; padding: 9px 0 0 12px;
+  border-top: 1px dashed var(--line); border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+}
+.taxbreak .cap {
+  font-size: 10.5px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 5px;
+}
+.taxbreak .trow { font-size: 12px; }
 .receipt .rfoot { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line-strong); text-align: center; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
 
 /* TEST mark. Printed at the top AND the bottom of every receipt this build
@@ -666,6 +680,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
   .receipt .ritem .amt { font-size: 11px; color: #000; }
 
   .receipt .trow { font-size: 10px; color: #000; }
+  .taxbreak { border-top: 1px dashed #000; border-left: 1px solid #000; padding-left: 8px; margin-top: 7px; }
+  .taxbreak .cap { font-size: 8.5px; color: #000; }
+  .taxbreak .trow { font-size: 9.5px; }
   .receipt .trow.grand { font-size: 14px; color: #000; border-top: 1px solid #000; }
   .receipt .rfoot { font-size: 9px; color: #000; border-top: 1px dashed #000; margin-top: 12px; padding-top: 10px; }
 

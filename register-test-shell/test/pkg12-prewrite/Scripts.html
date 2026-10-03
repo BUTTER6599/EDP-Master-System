@@ -45,11 +45,7 @@
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 
-  /* A missing figure renders as an em dash, never as $0.00. A total that
-     could not be computed must look uncomputed — $0.00 reads like a real
-     number and is how a wrong figure reaches a receipt. */
   function money(n) {
-    if (typeof n !== 'number' || !isFinite(n)) { return '—'; }
     return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString(CFG.locale || 'en-US', {
       minimumFractionDigits: 2, maximumFractionDigits: 2
     });
@@ -376,52 +372,6 @@
   /* ---------------------------------------------------------------------- */
   /* 2. Cart / checkout                                                      */
   /* ---------------------------------------------------------------------- */
-  /* APPROVED EDP RETAIL TAX POLICY (owner decision, 2026-10-03; closes NV-1).
-     Prices are TAX-INCLUSIVE: the price shown IS what the customer pays, and
-     tax is extracted from that total rather than added to it.
-
-     The Register holds NO rate of its own — the rate, the mode and the label
-     all come from Config.gs, which carries the authority for them. That is
-     deliberate: one rate, one place, one thing to change if a parish rate
-     moves. */
-
-  /* Fail closed on tax configuration. The previous idiom, CFG.taxRate || 0,
-     turned a missing rate into a silent 0% — a receipt that reads $0.00 tax
-     and looks entirely normal. A rate that is not configured must produce no
-     tax figure and no total at all. */
-  function taxConfigError() {
-    if (CFG.taxMode !== 'INCLUSIVE') { return 'TAX MODE NOT CONFIGURED'; }
-    var r = CFG.taxRate;
-    if (typeof r !== 'number' || !isFinite(r) || r <= 0 || r >= 1) {
-      return 'TAX RATE NOT CONFIGURED';
-    }
-    return null;
-  }
-
-  /* Splits a tax-inclusive total into its tax and pre-tax parts.
-
-       tax     = total - (total / (1 + rate))
-       pre-tax = total - tax
-
-     Done in whole cents so the two rounded parts always reconstruct the total
-     exactly: the tax is rounded once, and the pre-tax amount is whatever is
-     left. Deriving both independently would let them disagree with the total
-     by a cent, which on a tax document is a defect. */
-  function splitInclusiveTax(total, rate) {
-    var totalCents = Math.round(total * 100);
-    var taxCents = Math.round(totalCents - totalCents / (1 + rate));
-    return { tax: taxCents / 100, preTax: (totalCents - taxCents) / 100 };
-  }
-
-  /* One label for every surface, so the cart, the screen receipt and the
-     printed slip can never describe the same tax differently. */
-  function taxLineLabel() {
-    if (CFG.taxLabel) { return CFG.taxLabel; }
-    var err = taxConfigError();
-    if (err) { return err; }
-    return 'Sales Tax (' + (CFG.taxRate * 100).toFixed(2) + '%, included)';
-  }
-
   function cartTotals() {
     var sub = 0, warr = 0, count = 0, unresolved = 0;
     state.cart.forEach(function (l) {
@@ -432,20 +382,10 @@
       warr += warrantyById(l.warrantyId).price * l.qty;
       count += l.qty;
     });
-
-    /* THE CUSTOMER TOTAL. Tax-inclusive, so it is exactly the sum of the
-       prices on display. Nothing is added to it — this line is the whole
-       policy. */
-    var total = Math.round((sub + warr) * 100) / 100;
-
-    var err = taxConfigError();
-    if (err) {
-      return { sub: sub, warr: warr, tax: null, preTax: null, total: null,
-               count: count, unresolved: unresolved, taxError: err };
-    }
-    var split = splitInclusiveTax(total, CFG.taxRate);
-    return { sub: sub, warr: warr, tax: split.tax, preTax: split.preTax,
-             total: total, count: count, unresolved: unresolved, taxError: null };
+    var taxable = sub + warr;
+    var tax = Math.round(taxable * (CFG.taxRate || 0) * 100) / 100;
+    return { sub: sub, warr: warr, tax: tax, total: taxable + tax,
+             count: count, unresolved: unresolved };
   }
 
   function renderCart() {
@@ -502,7 +442,8 @@
     $('#subLabel').textContent = 'Subtotal (' + t.count + (t.count === 1 ? ' item)' : ' items)');
     $('#subTotal').textContent = money(t.sub);
     $('#warrTotal').textContent = money(t.warr);
-    $('#taxLabel').textContent = taxLineLabel();
+    $('#taxLabel').textContent = (CFG.taxLabel || 'Sales Tax (MOCK)') +
+      ' · ' + ((CFG.taxRate || 0) * 100).toFixed(2) + '%';
     $('#taxTotal').textContent = money(t.tax);
     $('#grandTotal').textContent = money(t.total);
     $('#cartFabCount').textContent = String(t.count);
@@ -727,15 +668,10 @@
       payment: { id: pm ? pm.id : 'CASH', label: pm ? pm.label : 'Cash' },
       lines: lines,
       totals: {
-        sub: t.sub, warranty: t.warr, total: t.total,
-        /* tax and preTax are BOTH contained in total — they are a breakdown
-           of it, not additions to it. preTax + tax === total, exactly. */
-        tax: t.tax, preTax: t.preTax,
+        sub: t.sub, warranty: t.warr, tax: t.tax, total: t.total,
         itemCount: t.count, unresolvedCount: t.unresolved,
-        taxLabel: taxLineLabel(),
-        taxMode: CFG.taxMode || null,
-        taxRate: typeof CFG.taxRate === 'number' ? CFG.taxRate : null,
-        taxError: t.taxError
+        taxLabel: CFG.taxLabel || 'Sales Tax (MOCK)',
+        taxRate: CFG.taxRate || 0
       },
       build: {
         environment: CFG.environment || 'TEST',
@@ -817,18 +753,11 @@
 
       lines +
 
-      /* Tax-inclusive layout: the total comes FIRST and is the sum of the
-         prices shown, then the tax breakdown sits underneath it, captioned so
-         nobody reads the pre-tax and tax lines as further charges. */
       '<div class="rtot">' +
         '<div class="trow"><span>Subtotal</span><span>' + money(m.totals.sub) + '</span></div>' +
         '<div class="trow"><span>Warranty coverage</span><span>' + money(m.totals.warranty) + '</span></div>' +
+        '<div class="trow"><span>' + esc(m.totals.taxLabel) + '</span><span>' + money(m.totals.tax) + '</span></div>' +
         '<div class="trow grand"><span>Total</span><span>' + money(m.totals.total) + '</span></div>' +
-        '<div class="taxbreak">' +
-          '<div class="cap">Included in the total above — not added to it</div>' +
-          '<div class="trow"><span>Pre-tax amount</span><span>' + money(m.totals.preTax) + '</span></div>' +
-          '<div class="trow"><span>' + esc(m.totals.taxLabel) + '</span><span>' + money(m.totals.tax) + '</span></div>' +
-        '</div>' +
       '</div>' +
 
       '<div class="rfoot">' +
@@ -863,8 +792,7 @@
   }
 
   function eposMoney(n) {
-    if (typeof n !== 'number' || !isFinite(n)) { return 'UNAVAILABLE'; }
-    return (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2);
+    return (n < 0 ? '-$' : '$') + Math.abs(Number(n) || 0).toFixed(2);
   }
 
   /* left text, right text, padded to EPOS_COLS. Truncates the LEFT side only
@@ -964,11 +892,8 @@
     body += eposRule('-');
     body += eposRow('Subtotal', eposMoney(m.totals.sub));
     body += eposRow('Warranty coverage', eposMoney(m.totals.warranty));
-    body += eposRow('TOTAL', eposMoney(m.totals.total));
-    body += eposRule('-');
-    body += eposWrap('Included in the total above - not added to it', true);
-    body += eposRow('Pre-tax amount', eposMoney(m.totals.preTax));
     body += eposRow(m.totals.taxLabel, eposMoney(m.totals.tax));
+    body += eposRow('TOTAL', eposMoney(m.totals.total));
     body += eposRule('=');
 
     if (m.store.footer) { body += eposWrap(m.store.footer, true); }
