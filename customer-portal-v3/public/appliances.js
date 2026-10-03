@@ -289,18 +289,48 @@
   }, { passive: true });
 
   // ---- card build (clickable) ----
+  const buildHoldRibbon = (item) => {
+    const ribbon = document.createElement('div');
+    ribbon.className = 'appliance-hold-ribbon';
+    ribbon.setAttribute('role', 'status');
+    const label = document.createElement('div');
+    label.textContent = 'Pending hold';
+    ribbon.appendChild(label);
+    if (item.hold_id) {
+      const idEl = document.createElement('div');
+      idEl.className = 'hold-ribbon-id';
+      idEl.textContent = `Hold ID: ${safeText(item.hold_id)}`;
+      ribbon.appendChild(idEl);
+    }
+    if (item.held_until) {
+      const untilEl = document.createElement('div');
+      untilEl.className = 'hold-ribbon-until';
+      untilEl.textContent = `Held until ${safeText(item.held_until)}`;
+      ribbon.appendChild(untilEl);
+    }
+    return ribbon;
+  };
+
   const buildCard = (item) => {
     const card = document.createElement('article');
     card.className = 'appliance-card';
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
     const t = titleFor(item);
-    card.setAttribute('aria-label', `View photos and details for ${t}`);
+    const held = Boolean(item.is_held);
+    if (held) card.setAttribute('data-held', 'true');
+    card.setAttribute('aria-label',
+      held
+        ? `${t} is on a pending hold. View photos and details.`
+        : `View photos and details for ${t}`
+    );
 
     const firstPhoto = (Array.isArray(item.photo_links) && item.photo_links.length)
       ? String(item.photo_links[0]).trim()
       : '';
     card.appendChild(firstPhoto ? buildImageMedia(firstPhoto, t) : buildEmptyMedia());
+
+    if (held) card.appendChild(buildHoldRibbon(item));
 
     const body = document.createElement('div');
     body.className = 'appliance-body';

@@ -296,7 +296,10 @@ const PUBLIC_APPLIANCE_FIELDS = [
   'height_in',
   'depth_in',
   'capacity_cu_ft',
-  'dimensions_display'
+  'dimensions_display',
+  'is_held',
+  'hold_id',
+  'held_until'
 ];
 
 function sanitizeApplianceForCustomer(raw) {

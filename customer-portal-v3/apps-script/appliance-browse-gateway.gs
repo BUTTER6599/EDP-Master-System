@@ -21,6 +21,22 @@
 
 const APPLIANCE_SPREADSHEET_ID = '117AFFI8t1ORiiq8CKaCTSW-9pAmGhMSQKWSh-DShWtI';
 const APPLIANCE_SHEET_NAME = 'APPLIANCES';
+const APPLIANCE_HOLDS_SHEET_NAME = 'CUSTOMER_HOLDS';
+
+// Status values on CUSTOMER_HOLDS that count as an active customer-facing
+// hold. Matched after uppercasing + trimming. Spaces/dashes/underscores
+// are normalized so "pending review", "pending-review", "PENDING_REVIEW"
+// are all accepted. Anything outside this set (CONFIRMED_SOLD, CANCELLED,
+// EXPIRED, blank, unknown) is NOT treated as an active hold.
+const APPLIANCE_ACTIVE_HOLD_STATUSES = {
+  PENDINGREVIEW: true,
+  PENDING: true,
+  ACTIVE: true,
+  OPEN: true,
+  HOLD: true,
+  HELD: true,
+  ONHOLD: true
+};
 
 // Zero-indexed column positions in the APPLIANCES header row.
 // Verified header row: A item_id ... Z spec_verified
@@ -98,6 +114,19 @@ function doGet() {
       return applianceJsonResponse_({ ok: false, error: 'unavailable' });
     }
 
+    // Read active holds first so each public row can be enriched in
+    // one pass. If CUSTOMER_HOLDS is missing or unreadable the whole
+    // inventory still renders — hold overlay just degrades to "no
+    // holds known". Never fail-closed on the browse page because of
+    // a hold-sheet issue.
+    let activeHoldsByItem = {};
+    try {
+      activeHoldsByItem = applianceLoadActiveHolds_(ss);
+    } catch (holdErr) {
+      console.error('Hold overlay read failed:', holdErr && holdErr.stack ? holdErr.stack : holdErr);
+      activeHoldsByItem = {};
+    }
+
     const rows = sheet.getDataRange().getValues();
     if (rows.length < 2) {
       return applianceJsonResponse_({ ok: true, count: 0, data: [] });
@@ -107,7 +136,17 @@ function doGet() {
     const items = [];
     for (let i = 0; i < rows.length; i += 1) {
       const projected = applianceProjectPublic_(rows[i]);
-      if (projected) items.push(projected);
+      if (projected) {
+        const hold = activeHoldsByItem[projected.item_id];
+        if (hold) {
+          projected.is_held = true;
+          projected.hold_id = hold.hold_id;
+          if (hold.held_until) projected.held_until = hold.held_until;
+        } else {
+          projected.is_held = false;
+        }
+        items.push(projected);
+      }
     }
 
     return applianceJsonResponse_({ ok: true, count: items.length, data: items });
@@ -116,6 +155,61 @@ function doGet() {
     console.error(err && err.stack ? err.stack : err);
     return applianceJsonResponse_({ ok: false, error: 'unavailable' });
   }
+}
+
+/**
+ * Returns a map of item_id -> {hold_id, held_until} for every row in
+ * CUSTOMER_HOLDS whose status is in APPLIANCE_ACTIVE_HOLD_STATUSES AND
+ * whose expires_at is either blank (no expiry set) OR a future date.
+ * Expired holds are dropped. Blank-expires_at rows are kept because
+ * holds the portal creates today never carry an expiry yet (EDP sets
+ * it on confirmation).
+ */
+function applianceLoadActiveHolds_(ss) {
+  const sheet = ss.getSheetByName(APPLIANCE_HOLDS_SHEET_NAME);
+  if (!sheet) return {};
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {};
+  const lastCol = sheet.getLastColumn();
+  const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const headers = data[0].map(String);
+
+  const idx = {
+    hold_id: headers.indexOf('hold_id'),
+    item_id: headers.indexOf('item_id'),
+    expires_at: headers.indexOf('expires_at'),
+    status: headers.indexOf('status')
+  };
+  if (idx.item_id < 0 || idx.status < 0) return {};
+
+  const now = new Date().getTime();
+  const out = {};
+  for (let r = 1; r < data.length; r += 1) {
+    const row = data[r];
+    const itemId = String(row[idx.item_id] || '').trim();
+    if (!itemId) continue;
+
+    const statusToken = String(row[idx.status] || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!APPLIANCE_ACTIVE_HOLD_STATUSES[statusToken]) continue;
+
+    let heldUntil = '';
+    if (idx.expires_at >= 0) {
+      const raw = row[idx.expires_at];
+      if (raw !== '' && raw !== null && raw !== undefined) {
+        let d;
+        if (raw instanceof Date) d = raw;
+        else d = new Date(String(raw));
+        const t = d && typeof d.getTime === 'function' ? d.getTime() : NaN;
+        if (!isFinite(t)) continue;       // unparseable -> drop
+        if (t <= now) continue;           // expired -> drop
+        heldUntil = Utilities.formatDate(d, 'America/Chicago', 'yyyy-MM-dd');
+      }
+    }
+
+    const holdId = idx.hold_id >= 0 ? String(row[idx.hold_id] || '').trim() : '';
+    out[itemId] = { hold_id: holdId, held_until: heldUntil };
+  }
+  return out;
 }
 
 /**

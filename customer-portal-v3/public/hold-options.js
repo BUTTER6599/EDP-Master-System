@@ -93,6 +93,13 @@
     .hold-confirmation .refs ul{margin:6px 0 0;padding-left:18px}
     .hold-confirmation .refs li{margin:4px 0}
     .hold-form[hidden]{display:none!important}
+    .appliance-card[data-held="true"]{position:relative}
+    .appliance-hold-ribbon{position:absolute;top:0;left:0;right:0;background:linear-gradient(180deg,#b45309,#92400e);color:#fff;padding:9px 12px;font-weight:900;letter-spacing:.06em;font-size:.86rem;text-transform:uppercase;z-index:2;box-shadow:0 2px 8px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;line-height:1.25}
+    .appliance-hold-ribbon .hold-ribbon-id{font-size:.74rem;font-weight:800;letter-spacing:.03em;text-transform:none;opacity:.92}
+    .appliance-hold-ribbon .hold-ribbon-until{font-size:.74rem;font-weight:700;letter-spacing:.03em;text-transform:none;opacity:.92}
+    .appliance-card[data-held="true"] .appliance-media{filter:saturate(.75) brightness(.9)}
+    .hold-button.pending-hold-button{background:#b45309;cursor:not-allowed;opacity:.9}
+    .hold-button.pending-hold-button:hover,.hold-button.pending-hold-button:focus{filter:none}
     @media(max-width:620px){.hold-grid,.hold-grid-3{grid-template-columns:1fr}.hold-panel{padding:17px}.hold-question-row{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
@@ -437,6 +444,17 @@
     modal.confirmation.hidden = false;
     modal.confirmationVerbatim.textContent = CONFIRMATION_SENTENCE;
 
+    const headingEl = modal.confirmation.querySelector('h3');
+    if (headingEl) {
+      if (serverInfo && serverInfo.ok) {
+        headingEl.textContent = 'Hold request submitted — TEST';
+      } else if (serverInfo && serverInfo.pending) {
+        headingEl.textContent = 'Submitting hold request — TEST';
+      } else {
+        headingEl.textContent = 'Hold request draft saved — TEST';
+      }
+    }
+
     const parts = [];
     if (serverInfo && serverInfo.ok) {
       parts.push(`Your Hold Request ID is ${serverInfo.hold_id}.`);
@@ -548,6 +566,20 @@
       if (card.querySelector('.hold-button')) return;
       const item = inventory[index];
       if (!item || !item.item_id) return;
+
+      const body = card.querySelector('.appliance-body') || card;
+      if (item.is_held) {
+        const pending = document.createElement('button');
+        pending.type = 'button';
+        pending.className = 'hold-button pending-hold-button';
+        pending.textContent = 'Pending Hold — contact EDP';
+        pending.disabled = true;
+        pending.setAttribute('aria-label', `This appliance is on a pending hold. Call EDP at 504-732-1233.`);
+        pending.setAttribute('data-pending-hold', 'true');
+        body.appendChild(pending);
+        return;
+      }
+
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'hold-button';
@@ -558,7 +590,6 @@
         event.stopPropagation();
         openHold(item, button);
       });
-      const body = card.querySelector('.appliance-body') || card;
       body.appendChild(button);
     });
     wired = cards.some((card) => card.querySelector('.hold-button'));
