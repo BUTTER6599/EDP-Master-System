@@ -388,7 +388,8 @@ blockers below — each is a thing that must be confirmed, not guessed.
 
 | Id | Item | Status |
 | --- | --- | --- |
-| NV-15 | **The approved SALES schema could not be confirmed.** The Package 5B evidence directories lived outside the repository and did not survive the container being reclaimed; `ROADMAP.md` records row counts and a few field names (`tax_rate`, `amount`, `tax_amount`, `item_id`) but not the column list. Reading the live database needs owner authorisation. The existing sale-id convention is likewise unknown — rows such as `SHOPIFY-3102` were observed, so a convention exists. `SALE_ID.PRODUCTION_PREFIX` is therefore `null` and the generator REFUSES to mint an id when writes are enabled. | **OPEN — blocks the SALES writer** |
+| NV-15 | **RESOLVED 2026-10-04 (Package 14A).** The SALES schema was re-read read-only from `EDP_MASTER_DATABASE` and is recorded durably at `test/schema-evidence/EDP_MASTER_DATABASE-2026-10-04.md`: 32 columns, `sale_id` unique across all 148 rows. The `S-<epochMs>-<rand>` format is LEGACY and ABANDONED (66 rows, 2026-06-08 to 2026-07-18 only, carrying zero item/customer/tax/status linkage); everything since is `SHOPIFY-<order#>` reconciled by hand. **There is no currently-active EDP-generated sale-id convention**, so the Register is not at risk of colliding with one — it would be establishing the first, which is an owner decision (NV-20). | **CLOSED** — superseded text below kept as history |
+| NV-15 (original, superseded) | **The approved SALES schema could not be confirmed.** The Package 5B evidence directories lived outside the repository and did not survive the container being reclaimed; `ROADMAP.md` records row counts and a few field names (`tax_rate`, `amount`, `tax_amount`, `item_id`) but not the column list. Reading the live database needs owner authorisation. The existing sale-id convention is likewise unknown — rows such as `SHOPIFY-3102` were observed, so a convention exists. `SALE_ID.PRODUCTION_PREFIX` is therefore `null` and the generator REFUSES to mint an id when writes are enabled. | **OPEN — blocks the SALES writer** |
 | NV-16 | Whether a sale must name a customer. Today the Register sells to Walk-in and no owner decision has changed that, so `REQUIRE_CUSTOMER_FOR_SALE` is `false`. It is a named constant so the policy is visible and testable both ways. | OPEN — policy |
 | NV-17 | **Server-side idempotency cannot be completed yet.** Apps Script is stateless between calls, and this build has no store: `PropertiesService.setProperty` is banned by the zero-write-verb guarantee, and the OAuth scope is read-only, so a sheet-backed ledger is impossible too. The `requestId` travels end to end and is validated; ENFORCEMENT needs a store (CacheService, or a sheet once writes exist). A repeated dry run therefore still mints a fresh id, and a test asserts exactly that rather than implying dedupe works. | **OPEN — blocks safe retry** |
 | NV-18 | No tender capture exists in the UI. The request model and validation accept `amountTenderedCents` and compute change, but no control produces it. | OPEN — UI work |
@@ -403,3 +404,52 @@ depend on.
 Nothing irreversible happens until the sale record exists, and the record is
 written before inventory moves. A crash between the two then leaves a sale that
 can be reconciled, rather than stock that vanished into no sale at all.
+
+
+## Package 14A — NV-15 resolved by read-only schema recovery (2026-10-04)
+
+Read-only. Zero writes, zero deployment, no LIVE change. Evidence committed at
+`test/schema-evidence/EDP_MASTER_DATABASE-2026-10-04.md` so a future container
+reclaim cannot erase it again — which is exactly what created NV-15.
+
+Method note: the workbook was parsed with `exceljs` 4.4.0, a vetted library,
+**not** the hand-written regex parser whose greedy attribute match corrupted the
+Package 8 reading. The export sha256 is recorded alongside the schema.
+
+### What this unblocked
+
+- **SALES row shape** — 32 named columns, exact order recorded.
+- **"Mark SOLD"** — a single-cell write, `APPLIANCES.status` to `SOLD`. The value
+  already exists on 16 rows. `stage` is NOT changed. There is no `PAID` value and
+  no `sold_date`/`sale_id` column on the appliance.
+- **Customer key** — `CUSTOMERS.cust_id`, uniformly `EDP-####` across all 1,128
+  rows. SALES calls the same thing `customer_id`.
+- **Employee source** — `EMPLOYEES` (`pin_id`, `name`, `role`, `active`), which is
+  what the deferred R-1 employee lock will read.
+- **Outbox** — confirmed none exists, so Package 13's design does not duplicate
+  anything.
+
+### New open items
+
+| Id | Item | Status |
+| --- | --- | --- |
+| NV-20 | **The Register must establish the first active EDP sale-id convention.** The only native format (`S-<epochMs>-<rand>`) was abandoned on 2026-07-18 and carried no linkage; `SHOPIFY-<order#>` belongs to Shopify and cannot be minted for an in-store sale. `AUDIT_LOG` uses a different convention again (`LOG-<yyyymmdd>-<nnnn>`). Package 13 therefore still refuses to mint a production id, and `SALE_ID.PRODUCTION_PREFIX` stays `null`. | **OPEN — owner decision, blocks the writer** |
+| NV-21 | **SALES has no multi-line sale shape.** One row carries exactly one item snapshot (`item_id`, `brand_at_sale`, `model_at_sale`, `serial_at_sale`, `warranty_at_sale`). A two-appliance cart has no approved representation: one row losing an item, or N rows sharing a `sale_id`, are both schema changes. | **OPEN — owner decision, blocks the writer** |
+| NV-22 | **SALES has no idempotency column.** Nothing in the 32 columns can hold a request id, so a retry cannot be recognised against the sheet without a schema change. This is the sheet-side half of NV-17. | **OPEN — blocks safe retry** |
+| NV-23 | `payment_type` has only ever held `Cash`, `Cash App`, `Unknown` and `N/A`. The Register offers Card, Financing, Layaway and Check, none of which has ever been written. The vocabulary a Register sale should use is unconfirmed. | OPEN — policy |
+| NV-24 | `detail_status`, `inventory_update_status` and `accounting_status` are free-text human reconciliation prose (27 / 25 / 24 distinct values, mostly unique sentences), not enums. A machine writer should probably leave them empty rather than invent a vocabulary. | OPEN — policy |
+| NV-25 | `entered_by` is free text (`TAYLOR`, `THE ELECTRONICS DEPOT`, `Yvonne`, reconciliation phrases) and does **not** reference `EMPLOYEES.pin_id`. What a Register sale should record is unconfirmed. | OPEN — policy |
+
+### Findings that update existing items
+
+- **NV-7 worsens: 14 orphans, not 13.** `SALES.item_id` is populated on 28 rows
+  and only 14 match an APPLIANCES row. The newest orphan is `W-0007`, from the
+  most recent reconciled sale.
+- **NV-5 confirmed still open** — both `AUDIT_LOG` (2,934 rows) and `AuditLog`
+  (19 rows) exist with different schemas.
+- **NV-8 confirmed still present** — two APPLIANCES rows carry multi-hundred-character
+  prose in the `stage` column.
+- **NV-9 confirmed still present** — one row still reads `FLOOR READY` with a space.
+- **Two new data faults**, recorded but not corrected (this package writes nothing):
+  `SHOPIFY-3088` has its tax RATE in the `tax_amount` column and a Shopify order
+  number (`#3088`) in `customer_id`.
