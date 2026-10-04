@@ -374,98 +374,6 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 1b. Checkout plumbing (Package 13)                                      */
-  /*                                                                         */
-  /* None of this completes a sale. Completing a sale is disabled, there is  */
-  /* no SALES writer, and the OAuth scope is read-only. What lives here is   */
-  /* the part that has to be right BEFORE any of that is switched on: a      */
-  /* stable request identity, a guard against a double tap, and an error     */
-  /* the operator can actually see.                                          */
-  /* ---------------------------------------------------------------------- */
-
-  /* The identity of one checkout ATTEMPT, not of one button press.
-
-     It is minted once when a checkout begins and reused for every retry of
-     that same attempt, which is what lets the server recognise a repeat and
-     return the original sale instead of ringing a second one. A new id is
-     minted only when the cart changes or the attempt is abandoned.
-
-     crypto.randomUUID is used when the browser has it. The fallback is not
-     a security token and does not need to be unguessable — it needs to be
-     unique across the tills in one shop, which time plus randomness gives. */
-  function newRequestId() {
-    try {
-      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        return 'REQ-' + window.crypto.randomUUID();
-      }
-    } catch (e) { /* fall through */ }
-    var r = '';
-    for (var i = 0; i < 4; i++) { r += Math.random().toString(36).slice(2, 10); }
-    return 'REQ-' + Date.now().toString(36) + '-' + r.slice(0, 24);
-  }
-
-  /* The live checkout attempt. null means no attempt is in progress. */
-  state.checkout = { requestId: null, inFlight: false };
-
-  function beginCheckoutAttempt() {
-    if (!state.checkout.requestId) { state.checkout.requestId = newRequestId(); }
-    return state.checkout.requestId;
-  }
-
-  /* Abandoning an attempt forgets its id, so the NEXT checkout is a new sale
-     rather than a retry of the old one. Any change to the cart abandons the
-     attempt: a retry must mean the same cart, or idempotency would happily
-     return a sale for goods the customer did not buy. */
-  function abandonCheckoutAttempt() {
-    state.checkout.requestId = null;
-    state.checkout.inFlight = false;
-  }
-
-  /* Double-submit guard.
-
-     Disabling the button is not enough on its own: a double tap can land two
-     events before the first handler runs, and a disabled attribute set inside
-     the first handler is already too late for the second. The boolean is
-     checked FIRST and set synchronously, so the second call returns having
-     done nothing at all.
-
-     done() is handed to the caller rather than inferred, because an async
-     server round trip finishes at a time only the caller knows. */
-  function withSubmitLock(btn, run) {
-    if (state.checkout.inFlight) { return false; }
-    state.checkout.inFlight = true;
-    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
-    var released = false;
-    function done() {
-      if (released) { return; }          // releasing twice must not unlock a
-      released = true;                   // lock a later attempt is holding
-      state.checkout.inFlight = false;
-      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
-    }
-    try {
-      run(done);
-    } catch (e) {
-      done();                            // a throw must never strand the lock
-      throw e;
-    }
-    return true;
-  }
-
-  /* A failure the operator can see.
-
-     Before Package 13 both withFailureHandler callbacks were silent — one had
-     an empty body. A till that swallows errors teaches its operator to trust
-     a screen that is lying to them, so every server failure now lands in the
-     Activity timeline with its code. */
-  function logServerError(action, code, message) {
-    logLocalEvent('SERVER_ERROR', action, {
-      detail: String(message || 'No detail was returned.'),
-      status: 'FAILED',
-      reason: String(code || 'UNKNOWN')
-    });
-  }
-
-  /* ---------------------------------------------------------------------- */
   /* 2. Cart / checkout                                                      */
   /* ---------------------------------------------------------------------- */
   /* APPROVED EDP RETAIL TAX POLICY (owner decision, 2026-10-03; closes NV-1).
@@ -513,11 +421,6 @@
     if (err) { return err; }
     return 'Sales Tax (' + (CFG.taxRate * 100).toFixed(2) + '%, included)';
   }
-
-  /* Any change to the cart ends the current checkout attempt. A retry has to
-     mean the same goods, or an idempotent server would return a sale for a
-     cart that no longer exists. */
-  function cartChanged() { abandonCheckoutAttempt(); }
 
   function cartTotals() {
     var sub = 0, warr = 0, count = 0, unresolved = 0;
@@ -647,7 +550,6 @@
     logLocalEvent('ITEM_ADDED', 'Item added to cart',
       { detail: it.itemId + ' — ' + it.brand + ' ' + it.model + ' @ ' + money(it.price), status: 'OK' });
 
-    cartChanged();
     renderCart(); renderGrid(); renderReceipt();
   }
 
@@ -1104,7 +1006,6 @@
     OFFLINE_QUEUED:      { icon: 'i-cloudoff', tone: 'warn' },
     SYNC_COMPLETED:      { icon: 'i-sync',     tone: 'ok' },
     PRINTER_STATUS:      { icon: 'i-print',    tone: 'danger' },
-    SERVER_ERROR:        { icon: 'i-alert',    tone: 'danger' },
     CONNECTION_CHANGED:  { icon: 'i-cloudoff', tone: 'warn' }
   };
 
@@ -1342,7 +1243,6 @@
         logLocalEvent('ITEM_REMOVED', 'Item removed from cart',
           { detail: it.itemId + ' — ' + it.brand + ' ' + it.model, status: 'OK' });
       }
-      cartChanged();
       renderCart(); renderGrid(); renderReceipt();
     });
 
@@ -1355,7 +1255,6 @@
       var before = warrantyById(line.warrantyId);
       line.warrantyId = sel.value;
       var after = warrantyById(line.warrantyId);
-      cartChanged();
       logLocalEvent('WARRANTY_SELECTED', 'Warranty selected', {
         before: before.label,
         after: after.label + (after.price ? ' (+' + money(after.price) + ')' : ''),
@@ -1450,29 +1349,21 @@
     });
 
     // Read-only server round trip — proves the wiring without any writes.
-    /* The one real server round trip in this build. It now runs through the
-       same submit lock and the same error surface a sale will use, so both
-       are exercised by real use rather than only by tests. */
     $('#btnReloadActivity').addEventListener('click', function () {
       var btn = this;
-      withSubmitLock(btn, function (done) {
-        if (typeof google === 'undefined' || !google.script || !google.script.run) {
-          done();
-          return;
-        }
-        google.script.run
-          .withSuccessHandler(function (fresh) {
-            state.activity = (fresh && fresh.activity) || state.activity;
-            renderTimeline();
-            done();
-          })
-          .withFailureHandler(function (err) {
-            logServerError('Reload activity failed', 'GETBOOTSTRAP_FAILED',
-              err && err.message);
-            done();
-          })
-          .getBootstrap();
-      });
+      btn.disabled = true;
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        btn.disabled = false;
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (fresh) {
+          state.activity = (fresh && fresh.activity) || state.activity;
+          renderTimeline();
+          btn.disabled = false;
+        })
+        .withFailureHandler(function () { btn.disabled = false; })
+        .getBootstrap();
     });
   }
 

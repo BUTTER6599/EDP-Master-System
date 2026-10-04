@@ -485,8 +485,8 @@ console.log('\n11. PACKAGE GUARANTEES STILL HOLD');
     manifest.oauthScopes.length === 1 &&
     manifest.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets.readonly');
   const ignore = fs.readFileSync(path.join(DIR, '.claspignore'), 'utf8');
-  ok('the push allowlist is still exactly 11 files (Sale.gs added in Package 13)',
-    (ignore.match(/^!/gm) || []).length === 11, 'entries = ' + (ignore.match(/^!/gm) || []).length);
+  ok('the push allowlist is still exactly 10 files',
+    (ignore.match(/^!/gm) || []).length === 10, 'entries = ' + (ignore.match(/^!/gm) || []).length);
   ok('the new test suite is NOT in the push allowlist', ignore.indexOf('receipt-tests') === -1);
   ok('Complete Sale is still hard-disabled in the client',
     /btn\.disabled = true;/.test(js) && js.indexOf('#btnCompleteSale') !== -1);

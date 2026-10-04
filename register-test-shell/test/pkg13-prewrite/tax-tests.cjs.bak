@@ -331,8 +331,8 @@ console.log('\n8. GUARANTEES STILL HOLD');
     manifest.oauthScopes.length === 1 &&
     manifest.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets.readonly');
   const ignore = fs.readFileSync(path.join(DIR, '.claspignore'), 'utf8');
-  ok('the push allowlist is still exactly 11 files (Sale.gs added in Package 13)',
-    (ignore.match(/^!/gm) || []).length === 11);
+  ok('the push allowlist is still exactly 10 files',
+    (ignore.match(/^!/gm) || []).length === 10);
   ok('the Package 10 fail-closed resolver is untouched',
     !/findItem\(l\.itemId\) \|\| \{\}/.test(js));
 }
