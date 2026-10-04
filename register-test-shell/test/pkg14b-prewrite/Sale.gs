@@ -53,53 +53,7 @@
  */
 var SALE_ID = {
   TEST_PREFIX: 'TEST-SALE',
-
-  /* APPROVED by the owner on 2026-10-04 (Package 14B): EDP-YYYYMMDD-NNN,
-     e.g. EDP-20261004-001. NNN is a per-day sequence that restarts at 001.
-
-     This matches the convention the business already uses elsewhere —
-     CUSTOMER_HOLDS mints HR-YYYYMMDD-NNNN and AUDIT_LOG mints
-     LOG-YYYYMMDD-NNNN — so it reads as an EDP id on sight and cannot be
-     confused with SHOPIFY-<order#> or the abandoned S-<epochMs>-<rand>. */
-  PRODUCTION_PREFIX: 'EDP',
-  PRODUCTION_FORMAT: 'EDP-YYYYMMDD-NNN',
-  PRODUCTION_PATTERN: /^EDP-\d{8}-\d{3}$/,
-
-  /* Historical families, recorded so nothing ever rewrites or collides with
-     them. They are READ-ONLY history. */
-  LEGACY_EPOCH_PATTERN: /^S-\d{10,}-\d{2,3}$/,   /* abandoned 2026-07-18 */
-  SHOPIFY_PATTERN: /^SHOPIFY-\d+(-RECON)?$/       /* belongs to Shopify */
-};
-
-/**
- * The approved SALES column order, exactly as EDP_MASTER_DATABASE holds it
- * (verified 2026-10-04, recorded in test/schema-evidence/).
- *
- * Column 32 has NO header in the sheet and one stray populated cell. It is
- * represented here as an explicit placeholder so the row builder keeps its
- * alignment, and it is never written to.
- *
- * request_id is column 33 and DOES NOT EXIST YET. Adding it is the approved
- * migration, and it has not been performed — see SALES_MIGRATION below.
- */
-var SALES_COLUMNS = [
-  'sale_id', 'timestamp', 'sale_date', 'week_id', 'amount', 'category',
-  'payment_type', 'notes', 'entered_by', 'invoice_number', 'item_id',
-  'inventory_sku_at_sale', 'legacy_item_id', 'item_description_at_sale',
-  'brand_at_sale', 'model_at_sale', 'serial_at_sale', 'warranty_at_sale',
-  'tax_rate', 'tax_amount', 'sales_source', 'entry_type', 'source_order_id',
-  'source_order_number', 'customer_id', 'customer_name', 'customer_phone',
-  'import_batch_id', 'detail_status', 'inventory_update_status',
-  'accounting_status', '(unused_col_32)'
-];
-
-var SALES_MIGRATION = {
-  APPROVED: true,                 /* owner, 2026-10-04 */
-  APPLIED: false,                 /* NOT performed — no sheet was modified */
-  ADD_COLUMN: 'request_id',
-  AT_INDEX: 33,                   /* append; never reorder existing columns */
-  REASON: 'Makes Complete Sale retry-safe. Approved explicitly rather than ' +
-          'hidden inside the notes column.'
+  PRODUCTION_PREFIX: null
 };
 
 /** Error codes. Stable strings, so the client can branch on them and tests
@@ -118,37 +72,7 @@ var SALE_ERROR = {
   UNKNOWN_CUSTOMER: 'SALE_UNKNOWN_CUSTOMER',
   INSUFFICIENT_TENDER: 'SALE_INSUFFICIENT_TENDER',
   TAX_NOT_CONFIGURED: 'SALE_TAX_NOT_CONFIGURED',
-  MISSING_REQUEST_ID: 'SALE_MISSING_REQUEST_ID',
-  DUPLICATE_REQUEST: 'SALE_DUPLICATE_REQUEST',
-  SEQUENCE_UNAVAILABLE: 'SALE_SEQUENCE_UNAVAILABLE',
-  MIGRATION_REQUIRED: 'SALE_MIGRATION_REQUIRED'
-};
-
-/**
- * Storage rules, recorded 2026-10-04. RECORDED ONLY — nothing below charges
- * anything, and no storage code path exists.
- *
- * The repair rule is already live in the business: the AI receptionist tells
- * callers about "a $9 per day storage fee if not picked up within three days
- * of notification" (observed in VAPI_CALL_LOG). These constants agree with
- * what customers are already being told.
- *
- * Sunday never counts as a pickup day, because EDP is closed. Holiday
- * handling is NOT decided — see NV-27.
- */
-var STORAGE_RULES = {
-  DAILY_FEE: 9.00,
-  PAYMENT_PICKUP_PLAN: {
-    NAME: 'Payment & Pickup Plan',      /* the customer-facing name */
-    NORMAL_PERIOD_CALENDAR_DAYS: 14,
-    GRACE_OPEN_DAYS: 6,                 /* EDP open days; Sunday excluded */
-    SUNDAY_COUNTS: false
-  },
-  REPAIR: {
-    PICKUP_OPEN_DAYS: 3,                /* from ready-for-pickup notification */
-    SUNDAY_COUNTS: false
-  },
-  HOLIDAYS: null                        /* NV-27 — no approved calendar exists */
+  MISSING_REQUEST_ID: 'SALE_MISSING_REQUEST_ID'
 };
 
 /**
@@ -202,58 +126,14 @@ function saleNow_() {
  * convention (NV-15), this throws rather than minting an id in a format
  * nobody approved.
  */
-/**
- * Formats an approved production sale id from a date and a day sequence.
- * Pure: it allocates nothing and reads nothing. Allocation is the hard part
- * and lives in allocateDailySequence_() below.
- */
-function formatSaleId_(epochMs, seq) {
-  if (typeof seq !== 'number' || !isFinite(seq) || seq < 1 || seq > 999 ||
-      Math.floor(seq) !== seq) {
-    throwSale_(SALE_ERROR.SEQUENCE_UNAVAILABLE,
-      'A day sequence must be a whole number from 1 to 999, got ' + describeValue_(seq));
-  }
-  var day = Utilities.formatDate(new Date(epochMs), CONFIG.TIMEZONE, 'yyyyMMdd');
-  var nnn = ('00' + seq).slice(-3);
-  return SALE_ID.PRODUCTION_PREFIX + '-' + day + '-' + nnn;
-}
-
-/** True only for the approved Register format. Historical ids are not ours. */
-function isRegisterSaleId_(id) {
-  return SALE_ID.PRODUCTION_PATTERN.test(String(id));
-}
-
-/**
- * Allocates the next per-day sequence.
- *
- * NOT IMPLEMENTED, deliberately. Allocating NNN safely requires three things
- * this build does not have:
- *
- *   1. A read of the SALES tab. The Register's adapter reads APPLIANCES only.
- *      The read itself IS permitted by the current spreadsheets.readonly
- *      scope, so this is a code gap, not a permissions gap.
- *   2. A lock. Two cashiers finishing in the same second would otherwise both
- *      read "the highest today is 004" and both write 005. Apps Script offers
- *      LockService for exactly this, and nothing in EDP uses it yet.
- *   3. The ability to write, so the allocation can be claimed.
- *
- * Returning a guess here would be the single most dangerous thing in this
- * file, because a duplicated sale_id silently merges two real sales.
- */
-function allocateDailySequence_() {
-  throwSale_(SALE_ERROR.SEQUENCE_UNAVAILABLE,
-    'Allocating a per-day sale sequence needs a SALES read plus a lock, and ' +
-    'neither exists yet (Package 15). Refusing to guess a sequence: a ' +
-    'duplicated sale_id silently merges two real sales.');
-}
-
 function newSaleId_(now) {
   var writesOn = CONFIG.FEATURES.SALES_WRITER_ENABLED === true;
-  if (writesOn) {
-    /* The format is approved; the ALLOCATOR is not built. Fail closed. */
-    return formatSaleId_(now.epochMs, allocateDailySequence_());
+  var prefix = writesOn ? SALE_ID.PRODUCTION_PREFIX : SALE_ID.TEST_PREFIX;
+  if (!prefix) {
+    throwSale_(SALE_ERROR.NOT_IMPLEMENTED,
+      'No approved production sale-id format exists yet (NV-15). Refusing to ' +
+      'invent one. Re-confirm the SALES schema before enabling writes.');
   }
-  var prefix = SALE_ID.TEST_PREFIX;
   var stamp = Utilities.formatDate(new Date(now.epochMs), CONFIG.TIMEZONE, 'yyyyMMdd-HHmmss');
   var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 — read aloud safely
   var rand = '';
@@ -561,145 +441,6 @@ function prepareSale_(request) {
       version: CONFIG.BUILD_VERSION
     }
   };
-}
-
-/* --------------------------------------------------------------------------
- * SALES row mapping — PURE. Builds rows, writes nothing.
- * ------------------------------------------------------------------------ */
-
-/** Monday of the week containing a date, as yyyy-MM-dd. Observed convention:
- *  sales on 2026-09-10 and 2026-09-12 both carry week_id 2026-09-08. */
-function weekIdFor_(epochMs) {
-  var d = new Date(epochMs);
-  var dow = Number(Utilities.formatDate(d, CONFIG.TIMEZONE, 'u')); /* 1=Mon..7=Sun */
-  var monday = new Date(epochMs - (dow - 1) * 86400000);
-  return Utilities.formatDate(monday, CONFIG.TIMEZONE, 'yyyy-MM-dd');
-}
-
-/**
- * Maps a prepared sale to ONE SALES ROW PER ITEM, every row sharing the same
- * sale_id (owner decision, 2026-10-04). Item-level inventory linkage is never
- * collapsed away.
- *
- * Columns deliberately left EMPTY, and why:
- *   notes, detail_status, inventory_update_status, accounting_status
- *       These are human reconciliation prose in the real sheet — 27, 25 and 24
- *       distinct values, mostly unique sentences. A machine inventing a
- *       vocabulary here would corrupt a column people read. (NV-24)
- *   invoice_number, source_order_id, source_order_number, import_batch_id,
- *   legacy_item_id
- *       These belong to Shopify imports and reconciliation. A Register sale
- *       has no such source.
- *   (unused_col_32)
- *       Has no header in the sheet. Never written.
- *
- * MONEY: each row carries its own tax-inclusive amount and its own extracted
- * tax, because every historical row stands alone. Rounding each row
- * independently can leave the row taxes a cent away from the transaction tax,
- * so the difference is pushed onto the largest row and the result is asserted
- * before the rows are returned. Totals that do not reconcile are a defect, not
- * a rounding opinion.
- */
-function buildSalesRows_(sale, options) {
-  var opts = options || {};
-  var rate = sale.totals.taxRate;
-  var when = sale.occurredAt;
-  var stamp = Utilities.formatDate(new Date(when.epochMs), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
-  var day = Utilities.formatDate(new Date(when.epochMs), CONFIG.TIMEZONE, 'yyyy-MM-dd');
-  var week = weekIdFor_(when.epochMs);
-
-  var priced = sale.lines.filter(function (l) { return l.resolved !== false; });
-  if (!priced.length) {
-    throwSale_(SALE_ERROR.EMPTY_CART, 'A sale must produce at least one SALES row.');
-  }
-
-  var rows = priced.map(function (l) {
-    var amountCents = l.lineTotalCents;
-    var split = splitInclusiveTaxCents_(amountCents, rate);
-    return {
-      itemId: l.itemId,
-      amountCents: amountCents,
-      taxCents: split.taxCents,
-      line: l
-    };
-  });
-
-  /* Reconcile the per-row taxes against the transaction tax, to the cent. */
-  var rowTaxTotal = rows.reduce(function (a, r) { return a + r.taxCents; }, 0);
-  var drift = sale.totals.taxCents - rowTaxTotal;
-  if (drift !== 0) {
-    var biggest = rows.reduce(function (a, b) { return b.amountCents > a.amountCents ? b : a; }, rows[0]);
-    biggest.taxCents += drift;
-  }
-  var checkAmount = rows.reduce(function (a, r) { return a + r.amountCents; }, 0);
-  var checkTax = rows.reduce(function (a, r) { return a + r.taxCents; }, 0);
-  if (checkAmount !== sale.totals.totalCents || checkTax !== sale.totals.taxCents) {
-    throwSale_(SALE_ERROR.BAD_MONEY,
-      'Row totals do not reconcile with the sale: rows give ' +
-      centsToString_(checkAmount) + ' / tax ' + centsToString_(checkTax) +
-      ', sale says ' + centsToString_(sale.totals.totalCents) + ' / tax ' +
-      centsToString_(sale.totals.taxCents) + '.');
-  }
-
-  return rows.map(function (r) {
-    var l = r.line;
-    var row = {
-      sale_id: sale.saleId,
-      timestamp: stamp,
-      sale_date: day,
-      week_id: week,
-      amount: r.amountCents / 100,
-      category: opts.category || 'Appliance Sale',
-      payment_type: sale.payment.methodLabel,
-      notes: '',
-      entered_by: opts.enteredBy || '',
-      invoice_number: '',
-      item_id: l.itemId,
-      inventory_sku_at_sale: l.itemId,
-      legacy_item_id: '',
-      item_description_at_sale: l.description || ((l.brand + ' ' + l.model).trim()),
-      brand_at_sale: l.brand || '',
-      model_at_sale: l.model || '',
-      serial_at_sale: '',
-      warranty_at_sale: l.warrantyLabel || '',
-      tax_rate: rate,
-      tax_amount: r.taxCents / 100,
-      sales_source: 'EDP_REGISTER',
-      entry_type: 'REGISTER_SALE',
-      source_order_id: '',
-      source_order_number: '',
-      customer_id: sale.customer ? sale.customer.customerId : '',
-      customer_name: sale.customer ? sale.customer.name : '',
-      customer_phone: sale.customer ? sale.customer.phone : '',
-      import_batch_id: '',
-      detail_status: '',
-      inventory_update_status: '',
-      accounting_status: '',
-      '(unused_col_32)': '',
-      request_id: sale.requestId
-    };
-    return row;
-  });
-}
-
-/**
- * Turns mapped rows into positional arrays in the sheet's exact column order.
- * Still pure. request_id is appended as column 33 ONLY once the approved
- * migration has been applied; until then this refuses, because writing a
- * 33-wide row into a 32-wide sheet would silently land request_id in the
- * unheaded column 32.
- */
-function salesRowsToArrays_(rows) {
-  if (!SALES_MIGRATION.APPLIED) {
-    throwSale_(SALE_ERROR.MIGRATION_REQUIRED,
-      'The approved request_id column (33) has not been added to SALES yet. ' +
-      'Refusing to build a positional row that would misalign against the ' +
-      'current 32-column sheet.');
-  }
-  var cols = SALES_COLUMNS.concat([SALES_MIGRATION.ADD_COLUMN]);
-  return rows.map(function (r) {
-    return cols.map(function (c) { return r[c] === undefined ? '' : r[c]; });
-  });
 }
 
 function centsToString_(c) {

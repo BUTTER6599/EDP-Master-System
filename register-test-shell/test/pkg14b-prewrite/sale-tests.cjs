@@ -43,24 +43,15 @@ function serverSandbox(opts) {
   const S = { console, JSON, Math, Number, String, Array, Object, Date, RegExp,
               isFinite, isNaN, parseInt, parseFloat, Error, TypeError };
   S.globalThis = S;
-  // A real pattern-substituting formatDate. The first version only knew two
-  // patterns and silently returned the wrong shape for the rest, which failed
-  // correct code - the stub was the bug. Deterministic UTC is enough here: the
-  // suite asserts SHAPE and ordering, never a wall-clock value in a zone.
   S.Utilities = {
     formatDate(d, tz, fmt) {
+      // Deterministic UTC rendering is enough: the suite asserts SHAPE and
+      // ordering, never a wall-clock value in a particular zone.
       const p = n => String(n).padStart(2, '0');
-      const map = {
-        'yyyy': String(d.getUTCFullYear()),
-        'MM': p(d.getUTCMonth() + 1),
-        'dd': p(d.getUTCDate()),
-        'HH': p(d.getUTCHours()),
-        'mm': p(d.getUTCMinutes()),
-        'ss': p(d.getUTCSeconds()),
-        'u': String(d.getUTCDay() === 0 ? 7 : d.getUTCDay())   // 1=Mon..7=Sun
-      };
-      if (fmt === 'u') { return map.u; }
-      return String(fmt).replace(/yyyy|MM|dd|HH|mm|ss/g, k => map[k]);
+      const Y = d.getUTCFullYear(), M = p(d.getUTCMonth() + 1), D = p(d.getUTCDate());
+      const h = p(d.getUTCHours()), m = p(d.getUTCMinutes()), s = p(d.getUTCSeconds());
+      return fmt === 'yyyyMMdd-HHmmss' ? `${Y}${M}${D}-${h}${m}${s}`
+                                       : `${Y}-${M}-${D} ${h}:${m}:${s}`;
     }
   };
   S.SpreadsheetApp = forbidden('SpreadsheetApp');
@@ -220,12 +211,9 @@ console.log('\n3. SERVER IS AUTHORITATIVE FOR ID AND TIME');
   const S = serverSandbox({ features: { SALES_WRITER_ENABLED: true } });
   const item = firstItem(S);
   const res = prepare(S, req({ lines: [{ itemId: item.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] }));
-  // Package 13 asserted there was no approved id format. One was approved on
-  // 2026-10-04, so the refusal has moved to the ALLOCATOR - which is the
-  // honest place for it, because a guessed sequence merges two real sales.
-  ok('with writes on it still REFUSES, now on sequence allocation',
-    res.ok === false && res.code === 'SALE_SEQUENCE_UNAVAILABLE', res.code);
-  ok('and says why a guess is unacceptable', /merges two real sales/.test(res.message));
+  ok('with writes on and no approved id format, it REFUSES to invent one',
+    res.ok === false && res.code === 'SALE_WRITER_NOT_IMPLEMENTED', res.code);
+  ok('and points at the open question', /NV-15/.test(res.message));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -533,31 +521,9 @@ console.log('\n8. RECEIPT AND SAFETY GUARANTEES UNCHANGED');
     !/\.setValue|\.setValues|\.appendRow|Values\.update|Values\.append|setProperty/.test(strip(saleSrc)));
   ok('Sale.gs contains no SpreadsheetApp / DriveApp / MailApp / UrlFetchApp',
     !/SpreadsheetApp|DriveApp|MailApp|GmailApp|UrlFetchApp/.test(strip(saleSrc)));
-  // Package 13 asserted Sale.gs named NO SALES columns, because the schema was
-  // unknown then and naming one would have been a guess. Package 14A verified
-  // the schema, so recording the real names is now correct. Both guards are
-  // re-aimed at what must still hold: the names must MATCH the verified
-  // schema, and nothing may be invented beyond it.
-  ok('Sale.gs names exactly the 32 verified SALES columns, no more', (function () {
-    const m = strip(saleSrc).match(/var SALES_COLUMNS = \[([\s\S]*?)\];/);
-    if (!m) { return false; }
-    const names = m[1].match(/'[^']+'/g).map(s => s.slice(1, -1));
-    const verified = ['sale_id','timestamp','sale_date','week_id','amount','category',
-      'payment_type','notes','entered_by','invoice_number','item_id','inventory_sku_at_sale',
-      'legacy_item_id','item_description_at_sale','brand_at_sale','model_at_sale',
-      'serial_at_sale','warranty_at_sale','tax_rate','tax_amount','sales_source','entry_type',
-      'source_order_id','source_order_number','customer_id','customer_name','customer_phone',
-      'import_batch_id','detail_status','inventory_update_status','accounting_status',
-      '(unused_col_32)'];
-    return names.length === 32 && names.every((n, i) => n === verified[i]);
-  })());
-  ok('the only NEW column is the approved request_id',
-    /ADD_COLUMN: 'request_id'/.test(saleSrc) &&
-    !/sold_at|sold_date|sold_price|sale_total|line_number/.test(strip(saleSrc)));
-  ok('the approved sale-id prefix is recorded, and it is EDP',
-    /PRODUCTION_PREFIX: 'EDP'/.test(saleSrc));
-  ok('the abandoned and Shopify formats are preserved as READ-ONLY history',
-    /LEGACY_EPOCH_PATTERN/.test(saleSrc) && /SHOPIFY_PATTERN/.test(saleSrc));
+  ok('Sale.gs invents no SALES column names',
+    !/sale_id|tax_amount|item_id|sold_at|customer_id/.test(strip(saleSrc)));
+  ok('no production sale-id prefix is invented', /PRODUCTION_PREFIX:\s*null/.test(saleSrc));
 
   const ds = read('DataSource.gs');
   ok('DataSource.gs still has no write verb',
@@ -575,163 +541,6 @@ console.log('\n8. RECEIPT AND SAFETY GUARANTEES UNCHANGED');
     !/findItem\(l\.itemId\) \|\| \{\}/.test(js));
   ok('no write verb was reached anywhere in this suite', writeAttempts.length === 0,
     writeAttempts.join(', '));
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n9. PACKAGE 14B — APPROVED SALE-ID FORMAT');
-{
-  const S = serverSandbox();
-  ok('the approved format is recorded', call(S, 'SALE_ID.PRODUCTION_FORMAT') === 'EDP-YYYYMMDD-NNN');
-  ok('the approved prefix is EDP', call(S, 'SALE_ID.PRODUCTION_PREFIX') === 'EDP');
-  const id = call(S, 'formatSaleId_(Date.UTC(2026,9,4,12,0,0), 1)');
-  ok('formats EDP-20261004-001', id === 'EDP-20261004-001', id);
-  ok('pads the sequence to three digits',
-    call(S, 'formatSaleId_(Date.UTC(2026,9,4,12,0,0), 7)') === 'EDP-20261004-007');
-  ok('accepts 999', call(S, 'formatSaleId_(Date.UTC(2026,9,4,12,0,0), 999)') === 'EDP-20261004-999');
-  [0, -1, 1000, 1.5, '1', NaN].forEach(function (bad) {
-    const r = call(S, 'try { formatSaleId_(Date.UTC(2026,9,4), ' +
-      (typeof bad === 'string' ? JSON.stringify(bad) : String(bad)) + '); "ACCEPTED" } ' +
-      'catch (e) { e.edpCode }');
-    ok('refuses sequence ' + JSON.stringify(bad), r === 'SALE_SEQUENCE_UNAVAILABLE', String(r));
-  });
-  ok('recognises its own ids', call(S, 'isRegisterSaleId_("EDP-20261004-001")') === true);
-  ok('does NOT claim a Shopify id', call(S, 'isRegisterSaleId_("SHOPIFY-3013")') === false);
-  ok('does NOT claim a legacy epoch id',
-    call(S, 'isRegisterSaleId_("S-1780964571246-775")') === false);
-  ok('does NOT claim a hold id', call(S, 'isRegisterSaleId_("HR-20261002-0001")') === false);
-  ok('the legacy pattern still matches real legacy ids',
-    call(S, 'SALE_ID.LEGACY_EPOCH_PATTERN.test("S-1784399181909-86")') === true);
-  ok('the Shopify pattern matches the RECON variant',
-    call(S, 'SALE_ID.SHOPIFY_PATTERN.test("SHOPIFY-3123-RECON")') === true);
-  ok('allocating a sequence REFUSES — no allocator exists',
-    call(S, 'try { allocateDailySequence_(); "ALLOCATED" } catch (e) { e.edpCode }')
-      === 'SALE_SEQUENCE_UNAVAILABLE');
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n10. PACKAGE 14B — ONE SALES ROW PER ITEM, SHARED sale_id');
-{
-  const S = serverSandbox();
-  const inv = call(S, 'readInventory()');
-  const a = inv[0], b = inv[1];
-  const r = req({ lines: [
-    { itemId: a.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null },
-    { itemId: b.itemId, qty: 2, warrantyId: 'W-90', unitPriceCents: null }
-  ] });
-  const sale = prepare(S, r).sale;
-  const rows = call(S, 'buildSalesRows_(' + JSON.stringify(sale) + ')');
-
-  ok('two items produce TWO rows', rows.length === 2, 'rows = ' + rows.length);
-  ok('both rows share one sale_id', rows[0].sale_id === rows[1].sale_id);
-  ok('that sale_id is the prepared sale id', rows[0].sale_id === sale.saleId);
-  ok('each row keeps its own item_id',
-    rows[0].item_id === a.itemId && rows[1].item_id === b.itemId);
-  ok('item-level inventory linkage is never collapsed',
-    rows.every(x => x.item_id !== ''));
-  ok('both rows carry the same request_id', rows[0].request_id === rows[1].request_id &&
-    rows[0].request_id === sale.requestId);
-
-  const sumAmt = Math.round(rows.reduce((s, x) => s + x.amount * 100, 0));
-  const sumTax = Math.round(rows.reduce((s, x) => s + x.tax_amount * 100, 0));
-  ok('row amounts sum EXACTLY to the customer total',
-    sumAmt === sale.totals.totalCents, sumAmt + ' vs ' + sale.totals.totalCents);
-  ok('row taxes sum EXACTLY to the sale tax',
-    sumTax === sale.totals.taxCents, sumTax + ' vs ' + sale.totals.taxCents);
-  ok('tax_rate is the approved 9.75% on every row',
-    rows.every(x => x.tax_rate === 0.0975));
-
-  ok('sales_source marks these as Register sales', rows.every(x => x.sales_source === 'EDP_REGISTER'));
-  ok('entry_type marks these as Register sales', rows.every(x => x.entry_type === 'REGISTER_SALE'));
-  ok('human reconciliation columns are left EMPTY (NV-24)',
-    rows.every(x => x.notes === '' && x.detail_status === '' &&
-      x.inventory_update_status === '' && x.accounting_status === ''));
-  ok('Shopify-only columns are left EMPTY',
-    rows.every(x => x.source_order_id === '' && x.source_order_number === '' &&
-      x.import_batch_id === '' && x.legacy_item_id === ''));
-  ok('the unheaded column 32 is never written',
-    rows.every(x => x['(unused_col_32)'] === ''));
-  ok('sale_date is yyyy-MM-dd', /^\d{4}-\d{2}-\d{2}$/.test(rows[0].sale_date), rows[0].sale_date);
-  ok('timestamp is yyyy-MM-dd HH:mm:ss',
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rows[0].timestamp), rows[0].timestamp);
-  ok('week_id is a Monday', (function () {
-    const d = new Date(rows[0].week_id + 'T12:00:00Z');
-    return d.getUTCDay() === 1;
-  })(), rows[0].week_id);
-  ok('every mapped key is a real SALES column or request_id', (function () {
-    const known = call(S, 'SALES_COLUMNS').concat(['request_id']);
-    return Object.keys(rows[0]).every(k => known.indexOf(k) !== -1);
-  })());
-  ok('the recorded column order matches the verified schema', (function () {
-    const cols = call(S, 'SALES_COLUMNS');
-    return cols.length === 32 && cols[0] === 'sale_id' && cols[4] === 'amount' &&
-           cols[18] === 'tax_rate' && cols[30] === 'accounting_status';
-  })());
-}
-{
-  // Cent-exact reconciliation must hold across many awkward totals.
-  const S = serverSandbox();
-  const inv = call(S, 'readInventory()');
-  let bad = 0;
-  for (let c = 1; c <= 3000; c++) {
-    const T = serverSandbox({ after:
-      'getMockInventory = function () { return ' + JSON.stringify([
-        Object.assign({}, inv[0]), Object.assign({}, inv[1])
-      ]) + '; };' });
-    // vary one price by a cent each iteration via a declared override
-    const rr = req({ lines: [
-      { itemId: inv[0].itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: c },
-      { itemId: inv[1].itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: c + 7 }
-    ] });
-    const s = prepare(T, rr);
-    if (!s.ok) { bad++; continue; }
-    const rws = call(T, 'buildSalesRows_(' + JSON.stringify(s.sale) + ')');
-    const sa = Math.round(rws.reduce((x, y) => x + y.amount * 100, 0));
-    const st = Math.round(rws.reduce((x, y) => x + y.tax_amount * 100, 0));
-    if (sa !== s.sale.totals.totalCents || st !== s.sale.totals.taxCents) { bad++; }
-  }
-  ok('3,000 two-item transactions all reconcile to the cent', bad === 0, bad + ' failed');
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n11. PACKAGE 14B — MIGRATION IS APPROVED BUT NOT APPLIED');
-{
-  const S = serverSandbox();
-  ok('the migration is recorded as APPROVED', call(S, 'SALES_MIGRATION.APPROVED') === true);
-  ok('and recorded as NOT APPLIED', call(S, 'SALES_MIGRATION.APPLIED') === false);
-  ok('it adds exactly one column', call(S, 'SALES_MIGRATION.ADD_COLUMN') === 'request_id');
-  ok('appended at index 33, never reordering existing columns',
-    call(S, 'SALES_MIGRATION.AT_INDEX') === 33);
-  const inv = call(S, 'readInventory()');
-  const sale = prepare(S, req({ lines: [{ itemId: inv[0].itemId, qty: 1,
-    warrantyId: 'W-ASIS', unitPriceCents: null }] })).sale;
-  const out = call(S, 'try { salesRowsToArrays_(buildSalesRows_(' + JSON.stringify(sale) +
-    ')); "BUILT" } catch (e) { e.edpCode }');
-  ok('building a positional row REFUSES until the column exists',
-    out === 'SALE_MIGRATION_REQUIRED', String(out));
-  ok('because a 33-wide row would land request_id in the unheaded column 32',
-    /misalign/.test(call(S, 'try { salesRowsToArrays_([]); "" } catch (e) { e.message }')));
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n12. PACKAGE 14B — STORAGE RULES RECORDED, NOT CHARGED');
-{
-  const S = serverSandbox();
-  const R = call(S, 'STORAGE_RULES');
-  ok('the daily storage fee is $9.00', R.DAILY_FEE === 9.00);
-  ok('Payment & Pickup Plan keeps its customer-facing name',
-    R.PAYMENT_PICKUP_PLAN.NAME === 'Payment & Pickup Plan');
-  ok('normal pickup period is 14 calendar days',
-    R.PAYMENT_PICKUP_PLAN.NORMAL_PERIOD_CALENDAR_DAYS === 14);
-  ok('then 6 EDP open days of grace', R.PAYMENT_PICKUP_PLAN.GRACE_OPEN_DAYS === 6);
-  ok('Sunday never counts for the plan', R.PAYMENT_PICKUP_PLAN.SUNDAY_COUNTS === false);
-  ok('repair pickup allowance is 3 open days', R.REPAIR.PICKUP_OPEN_DAYS === 3);
-  ok('Sunday never counts for repairs', R.REPAIR.SUNDAY_COUNTS === false);
-  ok('repair and plan rules are kept SEPARATE',
-    R.REPAIR.PICKUP_OPEN_DAYS !== R.PAYMENT_PICKUP_PLAN.GRACE_OPEN_DAYS);
-  ok('holidays are explicitly unresolved, not silently assumed',
-    R.HOLIDAYS === null);
-  ok('no storage charge is ever computed in this build',
-    !/chargeStorage|applyStorageFee|storageDue/.test(saleSrc));
 }
 
 console.log('\n-------------------------------------------------------');
