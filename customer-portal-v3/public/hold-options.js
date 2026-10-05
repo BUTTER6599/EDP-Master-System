@@ -89,6 +89,18 @@
     .hold-confirmation{background:#eef8ef;border:2px solid #0b5ed7;border-radius:12px;padding:18px;margin:16px 0;line-height:1.55}
     .hold-confirmation h3{margin:0 0 10px;color:#0b5ed7;font-size:1.08rem}
     .hold-confirmation .verbatim{font-size:1rem;font-weight:800;background:#fff;border:1.5px solid #0b5ed7;border-radius:10px;padding:14px;margin:0 0 12px}
+    .hold-id-block[hidden]{display:none!important}
+    .hold-id-block{background:#fff8e8;border:2.5px solid #b45309;border-radius:14px;padding:16px 18px;margin:14px 0;box-shadow:0 2px 10px rgba(180,83,9,.15)}
+    .hold-id-block .hold-id-label{font-size:.78rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#92400e;margin:0 0 4px}
+    .hold-id-block .hold-id-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .hold-id-block .hold-id-value{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:clamp(1.55rem,4.5vw,1.95rem);font-weight:900;letter-spacing:.03em;color:#0b1b3a;background:#fff;border:1.5px solid #e5c469;border-radius:10px;padding:9px 14px;user-select:all;cursor:text;line-height:1.1}
+    .hold-id-block .hold-id-copy{border:1.5px solid #b45309;background:#fff;color:#92400e;border-radius:9px;padding:8px 14px;font:inherit;font-weight:800;cursor:pointer;letter-spacing:.02em;transition:background .15s,color .15s}
+    .hold-id-block .hold-id-copy:hover,.hold-id-block .hold-id-copy:focus{background:#b45309;color:#fff;outline:0}
+    .hold-id-block .hold-id-copy[data-copied="true"]{background:#166534;border-color:#166534;color:#fff}
+    .hold-id-block .hold-id-item{margin-top:10px;font-size:.98rem;font-weight:700;color:#1b2a44}
+    .hold-id-block .hold-id-item strong{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-weight:900}
+    .hold-id-block .hold-id-save{margin:10px 0 0;font-size:.95rem;line-height:1.5;color:#3a2a06;font-weight:600}
+    .hold-recorded{font-size:.82rem;color:#52627a;margin:4px 0 10px}
     .hold-confirmation .refs{margin-top:12px;font-size:.95rem}
     .hold-confirmation .refs ul{margin:6px 0 0;padding-left:18px}
     .hold-confirmation .refs li{margin:4px 0}
@@ -188,6 +200,16 @@
         <div class="hold-confirmation" hidden aria-live="polite">
           <h3>Hold request draft saved — TEST</h3>
           <p class="verbatim"></p>
+          <div class="hold-id-block" hidden>
+            <div class="hold-id-label">Hold Request ID</div>
+            <div class="hold-id-row">
+              <div class="hold-id-value" aria-live="polite"></div>
+              <button type="button" class="hold-id-copy" aria-label="Copy Hold Request ID to clipboard">Copy</button>
+            </div>
+            <div class="hold-id-item"></div>
+            <p class="hold-id-save">Please save this Hold Request ID. Provide it when you contact The Electronics Depot about this appliance so we can locate your request quickly.</p>
+          </div>
+          <div class="hold-recorded"></div>
           <p class="context"></p>
           <div class="refs"></div>
         </div>
@@ -202,6 +224,11 @@
       confirmationVerbatim: q('.hold-confirmation .verbatim'),
       confirmationContext: q('.hold-confirmation .context'),
       confirmationRefs: q('.hold-confirmation .refs'),
+      confirmationIdBlock: q('.hold-confirmation .hold-id-block'),
+      confirmationIdValue: q('.hold-confirmation .hold-id-value'),
+      confirmationIdItem: q('.hold-confirmation .hold-id-item'),
+      confirmationIdCopy: q('.hold-confirmation .hold-id-copy'),
+      confirmationRecorded: q('.hold-confirmation .hold-recorded'),
       close: q('.hold-close'),
       subtitle: q('.hold-subtitle'),
       notice: q('.hold-notice'),
@@ -223,6 +250,60 @@
       result: q('.hold-result')
     };
     return api;
+  }
+
+  async function copyHoldIdToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (window.navigator && window.navigator.clipboard && typeof window.navigator.clipboard.writeText === 'function') {
+        await window.navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) { /* fall through to legacy path */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand && document.execCommand('copy');
+      document.body.removeChild(ta);
+      return Boolean(ok);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function resetCopyButton() {
+    if (!modal.confirmationIdCopy) return;
+    modal.confirmationIdCopy.textContent = 'Copy';
+    modal.confirmationIdCopy.removeAttribute('data-copied');
+  }
+
+  async function handleCopyClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const value = modal.confirmationIdValue
+      ? modal.confirmationIdValue.textContent.trim()
+      : '';
+    if (!value) return;
+    const copied = await copyHoldIdToClipboard(value);
+    if (copied) {
+      modal.confirmationIdCopy.textContent = 'Copied!';
+      modal.confirmationIdCopy.setAttribute('data-copied', 'true');
+      setTimeout(resetCopyButton, 2200);
+    } else {
+      // Fallback cue: select the value so the customer can copy manually.
+      modal.confirmationIdCopy.textContent = 'Select & copy';
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(modal.confirmationIdValue);
+        const sel = window.getSelection && window.getSelection();
+        if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+      } catch (_) { /* ignore */ }
+    }
   }
 
   function pollibLink(key, linkText) {
@@ -455,11 +536,30 @@
       }
     }
 
+    // Highlighted ID block only appears when EDP actually recorded
+    // the request. On pending or error, we hide the block and let
+    // the context paragraph carry the degraded message.
+    if (serverInfo && serverInfo.ok && serverInfo.hold_id) {
+      modal.confirmationIdValue.textContent = serverInfo.hold_id;
+      modal.confirmationIdItem.innerHTML = '';
+      const label = document.createTextNode('Item ID: ');
+      const strong = document.createElement('strong');
+      strong.textContent = safeText(draft.item_id) || 'Not available';
+      modal.confirmationIdItem.append(label, strong);
+      modal.confirmationRecorded.textContent = serverInfo.hold_time
+        ? `Recorded at ${serverInfo.hold_time}`
+        : '';
+      modal.confirmationIdBlock.hidden = false;
+      resetCopyButton();
+    } else {
+      modal.confirmationIdBlock.hidden = true;
+      modal.confirmationIdValue.textContent = '';
+      modal.confirmationIdItem.textContent = '';
+      modal.confirmationRecorded.textContent = '';
+    }
+
     const parts = [];
     if (serverInfo && serverInfo.ok) {
-      parts.push(`Your Hold Request ID is ${serverInfo.hold_id}.`);
-      parts.push(`Recorded at ${serverInfo.hold_time}.`);
-      parts.push(`Item ${draft.item_id}.`);
       if (draft.fulfillment === 'delivery') {
         parts.push('Delivery was selected; the delivery questionnaire and photo placeholders stayed in this browser only for the TEST build and were not sent to EDP in this request.');
       } else {
@@ -617,6 +717,9 @@
 
   modal.close.addEventListener('click', closeHold);
   modal.root.addEventListener('click', (event) => { if (event.target === modal.root) closeHold(); });
+  if (modal.confirmationIdCopy) {
+    modal.confirmationIdCopy.addEventListener('click', handleCopyClick);
+  }
   modal.panel.addEventListener('input', validate);
   modal.panel.addEventListener('change', (event) => {
     if (event.target && event.target.name === 'hold-fulfillment') syncDeliveryPanel();
