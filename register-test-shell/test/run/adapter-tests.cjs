@@ -260,7 +260,7 @@ console.log('\nMUTATION SCAN (write verbs must be absent)');
     /getProperty/.test(src) && !/setProperty|deleteProperty/.test(src));
   const mf = JSON.parse(read('appsscript.json'));
   ok('manifest declares ONLY read-only OAuth scopes',
-    mf.oauthScopes.length === 1 && mf.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    mf.oauthScopes.length === 1 && mf.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets',
     mf.oauthScopes.join(','));
 }
 

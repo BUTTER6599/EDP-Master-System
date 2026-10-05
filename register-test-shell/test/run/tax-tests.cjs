@@ -327,9 +327,13 @@ console.log('\n8. GUARANTEES STILL HOLD');
   ok('the data source is still the real APPLIANCES sheet',
     /ACTIVE_DATA_SOURCE\s*=\s*DATA_SOURCES\.APPLIANCES_SHEET/.test(ds));
   const manifest = JSON.parse(fs.readFileSync(path.join(DIR, 'appsscript.json'), 'utf8'));
-  ok('the manifest is still pinned to spreadsheets.readonly',
+  // Package 15C: the SOURCE manifest is now write-CAPABLE, which is NOT the
+  // same as write-AUTHORISED or sales-enabled. The guard is re-aimed at what
+  // must still hold - exactly ONE Sheets scope and nothing else - because the
+  // scope no longer carries the safety on its own; the writer gates do.
+  ok('the manifest carries exactly ONE scope, the minimum Sheets scope',
     manifest.oauthScopes.length === 1 &&
-    manifest.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets.readonly');
+    manifest.oauthScopes[0] === 'https://www.googleapis.com/auth/spreadsheets');
   const ignore = fs.readFileSync(path.join(DIR, '.claspignore'), 'utf8');
   ok('the push allowlist is still exactly 11 files (Sale.gs added in Package 13)',
     (ignore.match(/^!/gm) || []).length === 11);

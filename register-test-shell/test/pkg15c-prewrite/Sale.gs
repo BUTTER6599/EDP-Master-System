@@ -142,245 +142,8 @@ var SALE_ERROR = {
   SEQUENCE_UNAVAILABLE: 'SALE_SEQUENCE_UNAVAILABLE',
   MIGRATION_REQUIRED: 'SALE_MIGRATION_REQUIRED',
   LOCK_UNAVAILABLE: 'SALE_LOCK_UNAVAILABLE',
-  MALFORMED_SALE_ID: 'SALE_MALFORMED_SALE_ID',
-  INVENTORY_WRITES_DISABLED: 'SALE_INVENTORY_WRITES_DISABLED',
-  NO_WRITER: 'SALE_NO_WRITER',
-  TENDER_NOT_APPROVED: 'SALE_TENDER_NOT_APPROVED',
-  APPEND_FAILED: 'SALE_APPEND_FAILED',
-  INVENTORY_RECONCILE: 'SALE_INVENTORY_RECONCILE'
+  MALFORMED_SALE_ID: 'SALE_MALFORMED_SALE_ID'
 };
-
-/* --------------------------------------------------------------------------
- * Package 15C — write-scope safety gates.
- *
- * The manifest in source is now write-CAPABLE. That is not the same thing as
- * write-AUTHORISED, and it is emphatically not the same as sales-enabled. The
- * gates below are what keep those three apart, because the OAuth scope no
- * longer does it for us.
- *
- * Ten gates stand between this code and a real sale. Package 15C moves gate 1
- * and gate 2 only:
- *
- *   1. code is write-capable               <- DONE (this package)
- *   2. manifest carries a write scope      <- DONE in SOURCE only
- *   3. SALES_WRITER_ENABLED                <- false
- *   4. INVENTORY_MUTATION_ENABLED          <- false
- *   5. TEST deployment                     <- not performed
- *   6. owner authorises the OAuth consent  <- not performed
- *   7. a controlled TEST transaction       <- not performed
- *   8. independent verification            <- not performed
- *   9. physical receipt test               <- not performed
- *  10. LIVE approval                       <- not given
- * ------------------------------------------------------------------------ */
-
-/**
- * The two writer gates.
- *
- * NAME MAPPING: Package 15C's brief calls these SALES_WRITER_ENABLED and
- * INVENTORY_SOLD_WRITER_ENABLED. The approved flag architecture has existed
- * since the first build and names the second INVENTORY_MUTATION_ENABLED, so
- * the existing names are kept and the mapping is recorded here rather than
- * adding a redundant third flag that could drift out of step with it.
- */
-var WRITER_GATES = {
-  SALES: 'SALES_WRITER_ENABLED',
-  INVENTORY: 'INVENTORY_MUTATION_ENABLED'   /* a.k.a. INVENTORY_SOLD_WRITER_ENABLED */
-};
-
-/**
- * A gate is open ONLY for the boolean true.
- *
- * Not the string 'true', not 1, not a truthy object. A flag that is missing,
- * undefined, null or malformed is CLOSED. The failure that matters here is the
- * one where a config edit types "true" and a till starts writing, so identity
- * comparison is the whole point.
- */
-function gateOpen_(flagName) {
-  var features = (CONFIG && CONFIG.FEATURES) || {};
-  return features[flagName] === true;
-}
-
-/**
- * Approved tender for the first controlled transaction path.
- *
- * CASH only. Each blocked method records WHY, so a future reader does not have
- * to guess whether it was forgotten or refused.
- */
-var APPROVED_TENDER_IDS = ['CASH'];
-
-var BLOCKED_TENDER_REASONS = {
-  'STORE_CREDIT': 'No customer credit ledger exists yet (NV-28). A cashier would have no balance to check against.',
-  'CARD': 'Not an approved Register tender. No card row has ever existed in SALES (NV-23).',
-  'FINANCE': 'Not an approved Register tender (NV-23).',
-  'LAYAWAY': 'Payment & Pickup Plan is an agreement with a lifecycle, not a tender. It needs its own structure.',
-  'CHECK': 'Not an approved Register tender (NV-23).',
-  'CASH_APP': 'Historical only. Not reactivated as a current tender.'
-};
-
-function assertApprovedTender_(methodId) {
-  var id = String(methodId == null ? '' : methodId).trim().toUpperCase();
-  for (var i = 0; i < APPROVED_TENDER_IDS.length; i++) {
-    if (APPROVED_TENDER_IDS[i] === id) { return id; }
-  }
-  var why = BLOCKED_TENDER_REASONS[id] || 'Not an approved Register tender.';
-  throwSale_(SALE_ERROR.TENDER_NOT_APPROVED,
-    'Tender "' + methodId + '" is not approved for a Register transaction. ' + why);
-}
-
-/* --------------------------------------------------------------------------
- * Idempotency — PURE.
- * ------------------------------------------------------------------------ */
-
-/**
- * Finds an already-committed sale for a request id.
- *
- * Takes rows of { sale_id, request_id } as read from SALES columns A and AG.
- * The 148 historical rows have a BLANK request_id and must never match
- * anything — a blank lookup key matching a blank column would make every
- * historical row look like a duplicate of every new attempt.
- *
- * Returns { saleId, rowCount } or null. rowCount matters because a multi-item
- * sale occupies several rows under one sale_id.
- */
-function findCommittedSale_(rows, requestId) {
-  var key = String(requestId == null ? '' : requestId).trim();
-  if (key === '') { return null; }        /* never match on blank */
-  var saleId = null, count = 0;
-  (rows || []).forEach(function (r) {
-    var rid = String((r && r.request_id) == null ? '' : r.request_id).trim();
-    if (rid === '' || rid !== key) { return; }
-    count += 1;
-    if (saleId === null) { saleId = String(r.sale_id == null ? '' : r.sale_id).trim(); }
-  });
-  return count === 0 ? null : { saleId: saleId, rowCount: count };
-}
-
-/* --------------------------------------------------------------------------
- * The transaction boundary — STRUCTURE ONLY. No Sheets write exists.
- * ------------------------------------------------------------------------ */
-
-/**
- * The production write adapter. There isn't one.
- *
- * Returning null is deliberate: the boundary below refuses when it has no
- * adapter, so "the writer does not exist" is an enforced runtime fact and not
- * a comment someone can quietly delete.
- */
-function saleWriteAdapter_() {
-  return null;
-}
-
-/**
- * The controlled CASH Complete Sale boundary.
- *
- * Structured in full so the ordering is reviewable and testable now, while the
- * two steps that touch Google — the SALES append and the APPLIANCES update —
- * exist only as adapter calls. Production passes no adapter, so they cannot
- * run. Tests pass a recording mock, so the sequencing can be proven without a
- * single byte reaching a spreadsheet.
- *
- * ORDERING IS THE SAFETY DESIGN. The SALES record is written BEFORE inventory
- * moves. A crash between them leaves a sale that can be reconciled against
- * stock; the reverse leaves stock sold against no sale at all, which is money
- * unaccounted for.
- *
- * Returns { ok, code, message, journal, sale }. journal names every step
- * that actually executed, so a test can assert what did NOT happen.
- */
-function runSaleTransaction_(rawRequest, adapter) {
-  var journal = [];
-  function refuse(code, message) {
-    return { ok: false, code: code, message: message, journal: journal };
-  }
-
-  /* Gates first, and outside the lock. A refusal that is going to happen
-     anyway should not make another till wait for a lock to find out. */
-  journal.push('GATE_SALES');
-  if (!gateOpen_(WRITER_GATES.SALES)) {
-    return refuse(SALE_ERROR.WRITES_DISABLED,
-      'SALES writing is disabled (' + WRITER_GATES.SALES + ' is not true). Nothing was written.');
-  }
-  journal.push('GATE_INVENTORY');
-  if (!gateOpen_(WRITER_GATES.INVENTORY)) {
-    return refuse(SALE_ERROR.INVENTORY_WRITES_DISABLED,
-      'Inventory mutation is disabled (' + WRITER_GATES.INVENTORY + ' is not true). ' +
-      'A sale that cannot mark its appliance SOLD is not completed. Nothing was written.');
-  }
-
-  var a = adapter || saleWriteAdapter_();
-  journal.push('ADAPTER');
-  if (!a || typeof a.readCommitted !== 'function' ||
-      typeof a.appendSalesRows !== 'function' || typeof a.markSold !== 'function') {
-    return refuse(SALE_ERROR.NO_WRITER,
-      'No SALES writer exists. Nothing was written.');
-  }
-
-  var request;
-  try {
-    journal.push('VALIDATE');
-    request = normaliseSaleRequest_(rawRequest);
-    assertApprovedTender_(request.paymentMethodId);
-  } catch (e) {
-    return refuse(e.edpCode || SALE_ERROR.BAD_REQUEST, String(e && e.message || e));
-  }
-
-  try {
-    return withSaleLock_(function () {
-      /* Idempotency INSIDE the lock. Outside it, two retries of the same
-         request could both miss and both write. */
-      journal.push('IDEMPOTENCY');
-      var already = findCommittedSale_(a.readCommitted(), request.requestId);
-      if (already) {
-        journal.push('RETURN_EXISTING');
-        return {
-          ok: true, duplicate: true, code: null,
-          message: 'This request was already completed. Returning the original sale; no second sale was created.',
-          saleId: already.saleId, rowCount: already.rowCount, journal: journal
-        };
-      }
-
-      journal.push('PREPARE');
-      var sale = prepareSale_(request);          /* allocates the id, inside the lock */
-
-      journal.push('BUILD_ROWS');
-      var rows = salesRowsToArrays_(buildSalesRows_(sale));
-
-      journal.push('APPEND_SALES');
-      var appended = a.appendSalesRows(rows);
-      if (!appended || appended.ok !== true) {
-        /* Nothing was committed, so inventory is never touched. */
-        return refuse(SALE_ERROR.APPEND_FAILED,
-          'The SALES append did not succeed, so no inventory was changed and no sale exists.');
-      }
-
-      /* From here the sale is REAL. Anything that fails below is a
-         reconciliation exception, never a rollback: deleting the record to
-         tidy up would erase the only evidence the money changed hands. */
-      journal.push('MARK_SOLD');
-      var soldFailures = [];
-      sale.lines.forEach(function (l) {
-        if (l.resolved === false) { return; }
-        var r = a.markSold(l.itemId);
-        if (!r || r.ok !== true) { soldFailures.push(l.itemId); }
-      });
-
-      journal.push('DONE');
-      return {
-        ok: true, duplicate: false,
-        saleId: sale.saleId, rowCount: rows.length, sale: sale, journal: journal,
-        reconciliation: soldFailures.length ? {
-          code: SALE_ERROR.INVENTORY_RECONCILE,
-          message: 'The sale is recorded and authoritative. These appliances could not be ' +
-            'marked SOLD and need reconciling: ' + soldFailures.join(', ') + '. ' +
-            'The sale was NOT rolled back.',
-          items: soldFailures
-        } : null
-      };
-    });
-  } catch (e) {
-    return refuse(e.edpCode || SALE_ERROR.BAD_REQUEST, String(e && e.message || e));
-  }
-}
 
 /* --------------------------------------------------------------------------
  * Sale-id sequence allocation (Package 15B) — READ ONLY.
@@ -489,18 +252,7 @@ function fetchSaleIdColumn_() {
  * tryLock, not waitLock: a boolean is easier to fail closed on than an
  * exception, and a sale that cannot get the lock must not proceed.
  */
-/* Re-entrancy guard for the sale lock.
-   The transaction boundary takes the lock and then calls prepareSale_, which
-   reaches allocateDailySequence_, which also wants the lock. Nesting a real
-   LockService call that way is a genuine hazard: getScriptLock() hands back
-   the SAME lock, so the inner releaseLock() would drop it while the outer
-   transaction is still writing — exactly the window the lock exists to close.
-   The innermost call therefore runs inline and only the outermost acquires
-   and releases. Found by a test asserting the lock was released once. */
-var inSaleLock_ = false;
-
 function withSaleLock_(fn) {
-  if (inSaleLock_) { return fn(); }        /* already held by an outer caller */
   if (typeof LockService === 'undefined' || !LockService) {
     throwSale_(SALE_ERROR.LOCK_UNAVAILABLE,
       'LockService is unavailable, so two tills cannot be serialised. ' +
@@ -518,11 +270,9 @@ function withSaleLock_(fn) {
       'Could not acquire the sale lock within ' + SALE_LOCK_TIMEOUT_MS +
       'ms. Another sale is in progress. Refusing to proceed unlocked.');
   }
-  inSaleLock_ = true;
   try {
     return fn();
   } finally {
-    inSaleLock_ = false;         /* cleared even if fn() throws */
     lock.releaseLock();          /* released even if fn() throws */
   }
 }
@@ -1168,14 +918,7 @@ function completeSale(request) {
     };
   }
 
-  /* Reachable only if BOTH gates are opened. Even then it refuses, because
-     saleWriteAdapter_() returns null — no writer exists. */
-  var out = runSaleTransaction_(request, null);
-  if (!out.ok) { return { ok: false, code: out.code, message: out.message }; }
-  return out;
-
-  /* eslint-disable no-unreachable */
-  // The reviewed plan, kept as comments rather than behaviour.
+  // Unreachable in this build. Left as the reviewed plan, not as behaviour.
   //
   //  1. normaliseSaleRequest_(request)        validate, fail closed
   //  2. idempotency: has requestId already produced a sale?  -> return it
