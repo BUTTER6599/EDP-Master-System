@@ -43,31 +43,21 @@ function serverSandbox(opts) {
   const S = { console, JSON, Math, Number, String, Array, Object, Date, RegExp,
               isFinite, isNaN, parseInt, parseFloat, Error, TypeError };
   S.globalThis = S;
-  // A TIMEZONE-AWARE formatDate, matching what Apps Script actually does.
-  //
-  // This stub has now been wrong twice, and each time the stub failed correct
-  // code. First it knew only two patterns and silently returned the wrong
-  // shape for the rest. Then it ignored the timezone argument entirely and
-  // formatted in UTC - which was tolerable only while nothing asserted a real
-  // wall-clock date. The business-date rules do assert one, and a Register
-  // that numbers a 20:30 Louisiana sale into the next day would be wrong on
-  // every receipt and report that followed. So it resolves the zone properly.
+  // A real pattern-substituting formatDate. The first version only knew two
+  // patterns and silently returned the wrong shape for the rest, which failed
+  // correct code - the stub was the bug. Deterministic UTC is enough here: the
+  // suite asserts SHAPE and ordering, never a wall-clock value in a zone.
   S.Utilities = {
     formatDate(d, tz, fmt) {
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz, hour12: false,
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'short'
-      }).formatToParts(d).reduce((a, p) => (a[p.type] = p.value, a), {});
-      const dows = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+      const p = n => String(n).padStart(2, '0');
       const map = {
-        'yyyy': parts.year,
-        'MM': parts.month,
-        'dd': parts.day,
-        'HH': parts.hour === '24' ? '00' : parts.hour,
-        'mm': parts.minute,
-        'ss': parts.second,
-        'u': String(dows[parts.weekday])
+        'yyyy': String(d.getUTCFullYear()),
+        'MM': p(d.getUTCMonth() + 1),
+        'dd': p(d.getUTCDate()),
+        'HH': p(d.getUTCHours()),
+        'mm': p(d.getUTCMinutes()),
+        'ss': p(d.getUTCSeconds()),
+        'u': String(d.getUTCDay() === 0 ? 7 : d.getUTCDay())   // 1=Mon..7=Sun
       };
       if (fmt === 'u') { return map.u; }
       return String(fmt).replace(/yyyy|MM|dd|HH|mm|ss/g, k => map[k]);
@@ -84,51 +74,9 @@ function serverSandbox(opts) {
       setProperty: () => { writeAttempts.push('PropertiesService.setProperty'); throw new Error('FORBIDDEN WRITE'); }
     })
   };
-  // Sheets: inventory comes from the MOCK source, exactly as the adapter suites
-  // have pinned it since Package 8. The allocator, though, genuinely reads
-  // SALES column A, so a controlled READ stub is supplied when a test provides
-  // saleIds. Every WRITE method stays forbidden and records an attempt, so an
-  // accidental write is loud rather than silent.
-  S.__sheetReads = [];
-  S.Sheets = {
-    Spreadsheets: {
-      Values: {
-        get(id, range) {
-          S.__sheetReads.push(range);
-          if (opts.saleIds === undefined) {
-            // A read this test did not arrange for. That is a fault, but it is
-            // NOT a write - keep the write ledger meaning only writes.
-            throw new Error('unexpected Sheets read: ' + range);
-          }
-          return { values: opts.saleIds.map(v => (v === null ? [] : [v])) };
-        },
-        update() { writeAttempts.push('Sheets.Values.update'); throw new Error('FORBIDDEN WRITE'); },
-        append() { writeAttempts.push('Sheets.Values.append'); throw new Error('FORBIDDEN WRITE'); },
-        batchUpdate() { writeAttempts.push('Sheets.Values.batchUpdate'); throw new Error('FORBIDDEN WRITE'); }
-      },
-      batchUpdate() { writeAttempts.push('Sheets.batchUpdate'); throw new Error('FORBIDDEN WRITE'); }
-    }
-  };
-
-  // LockService: records acquire/release so the transaction boundary itself is
-  // testable. opts.lock controls the outcome.
-  S.__lock = { acquired: 0, released: 0, timeouts: [] };
-  if (opts.lock !== 'absent') {
-    S.LockService = {
-      getScriptLock() {
-        return {
-          tryLock(ms) {
-            S.__lock.timeouts.push(ms);
-            if (opts.lock === 'busy') { return false; }
-            if (opts.lock === 'throws') { throw new Error('lock service error'); }
-            S.__lock.acquired += 1;
-            return true;
-          },
-          releaseLock() { S.__lock.released += 1; }
-        };
-      }
-    };
-  }
+  // Sheets is never reached: these suites pin the MOCK source, exactly as the
+  // adapter suites have since Package 8.
+  S.Sheets = forbidden('Sheets');
 
   vm.createContext(S);
   ['Config.gs', 'MockData.gs', 'Validation.gs', 'DataSource.gs', 'InventoryQuery.gs', 'Sale.gs']
@@ -272,20 +220,12 @@ console.log('\n3. SERVER IS AUTHORITATIVE FOR ID AND TIME');
   const S = serverSandbox({ features: { SALES_WRITER_ENABLED: true } });
   const item = firstItem(S);
   const res = prepare(S, req({ lines: [{ itemId: item.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] }));
-  // Package 13 asserted there was no approved id format; Package 15 asserted
-  // no allocator existed. Both are now built, so this is re-aimed: with writes
-  // on AND a readable SALES column, a real EDP id is produced.
-  ok('with writes on but no SALES read arranged, it fails rather than guessing',
-    res.ok === false, res.code);
-  const W = serverSandbox({ features: { SALES_WRITER_ENABLED: true },
-    saleIds: ['SHOPIFY-3013', 'S-1780964571246-775'] });
-  const wi = firstItem(W);
-  const wr = prepare(W, req({ lines: [{ itemId: wi.itemId, qty: 1,
-    warrantyId: 'W-ASIS', unitPriceCents: null }] }));
-  ok('with writes on and SALES readable, a real EDP id is allocated',
-    wr.ok === true && /^EDP-\d{8}-001$/.test(wr.sale.saleId),
-    wr.ok ? wr.sale.saleId : wr.code + ' ' + wr.message);
-  ok('and the sale is no longer flagged as a TEST sale', wr.ok && wr.sale.isTest === false);
+  // Package 13 asserted there was no approved id format. One was approved on
+  // 2026-10-04, so the refusal has moved to the ALLOCATOR - which is the
+  // honest place for it, because a guessed sequence merges two real sales.
+  ok('with writes on it still REFUSES, now on sequence allocation',
+    res.ok === false && res.code === 'SALE_SEQUENCE_UNAVAILABLE', res.code);
+  ok('and says why a guess is unacceptable', /merges two real sales/.test(res.message));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -663,8 +603,9 @@ console.log('\n9. PACKAGE 14B — APPROVED SALE-ID FORMAT');
     call(S, 'SALE_ID.LEGACY_EPOCH_PATTERN.test("S-1784399181909-86")') === true);
   ok('the Shopify pattern matches the RECON variant',
     call(S, 'SALE_ID.SHOPIFY_PATTERN.test("SHOPIFY-3123-RECON")') === true);
-  ok('the allocator exists and is reachable',
-    typeof call(S, 'allocateDailySequence_') === 'function');
+  ok('allocating a sequence REFUSES — no allocator exists',
+    call(S, 'try { allocateDailySequence_(); "ALLOCATED" } catch (e) { e.edpCode }')
+      === 'SALE_SEQUENCE_UNAVAILABLE');
 }
 
 /* ---------------------------------------------------------------------- */
@@ -821,234 +762,6 @@ console.log('\n12. PACKAGE 14B — STORAGE RULES RECORDED, NOT CHARGED');
     R.HOLIDAYS === null);
   ok('no storage charge is ever computed in this build',
     !/chargeStorage|applyStorageFee|storageDue/.test(saleSrc));
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n12. PACKAGE 15B — LOCKED SALE-ID SEQUENCE ALLOCATOR (READ ONLY)');
-
-// The pure core takes a list and returns an answer, with no clock and no
-// network, so every rule below is checked deterministically.
-const DAY = '20261005';
-function nextSeq(S, ids, dateKey) {
-  return call(S, 'nextSequenceFrom_(' + JSON.stringify(ids) + ', ' + JSON.stringify(dateKey || DAY) + ')');
-}
-function nextSeqCode(S, ids, dateKey) {
-  return call(S, 'try { nextSequenceFrom_(' + JSON.stringify(ids) + ', ' +
-    JSON.stringify(dateKey || DAY) + '); "ALLOCATED" } catch (e) { e.edpCode }');
-}
-
-console.log('\n  -- sequence rules --');
-{
-  const S = serverSandbox();
-  ok('an empty SALES column gives 001', nextSeq(S, []) === 1);
-  ok('no EDP ids for the date gives 001',
-    nextSeq(S, ['SHOPIFY-3013', 'S-1780964571246-775']) === 1);
-  ok('001 exists -> 002', nextSeq(S, ['EDP-20261005-001']) === 2);
-  ok('001,002 -> 003', nextSeq(S, ['EDP-20261005-001', 'EDP-20261005-002']) === 3);
-  ok('many ids -> highest + 1',
-    nextSeq(S, ['EDP-20261005-004','EDP-20261005-001','EDP-20261005-007','EDP-20261005-003']) === 8);
-  ok('HIGHEST wins when gaps exist: 001,003 -> 004',
-    nextSeq(S, ['EDP-20261005-001', 'EDP-20261005-003']) === 4, 'got ' + nextSeq(S, ['EDP-20261005-001','EDP-20261005-003']));
-  ok('a gap is never refilled', nextSeq(S, ['EDP-20261005-002']) === 3);
-  ok('order in the column does not matter',
-    nextSeq(S, ['EDP-20261005-009','EDP-20261005-002']) ===
-    nextSeq(S, ['EDP-20261005-002','EDP-20261005-009']));
-  ok('duplicate ids do not inflate the sequence',
-    nextSeq(S, ['EDP-20261005-005','EDP-20261005-005']) === 6);
-  ok('blank cells are ignored', nextSeq(S, ['', '   ', 'EDP-20261005-001']) === 2);
-  ok('the pure core is deterministic across 50 identical calls', (function () {
-    const ids = ['EDP-20261005-001','EDP-20261005-003'];
-    for (let k = 0; k < 50; k++) { if (nextSeq(S, ids) !== 4) { return false; } }
-    return true;
-  })());
-}
-
-console.log('\n  -- historical formats are ignored --');
-{
-  const S = serverSandbox();
-  ok('S-<epoch>-<rand> ignored', nextSeq(S, ['S-1780964571246-775','S-1784399181909-86']) === 1);
-  ok('SHOPIFY-<order#> ignored', nextSeq(S, ['SHOPIFY-3013','SHOPIFY-3102']) === 1);
-  ok('SHOPIFY-<order#>-RECON ignored', nextSeq(S, ['SHOPIFY-3123-RECON']) === 1);
-  ok('MANUAL-… ignored', nextSeq(S, ['MANUAL-20260823-DELAUNE-001']) === 1);
-  ok('an unrelated unknown format is ignored, not fatal', nextSeq(S, ['FOO-9','ZZ1']) === 1);
-  ok('a real mixed column still finds the Register ids',
-    nextSeq(S, ['SHOPIFY-3013','EDP-20261005-002','S-1780964571246-775',
-                'MANUAL-20260823-DELAUNE-001','EDP-20261005-005']) === 6);
-}
-
-console.log('\n  -- a malformed EDP id FAILS CLOSED, it is not skipped --');
-{
-  const S = serverSandbox();
-  ['EDP-20261005-1000','EDP-20261005-01','EDP-2026105-001','EDP-20261005-abc',
-   'EDP-20261005','EDP-','EDP-20261005-001-X','edp-20261005-001'].forEach(function (bad) {
-    ok('refuses to allocate past ' + JSON.stringify(bad),
-      nextSeqCode(S, [bad]) === 'SALE_MALFORMED_SALE_ID', String(nextSeqCode(S, [bad])));
-  });
-  ok('the refusal names the offending value',
-    /EDP-20261005-1000/.test(call(S,
-      'try { nextSequenceFrom_(["EDP-20261005-1000"], "' + DAY + '"); "" } catch (e) { e.message }')));
-  ok('a malformed id on ANOTHER date still fails closed',
-    nextSeqCode(S, ['EDP-20260101-9999']) === 'SALE_MALFORMED_SALE_ID');
-  ok('one malformed id poisons the whole allocation, by design',
-    nextSeqCode(S, ['EDP-20261005-001','EDP-20261005-7']) === 'SALE_MALFORMED_SALE_ID');
-}
-
-console.log('\n  -- other business dates do not interfere --');
-{
-  const S = serverSandbox();
-  ok('yesterday ignored', nextSeq(S, ['EDP-20261004-099']) === 1);
-  ok('tomorrow ignored', nextSeq(S, ['EDP-20261006-099']) === 1);
-  ok('a far-future date ignored', nextSeq(S, ['EDP-20991231-500']) === 1);
-  ok('only the requested date counts',
-    nextSeq(S, ['EDP-20261004-050','EDP-20261005-002','EDP-20261006-090']) === 3);
-  ok('asking for yesterday gets yesterday\'s answer',
-    nextSeq(S, ['EDP-20261004-050','EDP-20261005-002'], '20261004') === 51);
-}
-
-console.log('\n  -- the 999 ceiling --');
-{
-  const S = serverSandbox();
-  ok('998 -> 999 is allowed', nextSeq(S, ['EDP-20261005-998']) === 999);
-  ok('999 used -> FAILS CLOSED', nextSeqCode(S, ['EDP-20261005-999']) === 'SALE_SEQUENCE_UNAVAILABLE');
-  ok('and refuses to roll over into an unapproved format',
-    /nobody approved/.test(call(S,
-      'try { nextSequenceFrom_(["EDP-20261005-999"], "' + DAY + '"); "" } catch (e) { e.message }')));
-  ok('999 on another date does not block today', nextSeq(S, ['EDP-20261004-999']) === 1);
-  ok('the ceiling is a named constant', call(S, 'MAX_DAILY_SEQUENCE') === 999);
-  ok('formatSaleId_ accepts the 999 boundary',
-    call(S, 'formatSaleId_(Date.UTC(2026,9,5,12,0,0), 999)') === 'EDP-20261005-999');
-}
-
-console.log('\n  -- America/Chicago business date --');
-{
-  const S = serverSandbox();
-  ok('the store timezone is what is used', call(S, 'CONFIG.TIMEZONE') === 'America/Chicago');
-  // 2026-10-06 01:30 UTC is still 2026-10-05 20:30 in Chicago (CDT, UTC-5).
-  const lateEvening = Date.UTC(2026, 9, 6, 1, 30, 0);
-  ok('a 20:30 Chicago sale stays on the Chicago day, not the UTC next day',
-    call(S, 'businessDateKey_(' + lateEvening + ')') === '20261005',
-    call(S, 'businessDateKey_(' + lateEvening + ')'));
-  // 2026-10-05 04:30 UTC is 2026-10-04 23:30 in Chicago.
-  const justBeforeMidnight = Date.UTC(2026, 9, 5, 4, 30, 0);
-  ok('a 23:30 Chicago sale stays on the previous Chicago day',
-    call(S, 'businessDateKey_(' + justBeforeMidnight + ')') === '20261004',
-    call(S, 'businessDateKey_(' + justBeforeMidnight + ')'));
-  // 2026-10-05 13:00 UTC is 08:00 Chicago - same day either way.
-  ok('a midday sale is unambiguous',
-    call(S, 'businessDateKey_(' + Date.UTC(2026, 9, 5, 13, 0, 0) + ')') === '20261005');
-  ok('the date key is yyyyMMdd',
-    /^\d{8}$/.test(call(S, 'businessDateKey_(' + Date.now() + ')')));
-}
-
-console.log('\n  -- LockService architecture --');
-{
-  const S = serverSandbox({ saleIds: ['EDP-20261005-001'] });
-  const seq = call(S, 'allocateDailySequence_({epochMs: ' + Date.UTC(2026,9,5,18,0,0) + '})');
-  ok('the allocator returns the next sequence', seq === 2, 'got ' + seq);
-  ok('it acquired the lock', call(S, '__lock.acquired') === 1);
-  ok('and released it', call(S, '__lock.released') === 1);
-  ok('with the declared 20s timeout', call(S, '__lock.timeouts')[0] === 20000);
-  ok('it read SALES column A only, never the whole tab',
-    call(S, '__sheetReads')[0] === 'SALES!A2:A', String(call(S, '__sheetReads')[0]));
-  ok('exactly one read per allocation', call(S, '__sheetReads').length === 1);
-  ok('no write verb was reached', writeAttempts.length === 0, writeAttempts.join(', '));
-}
-{
-  const S = serverSandbox({ saleIds: [], lock: 'busy' });
-  const r = call(S, 'try { allocateDailySequence_({epochMs: ' + Date.now() + '}); "ALLOCATED" } catch (e) { e.edpCode }');
-  ok('a BUSY lock fails closed — the sale does not proceed', r === 'SALE_LOCK_UNAVAILABLE', String(r));
-  ok('and says another sale is in progress',
-    /Another sale is in progress/.test(call(S,
-      'try { allocateDailySequence_({epochMs: ' + Date.now() + '}); "" } catch (e) { e.message }')));
-  ok('it never read SALES when it could not get the lock',
-    call(S, '__sheetReads').length === 0);
-}
-{
-  const S = serverSandbox({ saleIds: [], lock: 'throws' });
-  ok('a lock service that THROWS also fails closed',
-    call(S, 'try { allocateDailySequence_({epochMs: ' + Date.now() + '}); "ALLOCATED" } catch (e) { e.edpCode }')
-      === 'SALE_LOCK_UNAVAILABLE');
-}
-{
-  const S = serverSandbox({ saleIds: [], lock: 'absent' });
-  ok('no LockService at all fails closed — never allocate unprotected',
-    call(S, 'try { allocateDailySequence_({epochMs: ' + Date.now() + '}); "ALLOCATED" } catch (e) { e.edpCode }')
-      === 'SALE_LOCK_UNAVAILABLE');
-}
-{
-  // The lock must be released even when the work inside it throws, or one bad
-  // sale would wedge every till behind it.
-  const S = serverSandbox({ saleIds: ['EDP-20261005-999'] });
-  call(S, 'try { allocateDailySequence_({epochMs: ' + Date.UTC(2026,9,5,18,0,0) + '}); } catch (e) {}');
-  ok('the lock is released even when allocation throws inside it',
-    call(S, '__lock.acquired') === 1 && call(S, '__lock.released') === 1);
-}
-
-console.log('\n  -- the honest limitation of a READ-ONLY allocator --');
-{
-  const S = serverSandbox({ saleIds: ['EDP-20261005-004'] });
-  const at = Date.UTC(2026, 9, 5, 18, 0, 0);
-  const a = call(S, 'allocateDailySequence_({epochMs: ' + at + '})');
-  const b = call(S, 'allocateDailySequence_({epochMs: ' + at + '})');
-  ok('two consecutive allocations return the SAME number — nothing is reserved',
-    a === 5 && b === 5, a + ' then ' + b);
-  ok('the lock still serialised both readers',
-    call(S, '__lock.acquired') === 2 && call(S, '__lock.released') === 2);
-  ok('the limitation is documented in the source, not hidden',
-    /ADVISORY ONLY/.test(saleSrc) && /nothing is claimed/.test(saleSrc));
-  ok('uniqueness is stated to require the append inside the same lock',
-    /INSIDE this same withSaleLock_/.test(saleSrc));
-}
-
-console.log('\n  -- end to end, still refusing to write --');
-{
-  // prepareSale uses the real clock, so the fixture must use TODAY's Chicago
-  // business date - a hard-coded one silently tests a day with no ids on it.
-  const today = serverSandbox().Utilities
-    ? call(serverSandbox(), 'businessDateKey_(' + Date.now() + ')')
-    : null;
-  const S = serverSandbox({ features: { SALES_WRITER_ENABLED: true },
-    saleIds: ['EDP-' + today + '-007', 'SHOPIFY-3013', 'EDP-20261001-900'] });
-  const it = firstItem(S);
-  const r = prepare(S, req({ lines: [{ itemId: it.itemId, qty: 1,
-    warrantyId: 'W-ASIS', unitPriceCents: null }] }));
-  ok('a prepared sale now carries a real EDP sale id', r.ok === true, r.ok ? '' : r.code);
-  ok('and it is the next sequence after the highest found TODAY',
-    r.sale.saleId === 'EDP-' + today + '-008', r.sale.saleId);
-  ok('an id from another date did not inflate it',
-    r.sale.saleId.indexOf('-900') === -1 && r.sale.saleId.indexOf('901') === -1);
-  const rows = call(S, 'salesRowsToArrays_(buildSalesRows_(' + JSON.stringify(r.sale) + '))');
-  ok('the generated SALES row is 33 columns wide', rows[0].length === 33, 'width ' + rows[0].length);
-  ok('column 32 is intentionally empty in the generated row',
-    rows[0][31] === '', JSON.stringify(rows[0][31]));
-  ok('column 33 carries the request_id', rows[0][32] === r.sale.requestId);
-  ok('column 1 carries the EDP sale id', rows[0][0] === r.sale.saleId);
-  ok('NOTHING was written — no write verb reached', writeAttempts.length === 0, writeAttempts.join(', '));
-  const done = call(S, 'completeSale(' + JSON.stringify(req({ lines: [{ itemId: it.itemId,
-    qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] })) + ')');
-  ok('completeSale STILL refuses, even with a working allocator',
-    done.ok === false, done.code);
-  ok('because COMPLETE_SALE_ENABLED is still false',
-    done.code === 'SALE_WRITES_DISABLED', done.code);
-}
-{
-  const S = serverSandbox();
-  ok('SALES_WRITER_ENABLED is still false by default',
-    call(S, 'CONFIG.FEATURES.SALES_WRITER_ENABLED') === false);
-  ok('INVENTORY_MUTATION_ENABLED is still false',
-    call(S, 'CONFIG.FEATURES.INVENTORY_MUTATION_ENABLED') === false);
-  ok('the request_id migration is still recorded as applied',
-    call(S, 'SALES_MIGRATION.APPLIED') === true);
-  const strip = s => String(s).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
-  const code = strip(saleSrc);
-  ok('the allocator added NO write API',
-    !/Values\.update|Values\.append|Values\.batchUpdate|\.setValue|\.appendRow|setProperty/.test(code));
-  ok('the only Sheets call in Sale.gs is a Values.get',
-    (code.match(/Sheets\.Spreadsheets\.[A-Za-z.]+/g) || []).join(',') === 'Sheets.Spreadsheets.Values.get');
-  ok('no APPLIANCES mutation was introduced',
-    !/APPLIANCES|markInventorySold/.test(code));
-  ok('no messaging or network side effect was introduced',
-    !/MailApp|GmailApp|UrlFetchApp|fetch\(/.test(code));
 }
 
 console.log('\n-------------------------------------------------------');

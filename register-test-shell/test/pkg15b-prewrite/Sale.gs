@@ -140,142 +140,8 @@ var SALE_ERROR = {
   MISSING_REQUEST_ID: 'SALE_MISSING_REQUEST_ID',
   DUPLICATE_REQUEST: 'SALE_DUPLICATE_REQUEST',
   SEQUENCE_UNAVAILABLE: 'SALE_SEQUENCE_UNAVAILABLE',
-  MIGRATION_REQUIRED: 'SALE_MIGRATION_REQUIRED',
-  LOCK_UNAVAILABLE: 'SALE_LOCK_UNAVAILABLE',
-  MALFORMED_SALE_ID: 'SALE_MALFORMED_SALE_ID'
+  MIGRATION_REQUIRED: 'SALE_MIGRATION_REQUIRED'
 };
-
-/* --------------------------------------------------------------------------
- * Sale-id sequence allocation (Package 15B) — READ ONLY.
- * ------------------------------------------------------------------------ */
-
-var SALES_SHEET_NAME = 'SALES';
-
-/* Column A only. Reading the whole SALES tab would pull customer names and
-   phone numbers into the Register for no reason; the allocator needs exactly
-   one column and takes exactly one column. A2 skips the header row. */
-var SALE_ID_COLUMN_RANGE = 'SALES!A2:A';
-
-var MAX_DAILY_SEQUENCE = 999;
-var SALE_LOCK_TIMEOUT_MS = 20000;
-
-/**
- * Business date key, yyyyMMdd, in America/Chicago.
- *
- * The store's day, not UTC's. A sale rung at 7pm on 5 October in Louisiana is
- * 00:xx on 6 October UTC, and numbering it into the next day would be wrong on
- * every receipt, report and reconciliation that follows.
- */
-function businessDateKey_(epochMs) {
-  return Utilities.formatDate(new Date(epochMs), CONFIG.TIMEZONE, 'yyyyMMdd');
-}
-
-/**
- * Strictly parses a Register sale id. Returns { dateKey, seq } or null.
- *
- * Only the exact approved shape is accepted. Anything else returns null and is
- * treated as "not one of ours" — which is correct for the historical families
- * (S-…, SHOPIFY-…, MANUAL-…) that legitimately share this column.
- */
-function parseRegisterSaleId_(id) {
-  var s = String(id == null ? '' : id).trim();
-  if (!SALE_ID.PRODUCTION_PATTERN.test(s)) { return null; }
-  return { dateKey: s.slice(4, 12), seq: Number(s.slice(13, 16)) };
-}
-
-/**
- * True for a value that is CLAIMING to be a Register id but is not one.
- *
- * This distinction is the whole safety of the allocator. An unknown format
- * like "FOO-9" is somebody else's and is ignored. But "EDP-20261005-1000" or
- * "EDP-2026105-01" is a Register id that this code cannot read — and silently
- * skipping it could hand out a number already in use. Those fail closed.
- */
-function looksLikeRegisterSaleId_(id) {
-  return /^EDP-/i.test(String(id == null ? '' : id).trim());
-}
-
-/**
- * Highest sequence already used on one business date. PURE — give it a list,
- * it gives an answer, every time, with no clock and no network.
- *
- * Highest wins; gaps are NOT refilled. If 001 and 003 exist, the next is 004.
- * Reusing 002 would point two different sales at one identifier the moment the
- * gap turned out to be a deleted row rather than a skipped one.
- */
-function highestSequenceFor_(saleIds, dateKey) {
-  var highest = 0;
-  (saleIds || []).forEach(function (raw) {
-    var parsed = parseRegisterSaleId_(raw);
-    if (!parsed) {
-      if (looksLikeRegisterSaleId_(raw)) {
-        throwSale_(SALE_ERROR.MALFORMED_SALE_ID,
-          'SALES contains "' + String(raw).trim() + '", which claims to be a ' +
-          'Register sale id but does not match ' + SALE_ID.PRODUCTION_FORMAT +
-          '. Refusing to allocate past a Register id this code cannot read.');
-      }
-      return;                                   /* someone else's format */
-    }
-    if (parsed.dateKey !== dateKey) { return; } /* another day, not ours */
-    if (parsed.seq > highest) { highest = parsed.seq; }
-  });
-  return highest;
-}
-
-/** Next sequence for a date. PURE. Fails closed at the 999 ceiling. */
-function nextSequenceFrom_(saleIds, dateKey) {
-  var next = highestSequenceFor_(saleIds, dateKey) + 1;
-  if (next > MAX_DAILY_SEQUENCE) {
-    throwSale_(SALE_ERROR.SEQUENCE_UNAVAILABLE,
-      'Business date ' + dateKey + ' already has sequence ' + MAX_DAILY_SEQUENCE +
-      '. Refusing to roll over into a format nobody approved.');
-  }
-  return next;
-}
-
-/** READ-ONLY fetch of the sale_id column. The only I/O in the allocator. */
-function fetchSaleIdColumn_() {
-  var res = Sheets.Spreadsheets.Values.get(getMasterDatabaseId_(), SALE_ID_COLUMN_RANGE);
-  var values = (res && res.values) || [];
-  return values.map(function (row) { return row && row.length ? row[0] : ''; });
-}
-
-/**
- * The transaction boundary, as a function.
- *
- * Everything that must be serialised against another cashier goes inside this
- * callback. Today that is the allocator alone; when writes are approved the
- * idempotency check and the SALES append move inside the SAME call, which is
- * the only arrangement that makes the sequence safe (see the limitation note
- * on allocateDailySequence_).
- *
- * tryLock, not waitLock: a boolean is easier to fail closed on than an
- * exception, and a sale that cannot get the lock must not proceed.
- */
-function withSaleLock_(fn) {
-  if (typeof LockService === 'undefined' || !LockService) {
-    throwSale_(SALE_ERROR.LOCK_UNAVAILABLE,
-      'LockService is unavailable, so two tills cannot be serialised. ' +
-      'Refusing to allocate a sale id unprotected.');
-  }
-  var lock = LockService.getScriptLock();
-  var acquired = false;
-  try {
-    acquired = lock.tryLock(SALE_LOCK_TIMEOUT_MS);
-  } catch (e) {
-    acquired = false;
-  }
-  if (!acquired) {
-    throwSale_(SALE_ERROR.LOCK_UNAVAILABLE,
-      'Could not acquire the sale lock within ' + SALE_LOCK_TIMEOUT_MS +
-      'ms. Another sale is in progress. Refusing to proceed unlocked.');
-  }
-  try {
-    return fn();
-  } finally {
-    lock.releaseLock();          /* released even if fn() throws */
-  }
-}
 
 /**
  * Storage rules, recorded 2026-10-04. RECORDED ONLY — nothing below charges
@@ -377,39 +243,34 @@ function isRegisterSaleId_(id) {
 }
 
 /**
- * Allocates the next per-day sequence for a business date.
+ * Allocates the next per-day sequence.
  *
- * Reads column A of SALES inside the script lock and returns the highest
- * Register sequence for that date, plus one.
+ * NOT IMPLEMENTED, deliberately. Allocating NNN safely requires three things
+ * this build does not have:
  *
- * ADVISORY ONLY — AND THIS MATTERS.
+ *   1. A read of the SALES tab. The Register's adapter reads APPLIANCES only.
+ *      The read itself IS permitted by the current spreadsheets.readonly
+ *      scope, so this is a code gap, not a permissions gap.
+ *   2. A lock. Two cashiers finishing in the same second would otherwise both
+ *      read "the highest today is 004" and both write 005. Apps Script offers
+ *      LockService for exactly this, and nothing in EDP uses it yet.
+ *   3. The ability to write, so the allocation can be claimed.
  *
- * The number this returns is correct at the instant it is read, and it is NOT
- * reserved. Nothing is written, so nothing is claimed. Two sales that call
- * this one after another, with no append between them, BOTH receive the same
- * number. The lock serialises the readers; it cannot reserve what no one
- * writes.
- *
- * That is not a defect to be papered over — it is the honest limit of a
- * read-only allocator, and a test asserts it explicitly rather than implying a
- * safety that does not exist. Uniqueness arrives only when the SALES append
- * happens INSIDE this same withSaleLock_ call, so that reading the highest and
- * claiming the next are one indivisible step. Until then, treat the result as
- * a preview of the next id, never as a reservation.
+ * Returning a guess here would be the single most dangerous thing in this
+ * file, because a duplicated sale_id silently merges two real sales.
  */
-function allocateDailySequence_(now) {
-  var at = now && typeof now.epochMs === 'number' ? now.epochMs : Date.now();
-  var dateKey = businessDateKey_(at);
-  return withSaleLock_(function () {
-    return nextSequenceFrom_(fetchSaleIdColumn_(), dateKey);
-  });
+function allocateDailySequence_() {
+  throwSale_(SALE_ERROR.SEQUENCE_UNAVAILABLE,
+    'Allocating a per-day sale sequence needs a SALES read plus a lock, and ' +
+    'neither exists yet (Package 15). Refusing to guess a sequence: a ' +
+    'duplicated sale_id silently merges two real sales.');
 }
 
 function newSaleId_(now) {
   var writesOn = CONFIG.FEATURES.SALES_WRITER_ENABLED === true;
   if (writesOn) {
     /* The format is approved; the ALLOCATOR is not built. Fail closed. */
-    return formatSaleId_(now.epochMs, allocateDailySequence_(now));
+    return formatSaleId_(now.epochMs, allocateDailySequence_());
   }
   var prefix = SALE_ID.TEST_PREFIX;
   var stamp = Utilities.formatDate(new Date(now.epochMs), CONFIG.TIMEZONE, 'yyyyMMdd-HHmmss');
