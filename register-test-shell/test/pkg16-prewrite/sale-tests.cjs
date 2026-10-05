@@ -90,18 +90,11 @@ function serverSandbox(opts) {
   // saleIds. Every WRITE method stays forbidden and records an attempt, so an
   // accidental write is loud rather than silent.
   S.__sheetReads = [];
-  // Recorded SIMULATED API calls. Nothing leaves this process.
-  S.__api = { append: [], update: [], batchGet: [] };
   S.Sheets = {
     Spreadsheets: {
       Values: {
         get(id, range) {
           S.__sheetReads.push(range);
-          // An explicit api range wins; otherwise the allocator's saleIds
-          // shorthand serves SALES!A2:A.
-          if (opts.api && opts.api.ranges && opts.api.ranges[range] !== undefined) {
-            return { values: opts.api.ranges[range] };
-          }
           if (opts.saleIds === undefined) {
             // A read this test did not arrange for. That is a fault, but it is
             // NOT a write - keep the write ledger meaning only writes.
@@ -109,27 +102,8 @@ function serverSandbox(opts) {
           }
           return { values: opts.saleIds.map(v => (v === null ? [] : [v])) };
         },
-        batchGet(id, req) {
-          // batchGet is a READ. An unstubbed read is a fault, but it is NOT a
-          // write - keep the write ledger meaning only writes.
-          if (!opts.api) { throw new Error('unstubbed Sheets batchGet'); }
-          S.__api.batchGet.push(req.ranges);
-          return { valueRanges: req.ranges.map(r => ({ values: (opts.api.ranges || {})[r] || [] })) };
-        },
-        update(resource, id, range, params) {
-          if (!opts.api) { writeAttempts.push('Sheets.Values.update'); throw new Error('FORBIDDEN WRITE'); }
-          S.__api.update.push({ range: range, values: resource.values, params: params });
-          if (opts.api.updateThrows) { throw new Error('simulated API failure'); }
-          return { updatedCells: opts.api.updatedCells === undefined ? 1 : opts.api.updatedCells };
-        },
-        append(resource, id, range, params) {
-          if (!opts.api) { writeAttempts.push('Sheets.Values.append'); throw new Error('FORBIDDEN WRITE'); }
-          S.__api.append.push({ range: range, rows: resource.values, params: params });
-          if (opts.api.appendThrows) { throw new Error('simulated API failure'); }
-          return { updates: {
-            updatedRows: opts.api.updatedRows === undefined ? resource.values.length : opts.api.updatedRows,
-            updatedRange: 'SALES!A150:AG' } };
-        },
+        update() { writeAttempts.push('Sheets.Values.update'); throw new Error('FORBIDDEN WRITE'); },
+        append() { writeAttempts.push('Sheets.Values.append'); throw new Error('FORBIDDEN WRITE'); },
         batchUpdate() { writeAttempts.push('Sheets.Values.batchUpdate'); throw new Error('FORBIDDEN WRITE'); }
       },
       batchUpdate() { writeAttempts.push('Sheets.batchUpdate'); throw new Error('FORBIDDEN WRITE'); }
@@ -229,22 +203,10 @@ console.log('\n1. A SALE CANNOT HAPPEN WHILE THE WRITE FLAGS ARE OFF');
     res.code === 'SALE_INVENTORY_WRITES_DISABLED', res.code);
   ok('a sale that cannot mark its appliance SOLD is not completed',
     /not completed/.test(res.message));
-  // PACKAGE 16 ARCHITECTURE CHANGE. Mutation code now EXISTS in Sale.gs by
-  // design, so "no write verb exists" is deliberately false and the guard is
-  // re-aimed at the stronger claim: the mutation calls are EXACTLY the two
-  // expected ones, and they are reachable only through saleWriteAdapter_,
-  // which requires BOTH gates. Code existing is not code enabled.
-  ok('the mutation calls in Sale.gs are EXACTLY Values.append and Values.update',
-    (function () {
-      const c = stripComments(saleSrc);
-      const found = [...new Set((c.match(/Sheets\.Spreadsheets\.Values\.[A-Za-z]+/g) || []))].sort();
-      return found.join(',') === 'Sheets.Spreadsheets.Values.append,Sheets.Spreadsheets.Values.batchGet,' +
-             'Sheets.Spreadsheets.Values.get,Sheets.Spreadsheets.Values.update';
-    })(), [...new Set((stripComments(saleSrc).match(/Sheets\.Spreadsheets\.Values\.[A-Za-z]+/g) || []))].sort().join(','));
-  ok('no OTHER Sheets surface is touched (no spreadsheets.batchUpdate, no SpreadsheetApp)',
-    !/Spreadsheets\.batchUpdate|SpreadsheetApp/.test(stripComments(saleSrc)));
-  ok('nothing in Sale.gs ever assigns a writer gate to true',
-    !/INVENTORY_MUTATION_ENABLED\s*=\s*true|SALES_WRITER_ENABLED\s*=\s*true/.test(stripComments(saleSrc)));
+  ok('no SALES row was appended (no such code path exists in Sale.gs)',
+    !/Values\.append|Values\.update|appendRow|setValues?\(/.test(stripComments(saleSrc)));
+  ok('no inventory mutation path exists in Sale.gs',
+    !/markInventorySold|INVENTORY_MUTATION_ENABLED\s*=\s*true/.test(stripComments(saleSrc)));
   ok('no write verb was reached', writeAttempts.length === 0, writeAttempts.join(', '));
 }
 
@@ -640,17 +602,8 @@ console.log('\n8. RECEIPT AND SAFETY GUARANTEES UNCHANGED');
     !manifest.oauthScopes.some(s => /drive|gmail|mail|calendar|contacts|script\.external_request|userinfo/.test(s)));
 
   const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
-  ok('Sale.gs mutation is confined to the two adapter functions',
-    (function () {
-      const c = strip(saleSrc);
-      const appendIn = /function appendSalesRowsReal_[\s\S]*?\n}/.exec(c);
-      const updateIn = /function markSoldReal_[\s\S]*?\n}/.exec(c);
-      return !!appendIn && /Values\.append/.test(appendIn[0]) &&
-             !!updateIn && /Values\.update/.test(updateIn[0]) &&
-             (c.match(/Values\.append/g) || []).length === 1 &&
-             (c.match(/Values\.update/g) || []).length === 1;
-    })());
-  ok('no setProperty anywhere in Sale.gs', !/setProperty/.test(strip(saleSrc)));
+  ok('Sale.gs contains no spreadsheet write verb',
+    !/\.setValue|\.setValues|\.appendRow|Values\.update|Values\.append|setProperty/.test(strip(saleSrc)));
   ok('Sale.gs contains no SpreadsheetApp / DriveApp / MailApp / UrlFetchApp',
     !/SpreadsheetApp|DriveApp|MailApp|GmailApp|UrlFetchApp/.test(strip(saleSrc)));
   // Package 13 asserted Sale.gs named NO SALES columns, because the schema was
@@ -1101,22 +1054,12 @@ console.log('\n  -- end to end, still refusing to write --');
     call(S, 'SALES_MIGRATION.APPLIED') === true);
   const strip = s => String(s).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
   const code = strip(saleSrc);
-  ok('the ALLOCATOR itself still uses only a read',
-    (function () {
-      const fn = /function allocateDailySequence_[\s\S]*?\n}/.exec(code);
-      return !!fn && !/Values\.append|Values\.update/.test(fn[0]);
-    })());
-  ok('fetchSaleIdColumn_ is still a pure read',
-    (function () {
-      const fn = /function fetchSaleIdColumn_[\s\S]*?\n}/.exec(code);
-      return !!fn && /Values\.get/.test(fn[0]) && !/Values\.append|Values\.update/.test(fn[0]);
-    })());
-  ok('APPLIANCES is touched only through the gated markSold adapter',
-    (function () {
-      const fn = /function markSoldReal_[\s\S]*?\n}/.exec(code);
-      const res = /function resolveApplianceRow_[\s\S]*?\n}/.exec(code);
-      return !!fn && !!res;
-    })());
+  ok('the allocator added NO write API',
+    !/Values\.update|Values\.append|Values\.batchUpdate|\.setValue|\.appendRow|setProperty/.test(code));
+  ok('the only Sheets call in Sale.gs is a Values.get',
+    (code.match(/Sheets\.Spreadsheets\.[A-Za-z.]+/g) || []).join(',') === 'Sheets.Spreadsheets.Values.get');
+  ok('no APPLIANCES mutation was introduced',
+    !/APPLIANCES|markInventorySold/.test(code));
   ok('no messaging or network side effect was introduced',
     !/MailApp|GmailApp|UrlFetchApp|fetch\(/.test(code));
 }
@@ -1228,24 +1171,10 @@ console.log('\n  -- no writer exists, even with both gates open --');
   const S = serverSandbox({ features: BOTH, saleIds: [] });
   const it = firstItem(S);
   const out = runTx(S, req({ lines: [{ itemId: it.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] }), null);
-  // Package 16 built the real adapter, so "production has no adapter" is no
-  // longer true with BOTH gates open - which is the point of the package. The
-  // guard is re-aimed at the thing that still protects us: the adapter is
-  // handed over ONLY when both gates are open.
-  ok('with BOTH gates open, a real adapter now exists', call(S, 'saleWriteAdapter_()') !== null);
-  ok('and it carries exactly the three expected methods',
-    (function () {
-      const a = call(S, 'saleWriteAdapter_()');
-      return typeof a.readCommitted === 'function' &&
-             typeof a.appendSalesRows === 'function' &&
-             typeof a.markSold === 'function';
-    })());
-  ok('with BOTH gates CLOSED (the shipped state) it returns null',
-    call(serverSandbox(), 'saleWriteAdapter_()') === null);
-  ok('with only the SALES gate open it STILL returns null',
-    call(serverSandbox({ features: { SALES_WRITER_ENABLED: true } }), 'saleWriteAdapter_()') === null);
-  ok('with only the INVENTORY gate open it STILL returns null',
-    call(serverSandbox({ features: { INVENTORY_MUTATION_ENABLED: true } }), 'saleWriteAdapter_()') === null);
+  ok('both gates open, but production has NO adapter', out.ok === false);
+  ok('it refuses with NO_WRITER', out.code === 'SALE_NO_WRITER', out.code);
+  ok('and says nothing was written', /Nothing was written/.test(out.message));
+  ok('saleWriteAdapter_() returns null in production', call(S, 'saleWriteAdapter_()') === null);
   const done = call(S, 'completeSale(' + JSON.stringify(req({ lines: [{ itemId: it.itemId,
     qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] })) + ')');
   ok('completeSale() STILL refuses at the end of Package 15C', done.ok === false, done.code);
@@ -1358,22 +1287,7 @@ console.log('\n  -- inventory contract --');
   ok('markSold is called with the item id only', rec.sold.length === 1 && rec.sold[0] === it.itemId);
   const strip = s => String(s).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
   const code = strip(saleSrc);
-  // stage is READ, to check sellability. It must never be WRITTEN.
-  // stage is READ, to check sellability. It must never be WRITTEN. Checked
-  // directly: the function that performs the update never mentions stage at all.
-  ok('stage is read for sellability', /stageCol/.test(code) && /m\.stage/.test(code));
-  ok('the function that WRITES never mentions stage',
-    (function () {
-      const fn = /function markSoldReal_[\s\S]*?\n}/.exec(code);
-      return !!fn && fn[0].toLowerCase().indexOf('stage') === -1;
-    })());
-  ok('the only cell markSoldReal_ writes is the STATUS cell',
-    (function () {
-      const fn = /function markSoldReal_[\s\S]*?\n}/.exec(code);
-      return !!fn && /target\.statusCell/.test(fn[0]) && !/stageCell/.test(fn[0]);
-    })());
-  ok('the only value it writes is SOLD',
-    /values: \[\[APPLIANCE_SOLD_STATUS\]\]/.test(code) && /APPLIANCE_SOLD_STATUS = 'SOLD'/.test(saleSrc));
+  ok('stage is never written', !/stage\s*[:=]/.test(code));
   ok('no PAID field is invented', !/['"]PAID['"]/.test(code));
   ok('no sold_date is invented', !/sold_date/.test(code));
   ok('no sold_price is invented', !/sold_price/.test(code));
@@ -1439,16 +1353,10 @@ console.log('\n  -- zero-write proof --');
 {
   const strip = s => String(s).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
   const code = strip(saleSrc);
-  // ACCURATE CLAIM for Package 16: mutation code EXISTS. It is gated,
-  // unexecuted and undeployed. Asserting "no mutation code exists" would now
-  // be false, so the proof is restated as what is actually true.
-  ok('mutation code EXISTS in Sale.gs — exactly one append and one update',
-    (code.match(/Values\.append/g) || []).length === 1 &&
-    (code.match(/Values\.update/g) || []).length === 1);
-  ok('and it is unreachable while either gate is closed',
-    call(serverSandbox(), 'saleWriteAdapter_()') === null);
-  ok('no batchUpdate / SpreadsheetApp surface was opened',
-    !/Spreadsheets\.batchUpdate|SpreadsheetApp/.test(code));
+  ok('Sale.gs contains NO Sheets write call',
+    !/Values\.update|Values\.append|Values\.batchUpdate|Spreadsheets\.batchUpdate/.test(code));
+  ok('the only Sheets call is still Values.get',
+    (code.match(/Sheets\.Spreadsheets\.[A-Za-z.]+/g) || []).join(',') === 'Sheets.Spreadsheets.Values.get');
   ok('no SpreadsheetApp / DriveApp / MailApp / UrlFetchApp',
     !/SpreadsheetApp|DriveApp|MailApp|GmailApp|UrlFetchApp/.test(code));
   ok('no setProperty', !/setProperty/.test(code));
@@ -1459,297 +1367,6 @@ console.log('\n  -- zero-write proof --');
     return true;
   })());
   ok('no write verb was reached by ANY test in this suite', writeAttempts.length === 0, writeAttempts.join(', '));
-}
-
-/* ---------------------------------------------------------------------- */
-console.log('\n14. PACKAGE 16 — REAL MUTATION ADAPTERS (GATED, UNEXECUTED)');
-
-const APP_HEADER = ['item_id','sku_id','category','brand','model','serial','condition',
-  'list_price','cost_basis','rating','warranty_tier','fuel_type','notes','stage','status',
-  'days_on_hand','date_acquired','added_by','photo_links','width_in','height_in','depth_in',
-  'capacity_cu_ft','dimensions_display','spec_source','spec_verified'];
-
-// Builds the APPLIANCES ranges resolveApplianceRow_ asks for. item_id is col A,
-// stage col N, status col O - resolved from the header, not hard-coded.
-function appliancesApi(rows, extra) {
-  const ranges = {
-    'APPLIANCES!A2:A': rows.map(r => [r.id]),
-    'APPLIANCES!O2:O': rows.map(r => [r.status]),
-    'APPLIANCES!N2:N': rows.map(r => [r.stage])
-  };
-  return Object.assign({ ranges: ranges, header: APP_HEADER }, extra || {});
-}
-function apiSandbox(opts) {
-  const o = opts || {};
-  const api = o.api || {};
-  api.ranges = Object.assign({ 'APPLIANCES!1:1': [APP_HEADER] }, api.ranges || {});
-  return serverSandbox(Object.assign({}, o, { api: api }));
-}
-const ROW = (saleId, reqId, over) => {
-  const r = new Array(33).fill('');
-  r[0] = saleId; r[32] = reqId; r[20] = 'EDP_REGISTER'; r[21] = 'REGISTER_SALE';
-  (over || []).forEach(([i, v]) => { r[i] = v; });
-  return r;
-};
-const SID = 'EDP-20261005-001';
-
-console.log('\n  -- appendSalesRows: validation fails CLOSED before the API --');
-{
-  const S = apiSandbox({ api: {} });
-  const bad = [
-    ['an empty row set', '[]'],
-    ['a non-array', '"nope"'],
-    ['a 32-wide row', JSON.stringify([new Array(32).fill('')])],
-    ['a 34-wide row', JSON.stringify([new Array(34).fill('')])],
-    ['a row that writes to column 32', JSON.stringify([ROW(SID, RID, [[31, 'oops']])])],
-    ['a row with no request_id', JSON.stringify([ROW(SID, '')])],
-    ['a row whose sale id is not a Register id', JSON.stringify([ROW('SHOPIFY-3013', RID)])],
-    ['rows with DIFFERENT sale ids', JSON.stringify([ROW(SID, RID), ROW('EDP-20261005-002', RID)])],
-    ['rows with DIFFERENT request ids', JSON.stringify([ROW(SID, RID), ROW(SID, 'REQ-other-0123456789')])]
-  ];
-  bad.forEach(function (c) {
-    const r = call(S, 'try { appendSalesRowsReal_(' + c[1] + '); "APPENDED" } catch (e) { e.edpCode || "THREW" }');
-    ok('refuses ' + c[0], r !== 'APPENDED', String(r));
-  });
-  ok('a non-primitive cell is refused',
-    call(S, 'try { appendSalesRowsReal_([(function(){var r=new Array(33).fill("");' +
-      'r[0]="' + SID + '";r[32]="' + RID + '";r[5]={a:1};return r;})()]); "APPENDED" } catch (e) { "REFUSED" }') === 'REFUSED');
-  ok('NOT ONE append reached the API during any refusal',
-    call(S, '__api.append').length === 0, call(S, '__api.append').length + ' calls');
-}
-
-console.log('\n  -- appendSalesRows: the real call shape --');
-{
-  const S = apiSandbox({ api: {} });
-  const rows = [ROW(SID, RID), ROW(SID, RID)];
-  const res = call(S, 'appendSalesRowsReal_(' + JSON.stringify(rows) + ')');
-  const calls = call(S, '__api.append');
-  ok('it reports success', res.ok === true, res.message);
-  ok('EXACTLY ONE append call for the whole transaction', calls.length === 1, calls.length + ' calls');
-  ok('both rows went in that single call', calls[0].rows.length === 2);
-  ok('it targets the SALES tab', calls[0].range === 'SALES!A1', calls[0].range);
-  ok('it inserts rows rather than overwriting', calls[0].params.insertDataOption === 'INSERT_ROWS');
-  ok('values are written RAW, so Sheets cannot reinterpret them',
-    calls[0].params.valueInputOption === 'RAW');
-  ok('every appended row is 33 wide', calls[0].rows.every(r => r.length === 33));
-  ok('column 32 is empty in what was sent', calls[0].rows.every(r => r[31] === ''));
-  ok('request_id is in column 33', calls[0].rows.every(r => r[32] === RID));
-  ok('the result carries the sale id and request id',
-    res.saleId === SID && res.requestId === RID);
-  ok('a single-row transaction appends once too', (function () {
-    const T = apiSandbox({ api: {} });
-    call(T, 'appendSalesRowsReal_(' + JSON.stringify([ROW(SID, RID)]) + ')');
-    return call(T, '__api.append').length === 1;
-  })());
-}
-{
-  // A short write is REPORTED, never retried.
-  const S = apiSandbox({ api: { updatedRows: 1 } });
-  const res = call(S, 'appendSalesRowsReal_(' + JSON.stringify([ROW(SID, RID), ROW(SID, RID)]) + ')');
-  ok('a short append is reported as a failure', res.ok === false);
-  ok('it names expected vs actual', res.expectedRows === 2 && res.updatedRows === 1);
-  ok('and it is NOT retried — a second append would duplicate the sale',
-    call(S, '__api.append').length === 1 && /NOT retried/.test(res.message));
-}
-{
-  const S = apiSandbox({ api: { appendThrows: true } });
-  const r = call(S, 'try { appendSalesRowsReal_(' + JSON.stringify([ROW(SID, RID)]) + '); "OK" } catch (e) { "THREW" }');
-  ok('an API exception propagates rather than being swallowed', r === 'THREW');
-}
-
-console.log('\n  -- markSold: resolution fails CLOSED --');
-{
-  const base = [{ id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' }];
-  function mk(rows, extra) { return apiSandbox({ api: appliancesApi(rows, extra) }); }
-  const cases = [
-    ['a missing item', base, 'W-NOPE'],
-    ['an already SOLD item', [{ id: 'W-105G', stage: 'FLOOR_READY', status: 'SOLD' }], 'W-105G'],
-    ['a HOLD item', [{ id: 'W-105G', stage: 'FLOOR_READY', status: 'HOLD' }], 'W-105G'],
-    ['a NOT_READY item', [{ id: 'W-105G', stage: 'RECEIVED', status: 'NOT_READY' }], 'W-105G'],
-    ['a sellable status but wrong stage', [{ id: 'W-105G', stage: 'REPAIR', status: 'AVAILABLE' }], 'W-105G'],
-    ['a TEST record', [{ id: 'W-TEST-001', stage: 'FLOOR_READY', status: 'AVAILABLE' }], 'W-TEST-001'],
-    ['an empty item id', base, ''],
-    ['a DUPLICATE item id', [{ id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' },
-                             { id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' }], 'W-105G']
-  ];
-  cases.forEach(function (c) {
-    const S = mk(c[1]);
-    const r = call(S, 'markSoldReal_(' + JSON.stringify(c[2]) + ')');
-    ok('refuses ' + c[0], r.ok === false, JSON.stringify(r.code));
-    ok('  and attempted NO update for ' + c[0], call(S, '__api.update').length === 0);
-  });
-  const dup = mk([{ id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' },
-                  { id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' }]);
-  ok('a duplicate id is never resolved to "the first one"',
-    /Refusing to guess which one/.test(call(dup, 'markSoldReal_("W-105G")').message));
-  const sold = mk([{ id: 'W-105G', stage: 'FLOOR_READY', status: 'SOLD' }]);
-  ok('an already-SOLD item says so plainly',
-    /already marked SOLD|sell it twice/.test(call(sold, 'markSoldReal_("W-105G")').message));
-}
-{
-  // A missing header must stop the write, not shift it to the wrong column.
-  const S = serverSandbox({ api: { ranges: { 'APPLIANCES!1:1': [['item_id','brand','model']] } } });
-  const r = call(S, 'markSoldReal_("W-105G")');
-  ok('a missing status/stage header refuses rather than guessing a column', r.ok === false);
-  ok('and no update was attempted', call(S, '__api.update').length === 0);
-}
-
-console.log('\n  -- markSold: the real call shape --');
-{
-  const S = apiSandbox({ api: appliancesApi([
-    { id: 'W-0540', stage: 'FLOOR_READY', status: 'AVAILABLE' },
-    { id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' },
-    { id: 'R-4142', stage: 'FLOOR_READY', status: 'AVAILABLE' }
-  ]) });
-  const r = call(S, 'markSoldReal_("W-105G")');
-  const up = call(S, '__api.update');
-  ok('it reports success', r.ok === true, JSON.stringify(r));
-  ok('EXACTLY ONE update call', up.length === 1, up.length + ' calls');
-  ok('it targets the STATUS cell of the right row — row 3, column O',
-    up[0].range === 'APPLIANCES!O3', up[0].range);
-  ok('it writes a single cell', up[0].values.length === 1 && up[0].values[0].length === 1);
-  ok('and the value is exactly SOLD', up[0].values[0][0] === 'SOLD');
-  ok('written RAW', up[0].params.valueInputOption === 'RAW');
-  ok('the result reports the before and after status',
-    r.before === 'AVAILABLE' && r.after === 'SOLD' && r.cell === 'O3');
-  ok('NO stage cell was written', up.every(u => !/!N\d+/.test(u.range)));
-  ok('no other column was touched', up.every(u => /!O\d+$/.test(u.range)));
-  ok('columnLetter_ maps 1,15,33 to A,O,AG',
-    call(S, 'columnLetter_(1)') === 'A' && call(S, 'columnLetter_(15)') === 'O' &&
-    call(S, 'columnLetter_(33)') === 'AG');
-}
-{
-  const S = apiSandbox({ api: appliancesApi([{ id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' }],
-    { updateThrows: true }) });
-  const r = call(S, 'markSoldReal_("W-105G")');
-  ok('an API failure returns a RECONCILIATION result, it does not throw', r.ok === false);
-  ok('tagged for reconciliation', r.code === 'SALE_INVENTORY_RECONCILE', r.code);
-  ok('naming the item and the cell', r.itemId === 'W-105G' && r.cell === 'O2');
-  ok('and the phase it failed in', r.phase === 'UPDATE', r.phase);
-}
-{
-  const S = apiSandbox({ api: appliancesApi([{ id: 'W-105G', stage: 'FLOOR_READY', status: 'AVAILABLE' }],
-    { updatedCells: 0 }) });
-  const r = call(S, 'markSoldReal_("W-105G")');
-  ok('an update that changed 0 cells is a failure, not a success', r.ok === false && r.updatedCells === 0);
-}
-
-console.log('\n  -- readCommittedSaleKeys_ --');
-{
-  const S = apiSandbox({ api: { ranges: {
-    'SALES!A2:A': [['SHOPIFY-3013'], ['EDP-20261005-001'], ['EDP-20261005-001']],
-    'SALES!AG2:AG': [[''], [RID], [RID]]
-  } } });
-  const rows = call(S, 'readCommittedSaleKeys_()');
-  ok('it pairs sale_id with request_id', rows.length === 3 && rows[1].request_id === RID);
-  ok('the historical blank request_id stays blank', rows[0].request_id === '');
-  ok('ONE batchGet, not a full-tab read', call(S, '__api.batchGet').length === 1);
-  ok('and it asks only for columns A and AG — never the PII columns',
-    call(S, '__api.batchGet')[0].join(',') === 'SALES!A2:A,SALES!AG2:AG');
-  ok('findCommittedSale_ then recognises the committed request',
-    call(S, 'findCommittedSale_')(rows, RID).rowCount === 2);
-}
-
-console.log('\n  -- the gates still hold with real adapters present --');
-{
-  const S = apiSandbox({ api: {} });
-  const it = firstItem(S);
-  const line = { itemId: it.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null };
-  const out = call(S, 'completeSale(' + JSON.stringify(req({ lines: [line] })) + ')');
-  ok('completeSale STILL refuses with the real adapters built', out.ok === false);
-  ok('at the SALES gate', out.code === 'SALE_WRITES_DISABLED', out.code);
-  ok('ZERO appends reached the API', call(S, '__api.append').length === 0);
-  ok('ZERO updates reached the API', call(S, '__api.update').length === 0);
-  ok('ZERO reads reached the API either — it refused before the lock',
-    call(S, '__api.batchGet').length === 0);
-}
-{
-  const A = apiSandbox({ api: {}, features: { SALES_WRITER_ENABLED: true } });
-  const B = apiSandbox({ api: {}, features: { INVENTORY_MUTATION_ENABLED: true } });
-  const it = firstItem(A);
-  const line = { itemId: it.itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null };
-  [[A, 'SALES gate only'], [B, 'INVENTORY gate only']].forEach(function (c) {
-    const o = call(c[0], 'completeSale(' + JSON.stringify(req({ lines: [line] })) + ')');
-    ok('with the ' + c[1] + ' open, completeSale refuses', o.ok === false, o.code);
-    ok('  and ZERO mutations reached the API',
-      call(c[0], '__api.append').length === 0 && call(c[0], '__api.update').length === 0);
-  });
-}
-
-console.log('\n  -- full transaction, both gates open, SIMULATED API only --');
-{
-  const today = call(serverSandbox(), 'businessDateKey_(' + Date.now() + ')');
-  // The APPLIANCES fixture must contain the item the sale actually sells. A
-  // hard-coded id here made resolution fail, the sale still succeeded, and the
-  // run took failure-path E - the code was right and the fixture was wrong.
-  const soldId = firstItem(serverSandbox()).itemId;
-  const S2 = serverSandbox({
-    features: { COMPLETE_SALE_ENABLED: true, SALES_WRITER_ENABLED: true, INVENTORY_MUTATION_ENABLED: true },
-    saleIds: ['EDP-' + today + '-004'],
-    api: { ranges: {
-      'APPLIANCES!1:1': [APP_HEADER],
-      'SALES!AG2:AG': [['']],
-      'APPLIANCES!A2:A': [['W-OTHER-1'], [soldId]],
-      'APPLIANCES!O2:O': [['AVAILABLE'], ['AVAILABLE']],
-      'APPLIANCES!N2:N': [['FLOOR_READY'], ['FLOOR_READY']]
-    } }
-  });
-  const inv = call(S2, 'readInventory()');
-  const out = call(S2, 'completeSale(' + JSON.stringify(req({ lines: [
-    { itemId: inv[0].itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }
-  ] })) + ')');
-  ok('the transaction completes against the SIMULATED api', out.ok === true,
-    out.ok ? '' : out.code + ' ' + out.message);
-  ok('the sale id continues the day: 005', out.saleId === 'EDP-' + today + '-005', out.saleId);
-  ok('EXACTLY ONE append', call(S2, '__api.append').length === 1);
-  ok('the appended row is 33 wide', call(S2, '__api.append')[0].rows[0].length === 33);
-  ok('inventory was updated exactly once', call(S2, '__api.update').length === 1);
-  ok('and only the status cell', /!O\d+$/.test(call(S2, '__api.update')[0].range),
-    call(S2, '__api.update')[0].range);
-  ok('on the row where that item actually sits — row 3, not row 2',
-    call(S2, '__api.update')[0].range === 'APPLIANCES!O3', call(S2, '__api.update')[0].range);
-  ok('no reconciliation exception was raised', out.reconciliation === null);
-  ok('the lock was taken once and released once',
-    call(S2, '__lock.acquired') === 1 && call(S2, '__lock.released') === 1);
-  ok('the nested-lock regression stays fixed', call(S2, 'inSaleLock_') === false);
-  ok('SALES was appended BEFORE inventory was touched',
-    out.journal.indexOf('APPEND_SALES') < out.journal.indexOf('MARK_SOLD'));
-}
-{
-  // Idempotent retry against the real reader: zero new mutations.
-  const today = call(serverSandbox(), 'businessDateKey_(' + Date.now() + ')');
-  const S = serverSandbox({
-    features: { COMPLETE_SALE_ENABLED: true, SALES_WRITER_ENABLED: true, INVENTORY_MUTATION_ENABLED: true },
-    saleIds: ['EDP-' + today + '-004'],
-    api: { ranges: {
-      'APPLIANCES!1:1': [APP_HEADER],
-      'SALES!A2:A': [['EDP-' + today + '-004']],
-      'SALES!AG2:AG': [[RID]]
-    } }
-  });
-  const inv = call(S, 'readInventory()');
-  const out = call(S, 'completeSale(' + JSON.stringify(req({ lines: [
-    { itemId: inv[0].itemId, qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }
-  ] })) + ')');
-  ok('a committed retry returns the original sale', out.ok === true && out.duplicate === true);
-  ok('with the original sale id', out.saleId === 'EDP-' + today + '-004', out.saleId);
-  ok('ZERO new appends', call(S, '__api.append').length === 0);
-  ok('ZERO inventory updates', call(S, '__api.update').length === 0);
-  ok('no fresh request_id was generated server-side',
-    !/requestId\s*=\s*newRequestId|generateRequestId/.test(saleSrc));
-}
-
-console.log('\n  -- zero REAL write proof --');
-{
-  ok('every mutation in this suite went to the SIMULATED recorder, never Google',
-    writeAttempts.length === 0, writeAttempts.join(', '));
-  ok('the simulated recorder is opt-in, so every other test keeps the hard ban',
-    /if \(!opts\.api\) \{ writeAttempts\.push\('Sheets\.Values\.update'\)/.test(
-      read('test/run/sale-tests.cjs')));
-  ok('BOTH shipped gates are false in Config.gs',
-    /SALES_WRITER_ENABLED:\s*false/.test(read('Config.gs')) &&
-    /INVENTORY_MUTATION_ENABLED:\s*false/.test(read('Config.gs')));
-  ok('so the shipped adapter is null', call(serverSandbox(), 'saleWriteAdapter_()') === null);
 }
 
 console.log('\n-------------------------------------------------------');

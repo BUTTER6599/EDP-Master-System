@@ -1,0 +1,3 @@
+af56b235c659c123fbd567c6cf67a79723d74abcce3be2e44d5478c3f9f5bb5b  Sale.gs
+30e9d5ad56f2fc23d85b49bac39c1ddeaf9846a6e4eb05c0128a03202bc7a8aa  ROADMAP.md
+2a57d5abac7f5ce64da50b233aec8d9ed6e3a46d8d96dd6bb43a89505606daea  test/run/sale-tests.cjs
