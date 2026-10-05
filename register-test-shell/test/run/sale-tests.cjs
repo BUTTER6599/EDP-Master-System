@@ -693,23 +693,53 @@ console.log('\n10. PACKAGE 14B — ONE SALES ROW PER ITEM, SHARED sale_id');
 }
 
 /* ---------------------------------------------------------------------- */
-console.log('\n11. PACKAGE 14B — MIGRATION IS APPROVED BUT NOT APPLIED');
+console.log('\n11. PACKAGE 15 — MIGRATION APPLIED AND VERIFIED (STILL NO WRITES)');
 {
+  // These three assertions previously pinned APPLIED === false and the refusal
+  // that went with it. That was correct while column 33 did not exist. It was
+  // appended and independently verified on 2026-10-05, so they are re-aimed at
+  // the new truth - and joined by assertions that the flip grants nothing.
   const S = serverSandbox();
   ok('the migration is recorded as APPROVED', call(S, 'SALES_MIGRATION.APPROVED') === true);
-  ok('and recorded as NOT APPLIED', call(S, 'SALES_MIGRATION.APPLIED') === false);
-  ok('it adds exactly one column', call(S, 'SALES_MIGRATION.ADD_COLUMN') === 'request_id');
+  ok('and now recorded as APPLIED', call(S, 'SALES_MIGRATION.APPLIED') === true);
+  ok('with the verified timestamp of the write',
+    call(S, 'SALES_MIGRATION.APPLIED_AT') === '2026-10-05T03:10:11Z');
+  ok('naming the manifest it was verified against',
+    /SALES-PRE-WRITE-MANIFEST-20261005T030523Z\.json/.test(
+      String(call(S, 'SALES_MIGRATION.VERIFIED_AGAINST'))));
+  ok('it added exactly one column', call(S, 'SALES_MIGRATION.ADD_COLUMN') === 'request_id');
   ok('appended at index 33, never reordering existing columns',
     call(S, 'SALES_MIGRATION.AT_INDEX') === 33);
+
   const inv = call(S, 'readInventory()');
   const sale = prepare(S, req({ lines: [{ itemId: inv[0].itemId, qty: 1,
     warrantyId: 'W-ASIS', unitPriceCents: null }] })).sale;
-  const out = call(S, 'try { salesRowsToArrays_(buildSalesRows_(' + JSON.stringify(sale) +
-    ')); "BUILT" } catch (e) { e.edpCode }');
-  ok('building a positional row REFUSES until the column exists',
-    out === 'SALE_MIGRATION_REQUIRED', String(out));
-  ok('because a 33-wide row would land request_id in the unheaded column 32',
-    /misalign/.test(call(S, 'try { salesRowsToArrays_([]); "" } catch (e) { e.message }')));
+  const arrays = call(S, 'salesRowsToArrays_(buildSalesRows_(' + JSON.stringify(sale) + '))');
+  ok('a positional row now builds', Array.isArray(arrays) && arrays.length === 1);
+  ok('and is exactly 33 wide, matching the migrated sheet',
+    arrays[0].length === 33, 'width = ' + arrays[0].length);
+  ok('with request_id LAST, in column 33',
+    arrays[0][32] === sale.requestId, JSON.stringify(arrays[0][32]));
+  ok('column 1 is still the sale id', arrays[0][0] === sale.saleId);
+  ok('column 32 - the unheaded one - is written as empty, never populated',
+    arrays[0][31] === '', JSON.stringify(arrays[0][31]));
+  ok('the human reconciliation columns 29-31 stay empty',
+    arrays[0][28] === '' && arrays[0][29] === '' && arrays[0][30] === '');
+
+  // The whole point: building a row is not writing one.
+  ok('APPLIED does NOT enable Complete Sale',
+    call(S, 'CONFIG.FEATURES.COMPLETE_SALE_ENABLED') === false);
+  ok('APPLIED does NOT enable the SALES writer',
+    call(S, 'CONFIG.FEATURES.SALES_WRITER_ENABLED') === false);
+  ok('APPLIED does NOT enable inventory mutation',
+    call(S, 'CONFIG.FEATURES.INVENTORY_MUTATION_ENABLED') === false);
+  const done = call(S, 'completeSale(' + JSON.stringify(req({ lines: [{ itemId: inv[0].itemId,
+    qty: 1, warrantyId: 'W-ASIS', unitPriceCents: null }] })) + ')');
+  ok('completeSale STILL refuses after the migration',
+    done.ok === false && done.code === 'SALE_WRITES_DISABLED', done.code);
+  ok('and still says nothing was written', /Nothing was written/.test(done.message));
+  ok('no write verb was reached by building a positional row',
+    writeAttempts.length === 0, writeAttempts.join(', '));
 }
 
 /* ---------------------------------------------------------------------- */

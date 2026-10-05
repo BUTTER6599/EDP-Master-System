@@ -98,3 +98,90 @@ post-write comparison needs, whoever performs the write.
 has not changed. Phase 4 is explicit that it flips only *after* the sheet
 migration independently verifies. `salesRowsToArrays_()` therefore still
 refuses to build a positional row, which is correct.
+
+---
+
+# PHASE 2–4 — MIGRATION EXECUTED AND INDEPENDENTLY VERIFIED
+
+**Status: COMPLETE. 19 of 19 verification checks passed.**
+
+## Who performed the write
+
+**Not this build.** The column was appended through the owner's authorised
+Google Sheets connection (reported via ChatGPT). This project still holds **no
+write scope** — its manifest remains `spreadsheets.readonly` and clasp was never
+authenticated during Package 15.
+
+This separation is worth noting rather than glossing: the party that performed
+the write is not the party that verified it, and the verification below was run
+against a manifest captured **before** the write, by a different tool, five
+minutes earlier. Nothing in the result depends on trusting the reported outcome.
+
+## Independent corroboration that a write occurred
+
+Drive `modifiedTime` moved from `2026-10-04T01:36:52.206Z` to
+**`2026-10-05T03:10:11.237Z`** — after the 03:05:23 pre-write snapshot and
+consistent with the reported migration time.
+
+## The ten required proofs
+
+Post-write export read 2026-10-05, compared against
+`SALES-PRE-WRITE-MANIFEST-20261005T030523Z.json`.
+
+| # | Proof | Result |
+| --- | --- | --- |
+| 1 | Total SALES columns = 33 | **PASS** |
+| 2 | AG1 exactly `request_id` — no whitespace, no case difference | **PASS** |
+| 3 | Columns 1–32 in exactly the same order | **PASS** — header hash `f7dd7322…` identical |
+| 4 | Column 32 unchanged and still unheaded | **PASS** — header blank, column data hash `aae7e0a0…` identical |
+| 5 | All 148 historical rows present | **PASS** — last row index still 149 |
+| 6 | Historical `request_id` cells blank | **PASS** — 148 of 148 blank |
+| 7 | No historical value changed | **PASS** — 148 of 148 per-row hashes identical |
+| 8 | No row added or deleted | **PASS** — 148 before, 148 after |
+| 9 | No row reordered | **PASS** — row indices in identical positions |
+| 10 | Per-column hashes | **PASS** — 32 of 32 identical |
+
+Plus two whole-workbook checks: still 38 tabs, and **the other 37 tabs are
+unchanged in shape**. SALES changed in exactly the approved way — 149×32 to
+149×33, rows untouched.
+
+Aggregate all-rows hash over columns 1–32: `0fb12c9dc492b2f4…` **before and
+after**.
+
+### One correction made during verification
+
+The comparator's first run reported 18 of 19, flagging "no OTHER tab changed
+shape — SALES: 149x32 → 149x33". That was the comparator counting SALES itself
+in a check meant to exclude it. The check was corrected to exclude SALES and a
+separate assertion added that SALES changed in *exactly* the approved way. This
+was a defect in the test, not a discrepancy in the data — recorded here because
+a 1-of-19 failure that turns out to be the test's own fault is exactly the kind
+of thing that should not be quietly edited away.
+
+## Code state change
+
+`SALES_MIGRATION.APPLIED` moved `false` → **`true`**, with `APPLIED_AT` and
+`VERIFIED_AGAINST` recorded alongside it.
+
+**This grants nothing.** It records only that column 33 exists, so
+`salesRowsToArrays_()` may build a correctly aligned 33-wide row. Writing one
+still requires `SALES_WRITER_ENABLED`, a writer that does not exist, and a write
+scope this project does not hold. Fifteen assertions now cover exactly that,
+including `completeSale()` still refusing with `SALE_WRITES_DISABLED` after the
+migration.
+
+## Post-change artifacts
+
+`SALES-POST-WRITE-MANIFEST-20261005T031011Z.json` — the post-change integrity
+manifest, same PII-free form as the pre-write one. Together the two manifests
+are a permanent, reproducible record of exactly what the migration did.
+
+## Rollback — unchanged and still one step
+
+1. Open the `SALES` tab, right-click column **AG** (33), **Delete column**.
+2. Re-run the verifier; the header hash and all-rows hash must return to
+   `f7dd7322…` and `0fb12c9d…`.
+3. Set `SALES_MIGRATION.APPLIED` back to `false` in `Sale.gs`.
+
+The full-fidelity pre-write export (`SALES-PREWRITE-20261005T030523Z.xlsx`,
+sha256 `8f40726f…`) is held by the owner if a larger restore is ever needed.

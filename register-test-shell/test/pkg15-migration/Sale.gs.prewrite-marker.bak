@@ -95,26 +95,7 @@ var SALES_COLUMNS = [
 
 var SALES_MIGRATION = {
   APPROVED: true,                 /* owner, 2026-10-04 */
-
-  /* APPLIED and INDEPENDENTLY VERIFIED 2026-10-05 03:10:11 UTC.
-
-     The column was appended through the owner's authorised Google Sheets
-     connection, not by this build, which still holds no write scope.
-
-     Verified here against the pre-write integrity manifest captured at
-     03:05:23 UTC, five minutes before the write: 33 columns, AG1 exactly
-     'request_id', columns 1-32 byte-identical by header hash, all 148 rows
-     unchanged by per-row hash, all 32 per-column hashes matching, column 32
-     still unheaded and its data untouched, every historical request_id cell
-     blank, and the other 37 tabs unchanged. 19 of 19 checks passed.
-
-     THIS FLAG DOES NOT ENABLE WRITING. It records only that the column
-     exists, so salesRowsToArrays_ may build a correctly aligned 33-wide row.
-     Writing one still requires SALES_WRITER_ENABLED, a writer that does not
-     exist, and a write scope this project does not hold. */
-  APPLIED: true,
-  APPLIED_AT: '2026-10-05T03:10:11Z',
-  VERIFIED_AGAINST: 'test/pkg15-migration/SALES-PRE-WRITE-MANIFEST-20261005T030523Z.json',
+  APPLIED: false,                 /* NOT performed — no sheet was modified */
   ADD_COLUMN: 'request_id',
   AT_INDEX: 33,                   /* append; never reorder existing columns */
   REASON: 'Makes Complete Sale retry-safe. Approved explicitly rather than ' +
