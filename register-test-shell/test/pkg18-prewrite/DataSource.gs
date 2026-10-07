@@ -392,14 +392,7 @@ var AppliancesSheetDataSource = {
   // Deliberately still MOCK. Package 6 is inventory only.
   readCustomers: function () { return getMockCustomers(); },
   readActivity: function () { return getMockActivity(); },
-
-  /* NO open ticket on the real Register.
-     TXN-MOCK-4471 referenced two appliances that stopped existing when real
-     inventory went live, so every page load preloaded a ticket whose lines
-     were immediately dropped and logged. The till now opens with an empty
-     cart, which is what a till should do. The MOCK source keeps its ticket so
-     the Package 10 fail-closed tests still exercise that path. */
-  readOpenTicket: function () { return null; }
+  readOpenTicket: function () { return getMockOpenTicket(); }
 };
 
 /* --------------------------------------------------------------------------

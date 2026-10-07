@@ -378,13 +378,15 @@ console.log('\n7. PRINT IS A HAND-OFF — THE PAGE NEVER TOUCHES THE PRINTER');
     call(S, 'JSON.stringify(state.activity)').indexOf('BLOCKED') !== -1);
 }
 {
-  ok('Email Receipt is still inert (no mail sender in this build)',
+  ok('Email Receipt is still inert, and now says UNAVAILABLE not PENDING',
     (function () {
       const S = sandbox(boot());
       call(S, 'wire();');
       S.__els['#btnEmail'].handlers.click.call(S.__els['#btnEmail']);
-      return S.__printCalls === 0 &&
-             call(S, 'JSON.stringify(state.activity)').indexOf('PENDING') !== -1;
+      const act = call(S, 'JSON.stringify(state.activity)');
+      // "Pending" implies something is on its way. Nothing is.
+      return S.__printCalls === 0 && act.indexOf('UNAVAILABLE') !== -1 &&
+             act.indexOf('is not available') !== -1;
     })());
   ok('Reprint is still inert', (function () {
       const S = sandbox(boot());

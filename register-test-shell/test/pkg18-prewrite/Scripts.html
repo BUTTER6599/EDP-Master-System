@@ -34,7 +34,8 @@
     conn: {
       online: true,
       queue: 0,
-      sync: 'SYNCED'          // SYNCED | SYNCING | PENDING
+      sync: 'SYNCED',         // SYNCED | SYNCING | PENDING
+      printer: 'READY'        // READY | UNAVAILABLE
     }
   };
 
@@ -1216,13 +1217,61 @@
       setChip('#chipSync', 'is-ok', 'SYNCED');
     }
 
-    /* The printer chip is gone. It never reflected a real printer — it was a
-       toggle that lied either way, and a till that reports PRINTER READY when
-       nothing has been checked is worse than one that says nothing. */
+    setChip('#chipPrinter',
+      c.printer === 'READY' ? 'is-ok' : 'is-danger',
+      c.printer === 'READY' ? 'PRINTER READY' : 'PRINTER UNAVAILABLE');
 
-    setChip('#chipEnv', 'is-warn', CFG.environment || 'TEST');
+    setChip('#chipEnv', 'is-warn', (CFG.environment || 'TEST') + ' · MOCK DATA');
+
+    $('#simNet').textContent = c.online ? 'Go Offline' : 'Go Online';
   }
 
+  function simulateOffline() {
+    state.conn.online = false;
+    state.conn.queue += 2;
+    state.conn.sync = 'PENDING';
+    renderStatus();
+    logLocalEvent('OFFLINE_QUEUED', 'Offline queue engaged', {
+      detail: state.conn.queue + ' pending writes held locally (simulated)',
+      status: 'QUEUED', reason: 'Connection simulated offline'
+    });
+  }
+
+  function simulateOnline() {
+    state.conn.online = true;
+    renderStatus();
+    logLocalEvent('CONNECTION_CHANGED', 'Connection restored',
+      { before: 'OFFLINE', after: 'ONLINE', status: 'OK' });
+  }
+
+  function simulateSync() {
+    if (!state.conn.online) {
+      logLocalEvent('SYNC_COMPLETED', 'Sync blocked',
+        { detail: 'Device is offline — queue held', status: 'QUEUED', reason: 'No connection' });
+      return;
+    }
+    var was = state.conn.queue;
+    state.conn.sync = 'SYNCING';
+    renderStatus();
+    window.setTimeout(function () {
+      state.conn.queue = 0;
+      state.conn.sync = 'SYNCED';
+      renderStatus();
+      logLocalEvent('SYNC_COMPLETED', 'Sync completed',
+        { before: was + ' queued', after: '0 queued', status: 'SYNCED' });
+    }, 1400);
+  }
+
+  function simulatePrinter() {
+    var before = state.conn.printer;
+    state.conn.printer = before === 'READY' ? 'UNAVAILABLE' : 'READY';
+    renderStatus();
+    logLocalEvent('PRINTER_STATUS', 'Printer status changed', {
+      before: before, after: state.conn.printer,
+      status: state.conn.printer === 'READY' ? 'OK' : 'ATTENTION',
+      reason: state.conn.printer === 'READY' ? 'Reconnected (simulated)' : 'Simulated paper out'
+    });
+  }
 
   /* ---------------------------------------------------------------------- */
   /* View switching + cart sheet                                             */
@@ -1340,6 +1389,13 @@
     $('#cartClose').addEventListener('click', function () { openCart(false); });
     $('#scrim').addEventListener('click', function () { openCart(false); });
 
+    // Status simulation
+    $('#simNet').addEventListener('click', function () {
+      state.conn.online ? simulateOffline() : simulateOnline();
+    });
+    $('#simSync').addEventListener('click', simulateSync);
+    $('#simPrinter').addEventListener('click', simulatePrinter);
+
     /* Print — Package 11, Route D.
        This hands the already-rendered receipt to the BROWSER, which hands it
        to the operating system's print pipeline. On Android that is the system
@@ -1384,13 +1440,12 @@
     // They will consume buildReceiptModel() when their channels are approved.
     ['#btnEmail', '#btnReprint'].forEach(function (sel) {
       $(sel).addEventListener('click', function () {
-        /* Both controls are disabled in the markup, so this is a backstop
-           rather than a feature. It never claims anything was sent. */
         var label = sel === '#btnEmail' ? 'Email Receipt' : 'Reprint';
-        logLocalEvent('RECEIPT_PRINTED', label + ' is not available in this build', {
-          detail: 'No mail sender and no reprint store exist. Nothing was sent.',
-          status: 'UNAVAILABLE', reason: 'Not built yet'
+        logLocalEvent('RECEIPT_PRINTED', label + ' pressed (placeholder)', {
+          detail: 'No mail sender and no reprint store exist in this build. Nothing was sent.',
+          status: 'PENDING', reason: 'Not implemented in TEST shell pass 1'
         });
+        setView('activity');
       });
     });
 

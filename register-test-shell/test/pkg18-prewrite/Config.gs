@@ -99,21 +99,12 @@ var CONFIG = {
 
   // --- Payment methods (mock) --------------------------------------------
   // CASH is first and is the visible default per owner requirement.
-  // --- Payment methods ----------------------------------------------------
-  // CASH ONLY, and the list is short on purpose.
-  //
-  // Card, Financing, Layaway and Check were on this list and on screen, but
-  // none is an approved Register tender: the transaction model refuses all
-  // four, and no card, finance or check row has ever existed in SALES. A
-  // button an employee can press that always fails is worse than no button,
-  // so they are removed rather than disabled.
-  //
-  // Store Credit is absent until a real customer credit ledger exists (NV-28)
-  // — a cashier must never be able to invent a balance. Payment & Pickup Plan
-  // is an agreement with a lifecycle, not a tender, and needs its own data
-  // model before it can appear anywhere.
   PAYMENT_METHODS: [
-    { id: 'CASH', label: 'Cash', isDefault: true }
+    { id: 'CASH', label: 'Cash', isDefault: true },
+    { id: 'CARD', label: 'Card' },
+    { id: 'FINANCE', label: 'Financing' },
+    { id: 'LAYAWAY', label: 'Layaway' },
+    { id: 'CHECK', label: 'Check' }
   ]
 };
 

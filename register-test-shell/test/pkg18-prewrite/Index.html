@@ -43,8 +43,8 @@
   <!-- ===== TEST MODE BANNER ============================================= -->
   <div class="testbar" role="status">
     <span class="dotpulse"></span>
-    <span>TEST BUILD — NO SALE IS RECORDED</span>
-    <span class="sub">Real inventory &amp; prices · customers are mock · nothing is written</span>
+    <span>TEST BUILD — MOCK DATA ONLY</span>
+    <span class="sub">No live database · no sales written · no inventory changed</span>
   </div>
 
   <!-- ===== TOP BAR ====================================================== -->
@@ -70,8 +70,15 @@
     <span class="chip" id="chipNet"><span class="dot"></span><span class="t">ONLINE</span></span>
     <span class="chip" id="chipQueue"><span class="dot"></span><span class="t">LOCAL QUEUE: 0</span></span>
     <span class="chip" id="chipSync"><span class="dot"></span><span class="t">SYNCED</span></span>
+    <span class="chip" id="chipPrinter"><span class="dot"></span><span class="t">PRINTER READY</span></span>
     <span class="chip" id="chipEnv"><span class="dot"></span><span class="t">TEST</span></span>
 
+    <span class="sim">
+      <span class="lbl">Simulate</span>
+      <button class="chip pressable" id="simNet" type="button">Go Offline</button>
+      <button class="chip pressable" id="simSync" type="button">Run Sync</button>
+      <button class="chip pressable" id="simPrinter" type="button">Toggle Printer</button>
+    </span>
   </div>
 
   <div class="body">
@@ -121,7 +128,7 @@
         <div class="viewhead">
           <div>
             <h2>Customer</h2>
-            <div class="sub">MOCK customer records. The real customer list is not connected yet — a cash sale does not need one.</div>
+            <div class="sub">Mock customer records — nothing here reads a live database.</div>
           </div>
         </div>
 
@@ -173,11 +180,11 @@
                 <button class="btn block" id="btnPrint" type="button">
                   <svg viewBox="0 0 24 24"><use href="#i-print"></use></svg> Print
                 </button>
-                <button class="btn stub block" id="btnEmail" type="button" disabled aria-disabled="true">
-                  <svg viewBox="0 0 24 24"><use href="#i-mail"></use></svg> Email Receipt — not available
+                <button class="btn stub block" id="btnEmail" type="button">
+                  <svg viewBox="0 0 24 24"><use href="#i-mail"></use></svg> Email Receipt
                 </button>
-                <button class="btn stub block" id="btnReprint" type="button" disabled aria-disabled="true">
-                  <svg viewBox="0 0 24 24"><use href="#i-copy"></use></svg> Reprint — not available
+                <button class="btn stub block" id="btnReprint" type="button">
+                  <svg viewBox="0 0 24 24"><use href="#i-copy"></use></svg> Reprint
                 </button>
                 <p class="hint">Print opens your device’s print sheet — choose the receipt printer there. Every receipt this build produces is marked TEST — NOT A SALE. Email Receipt and Reprint are still placeholders.</p>
               </div>

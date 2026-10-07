@@ -18,6 +18,9 @@ const VIEWS = [
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
   const errors = [];
+  // Package 18: a printed "FAIL" that still exits 0 is not an assertion.
+  // Anything pushed here fails the suite.
+  const uiFails = [];
   let requests = [];
 
   for (const v of VIEWS) {
@@ -63,7 +66,8 @@ const VIEWS = [
       console.log('--- rendered state (desktop) ---');
       for (const [k, val] of Object.entries(checks)) console.log(String(k).padEnd(18), JSON.stringify(val));
 
-      // Interaction: search, filter, add item, offline sim, printer sim.
+      // Interaction: search, filter, add item, then assert the removed
+      // simulate theatre and the fake printer chip are really gone.
       await page.fill('#prodSearch', 'maytag');
       await page.waitForTimeout(150);
       const searchHits = await page.locator('.prod').count();
@@ -79,13 +83,14 @@ const VIEWS = [
       await page.waitForTimeout(200);
       const after = await page.locator('#cartLines .line').count();
 
-      await page.click('#simNet'); await page.waitForTimeout(200);
+      // The simulate theatre is gone. These must stay absent.
+      const simControls = await page.locator('#simNet, #simSync, #simPrinter').count();
+      const printerChips = await page.locator('#chipPrinter').count();
+      // The honest chips remain and are rendered from real state.
       const offlineChip = await page.locator('#chipNet .t').textContent();
-      await page.click('#simNet'); await page.waitForTimeout(150);
-      await page.click('#simSync'); await page.waitForTimeout(1800);
       const syncChip = await page.locator('#chipSync .t').textContent();
-      await page.click('#simPrinter'); await page.waitForTimeout(200);
-      const printerChip = await page.locator('#chipPrinter .t').textContent();
+      const envChip = await page.locator('#chipEnv .t').textContent();
+      const payButtons = await page.locator('#payGrid button').count();
 
       await page.click('.rail [data-view="activity"]');
       await page.waitForTimeout(200);
@@ -96,9 +101,16 @@ const VIEWS = [
       console.log('search "maytag" hits'.padEnd(24), searchHits);
       console.log('filter Washer hits'.padEnd(24), washerHits);
       console.log('cart lines before/after'.padEnd(24), before + ' -> ' + after);
-      console.log('offline chip'.padEnd(24), JSON.stringify(offlineChip));
-      console.log('sync chip after sync'.padEnd(24), JSON.stringify(syncChip));
-      console.log('printer chip toggled'.padEnd(24), JSON.stringify(printerChip));
+      if (simControls !== 0) { uiFails.push('simulate controls still present: ' + simControls); }
+      if (printerChips !== 0) { uiFails.push('fake printer chip still present: ' + printerChips); }
+      console.log('simulate controls left'.padEnd(24), simControls, simControls === 0 ? 'OK (removed)' : 'FAIL');
+      console.log('fake printer chips left'.padEnd(24), printerChips, printerChips === 0 ? 'OK (removed)' : 'FAIL');
+      console.log('net chip'.padEnd(24), JSON.stringify(offlineChip));
+      console.log('sync chip'.padEnd(24), JSON.stringify(syncChip));
+      console.log('env chip'.padEnd(24), JSON.stringify(envChip));
+      if (payButtons !== 1) { uiFails.push('payment buttons: expected 1 (CASH), got ' + payButtons); }
+      if (!/TEST/i.test(envChip || '')) { uiFails.push('env chip does not say TEST: ' + JSON.stringify(envChip)); }
+      console.log('payment buttons'.padEnd(24), payButtons, payButtons === 1 ? 'OK (CASH only)' : 'FAIL');
       console.log('timeline events now'.padEnd(24), tlAfter);
       console.log('newest timeline entry'.padEnd(24), JSON.stringify(newestAction.trim()));
       console.log('complete-sale still disabled', await page.locator('#btnCompleteSale').isDisabled());
@@ -137,6 +149,11 @@ const VIEWS = [
   }
   if (errors.length) {
     console.log('FAIL  JS errors during render');
+    process.exit(1);
+  }
+  if (uiFails.length) {
+    console.log('FAIL  Package 18 UI cleanup assertions');
+    uiFails.forEach(f => console.log('  ' + f));
     process.exit(1);
   }
 })();
